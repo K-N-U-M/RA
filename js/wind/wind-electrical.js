@@ -105,8 +105,13 @@
     var maxDropPct = C.REBT_MAX_VOLTAGE_DROP_PCT || 1.5;
     var dumpMargin = C.DUMP_LOAD_MARGIN_FACTOR || 1.20;
     var dumpDurationMin = C.DUMP_LOAD_DURATION_MIN || 30;
-    // UNE-HD 60364-5-52 / REBT ITC-BT-40: Resistividad de servicio unificada a 90°C (0.023 Ω·mm²/m)
-    var rhoCu = 0.023;
+    // UNE-HD 60364-5-52 / REBT ITC-BT-40: Resistividad del Cu en servicio a 90°C XLPE (0.023 Ω·mm²/m),
+    // frente a CABLE_RESISTIVITY_CU = 0.0175 (20°C/70°C base en wind-constants.js): ρ(90°C) ≈ ρ20·[1 + 0.00393·70] ≈ 0.023.
+    var CABLE_RESISTIVITY_CU_90C = 0.023;
+    if (RAWind.CONSTANTS && !RAWind.CONSTANTS.CABLE_RESISTIVITY_CU_90C) {
+      RAWind.CONSTANTS.CABLE_RESISTIVITY_CU_90C = CABLE_RESISTIVITY_CU_90C;
+    }
+    var rhoCu = C.CABLE_RESISTIVITY_CU_90C || CABLE_RESISTIVITY_CU_90C;
 
     var ratedPowerW = Number(cat.ratedPowerW) || 10000;
     var ratedKw = ratedPowerW / 1000;
@@ -116,6 +121,9 @@
     var isThreePhase = voltageV >= 380;
     var isDcBus = voltageV <= 120; // Bancos 48V DC (ej. Bornay Wind 6 o Kliux Gecko)
     var cosPhi = isDcBus ? 1.0 : 0.98;
+    var sinPhi = isDcBus ? 0.0 : Math.sqrt(Math.max(0, 1.0 - cosPhi * cosPhi));
+    var reactanceOhmPerKm = isDcBus ? 0.0 : (C.CABLE_REACTANCE_OHM_KM || 0.08);
+    var xPerM = reactanceOhmPerKm / 1000.0;
 
     // 1. Corriente nominal y corriente de diseño (+25% según ITC-BT-40 para generadores)
     var nominalCurrentA = 0;
@@ -139,17 +147,21 @@
     var kThermalTotal = Number((kTemp * kGroup).toFixed(3));
     var requiredRatedAmpacityA = designCurrentA / Math.max(0.4, kThermalTotal);
 
-    // S_min por caída de tensión:
-    // Trifásica: S = (√3 · L · I · cosφ · ρ) / ΔU_max
-    // Monofásica / DC: S = (2 · L · I · cosφ · ρ) / ΔU_max
+    // S_min por caída de tensión incluyendo reactancia inductiva AC X = 0.08 Ω/km (REBT ITC-BT-40):
+    // ΔU = k_fase · L · I · ((ρ / S) · cosφ + X · sinφ)
     var phaseGeomFactor = isThreePhase ? Math.sqrt(3) : 2.0;
-    var minSectionByDropMm2 = (phaseGeomFactor * cableLengthM * nominalCurrentA * cosPhi * rhoCu) / Math.max(0.1, maxDeltaV);
+    var zDropBudgetPerAmpM = maxDeltaV / Math.max(1e-6, phaseGeomFactor * cableLengthM * nominalCurrentA);
+    var rAllowPerM = zDropBudgetPerAmpM - (xPerM * sinPhi);
+    var minSectionByDropMm2 = rAllowPerM > 1e-6
+      ? ((rhoCu * cosPhi) / rAllowPerM)
+      : Infinity;
 
     var chosenSpec = STANDARD_CU_SECTIONS[STANDARD_CU_SECTIONS.length - 1];
     for (var i = 0; i < STANDARD_CU_SECTIONS.length; i++) {
       var candidate = STANDARD_CU_SECTIONS[i];
       var ampacity = isThreePhase ? candidate.maxAmpacity3Ph : candidate.maxAmpacity1Ph;
-      if (candidate.sectionMm2 >= minSectionByDropMm2 && (ampacity * kThermalTotal) >= designCurrentA) {
+      var candDropV = phaseGeomFactor * cableLengthM * nominalCurrentA * ((rhoCu / candidate.sectionMm2) * cosPhi + xPerM * sinPhi);
+      if (candDropV <= maxDeltaV && (ampacity * kThermalTotal) >= designCurrentA) {
         chosenSpec = candidate;
         break;
       }
@@ -158,7 +170,7 @@
     var selectedSectionMm2 = chosenSpec.sectionMm2;
     var rawAmpacityA = isThreePhase ? chosenSpec.maxAmpacity3Ph : chosenSpec.maxAmpacity1Ph;
     var cableAmpacityA = Number((rawAmpacityA * kThermalTotal).toFixed(1));
-    var actualDeltaV = (phaseGeomFactor * cableLengthM * nominalCurrentA * cosPhi * rhoCu) / selectedSectionMm2;
+    var actualDeltaV = phaseGeomFactor * cableLengthM * nominalCurrentA * ((rhoCu / selectedSectionMm2) * cosPhi + xPerM * sinPhi);
     var actualDropPct = (actualDeltaV / voltageV) * 100;
     var jouleLossW = isThreePhase
       ? (3 * Math.pow(nominalCurrentA, 2) * (rhoCu * cableLengthM / selectedSectionMm2))
@@ -188,6 +200,8 @@
         sectionMm2: selectedSectionMm2,
         designation: (isThreePhase ? '4x' : '2x') + selectedSectionMm2 + ' mm² Cu RV-K 0,6/1kV + TT',
         ampacityA: cableAmpacityA,
+        resistivityCu90C: rhoCu,
+        reactanceOhmPerKm: reactanceOhmPerKm,
         voltageDropV: Number(actualDeltaV.toFixed(2)),
         voltageDropPct: Number(actualDropPct.toFixed(2)),
         maxAllowedDropPct: maxDropPct,

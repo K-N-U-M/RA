@@ -21,16 +21,7 @@
     pendingFile: null        // Archivo en espera si se requiere API Key
   };
 
-  // [D1+D2] Cliente IA unificado (cabecera x-goog-api-key, timeout y cancelación).
-  function _aiFetch(url, opts, timeoutMs, apiKey) {
-    if (window.RA && typeof window.RA.geminiFetch === 'function') {
-      return window.RA.geminiFetch(url, opts, timeoutMs, apiKey);
-    }
-    const cleanOpts = Object.assign({}, opts || {});
-    cleanOpts.headers = Object.assign({}, cleanOpts.headers || {});
-    if (apiKey) cleanOpts.headers['x-goog-api-key'] = apiKey;
-    return fetch(url, cleanOpts);
-  }
+  // Cliente IA delegado en window.RA.AI (con fallback directo en tests aislados)
 
   /**
    * 1. PARSER DETERMINISTA LOCAL DE FACTURAS ELÉCTRICAS (ESPAÑA)
@@ -480,17 +471,24 @@ Normas estrictas:
         }
       };
 
-      const models = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-3.8-flash', 'gemini-3.5-flash'];
+      const models = (window.RA && window.RA.AI && typeof window.RA.AI.discoverModels === 'function')
+        ? await window.RA.AI.discoverModels(apiKey)
+        : ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-3.8-flash', 'gemini-3.5-flash'];
       let lastError = null;
 
       for (const model of models) {
         try {
           const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
-          const resp = await _aiFetch(url, {
+          const reqOpts = {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(requestBody)
-          }, 90000, apiKey);
+          };
+          const resp = (window.RA && window.RA.AI && typeof window.RA.AI.fetch === 'function')
+            ? await window.RA.AI.fetch(url, reqOpts, 90000, apiKey)
+            : ((window.RA && typeof window.RA.geminiFetch === 'function')
+                ? await window.RA.geminiFetch(url, reqOpts, 90000, apiKey)
+                : await fetch(url, Object.assign({}, reqOpts, { headers: Object.assign({}, reqOpts.headers, apiKey ? { 'x-goog-api-key': apiKey } : {}) })));
 
           if (!resp.ok) {
             const errData = await resp.json().catch(() => ({}));

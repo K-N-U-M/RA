@@ -69,12 +69,16 @@
 
     function getActiveStepText() {
         var stepNum = 1;
-        if (window.workflowState && typeof window.workflowState.currentStep === 'number') {
-            stepNum = window.workflowState.currentStep;
+        if (typeof window.wpCurrentStep === 'number' && !isNaN(window.wpCurrentStep)) {
+            stepNum = window.wpCurrentStep;
         } else {
-            var activeEl = document.querySelector('.workflow-step.active, [data-step].active');
+            var activeEl = document.querySelector('.wp-step-btn.active, [data-step].active');
             if (activeEl) {
-                var ds = parseInt(activeEl.getAttribute('data-step') || '1', 10);
+                var dsAttr = activeEl.getAttribute('data-step');
+                var idMatch = activeEl.id && activeEl.id.match(/wp-step-(\d+)-btn/);
+                var numEl = activeEl.querySelector ? activeEl.querySelector('.wp-step-num') : null;
+                var raw = dsAttr || (idMatch && idMatch[1]) || (numEl && numEl.textContent) || '1';
+                var ds = parseInt(raw, 10);
                 if (!isNaN(ds)) stepNum = ds;
             }
         }
@@ -110,13 +114,47 @@
         snapEl.style.color = state.snap === 'ON' ? '#34d399' : '#f87171';
     }
 
+    function scheduleRefresh() {
+        setTimeout(refreshStatusBar, 30);
+    }
+
     function init() {
         createStatusBar();
         refreshStatusBar();
-        setInterval(refreshStatusBar, 500);
-        window.addEventListener('keydown', function () {
-            setTimeout(refreshStatusBar, 30);
-        });
+
+        var events = window.RA && window.RA.events;
+        var store = window.RA && window.RA.Store;
+
+        if (events && typeof events.on === 'function') {
+            var evNames = [
+                'step:changed',
+                'mode:changed',
+                'tool:changed',
+                'selection:changed',
+                'scene:updated',
+                'measure:toggled',
+                'capture:toggled'
+            ];
+            for (var i = 0; i < evNames.length; i++) {
+                events.on(evNames[i], refreshStatusBar);
+            }
+            if (store && typeof store.subscribe === 'function') {
+                store.subscribe('step', refreshStatusBar);
+                store.subscribe('mode', refreshStatusBar);
+                store.subscribe('tool', refreshStatusBar);
+                store.subscribe('snap', refreshStatusBar);
+            }
+            if (window.WorkflowOrchestrator && typeof window.WorkflowOrchestrator.on === 'function') {
+                window.WorkflowOrchestrator.on('step_changed', refreshStatusBar);
+            }
+            document.addEventListener('click', scheduleRefresh, true);
+            window.addEventListener('pointerup', scheduleRefresh, true);
+        } else {
+            // Fallback seguro si ra-events.js aún no ha cargado
+            setInterval(refreshStatusBar, 500);
+        }
+
+        window.addEventListener('keydown', scheduleRefresh);
     }
 
     if (document.readyState === 'loading') {

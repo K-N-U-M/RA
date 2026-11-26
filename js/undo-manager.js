@@ -541,8 +541,27 @@
     var meta = null;
 
     if (targetType === 'vertex') {
+      var uGizmo = global.universalGizmoState || (typeof universalGizmoState !== 'undefined' ? universalGizmoState : null);
+      var uTarget = (uGizmo && uGizmo.target)
+        ? uGizmo.target
+        : (typeof global.getUniversalSelectedTarget === 'function' ? global.getUniversalSelectedTarget() : null);
+      var isBldVertex = !!(uGizmo?.target?.subType === 'building_vertex' || (uTarget && uTarget.subType === 'building_vertex'));
+      if (!uTarget && global.bldFootprintState && global.bldFootprintState.selectedVtxIdx >= 0 && global.selectedBuildingId) {
+        isBldVertex = true;
+      }
+      if (isBldVertex) {
+        kind = 'buildings';
+        label = 'Mover vértice de edificio';
+      } else {
+        kind = 'polylines';
+        label = 'Mover vértice de faldón';
+      }
+    } else if (targetType === 'polyline') {
       kind = 'polylines';
-      label = 'Mover vértice de faldón';
+      label = 'Mover faldón';
+    } else if (targetType === 'route_vertex') {
+      kind = 'electrical';
+      label = 'Mover codo de ruta eléctrica';
     } else if (targetType === 'workplane_vertex') {
       kind = 'planes';
       label = 'Mover vértice de plano de trabajo';

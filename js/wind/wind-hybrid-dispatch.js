@@ -29,11 +29,30 @@
     0.064, 0.064, 0.070, 0.082, 0.090, 0.098
   ];
 
-  // Pesos mensuales solares de referencia peninsular
-  var MONTHLY_SOLAR_WEIGHTS = [
+  // Pesos mensuales solares de referencia peninsular (normalizados a suma = 1.0)
+  var _RAW_SOLAR_WEIGHTS = [
     0.045, 0.058, 0.082, 0.098, 0.118, 0.126,
     0.132, 0.120, 0.095, 0.068, 0.046, 0.032
   ];
+  var _SOLAR_W_SUM = _RAW_SOLAR_WEIGHTS.reduce(function (a, b) { return a + b; }, 0) || 1;
+  var MONTHLY_SOLAR_WEIGHTS = _RAW_SOLAR_WEIGHTS.map(function (w) { return w / _SOLAR_W_SUM; });
+
+  // Pesos estacionales mensuales de demanda eléctrica peninsular (climatización invierno/verano)
+  var MONTH_LOAD_WEIGHTS = [1.18, 1.12, 1.02, 0.92, 0.84, 0.88, 1.06, 1.02, 0.94, 0.94, 1.02, 1.16];
+
+  // Curvas horarias normalizadas de demanda eléctrica (00h..23h), compartidas con financials.js (SSOT)
+  var _RAW_LOAD_PROFILES = {
+    residential: [0.030,0.025,0.022,0.020,0.020,0.028,0.040,0.050,0.045,0.035,0.032,0.035,0.038,0.032,0.030,0.038,0.050,0.065,0.070,0.062,0.052,0.048,0.042,0.036],
+    commercial_industrial: [0.015,0.014,0.014,0.014,0.015,0.018,0.028,0.052,0.078,0.088,0.088,0.086,0.082,0.072,0.068,0.072,0.070,0.064,0.052,0.038,0.028,0.022,0.018,0.016]
+  };
+  function _normalize24(arr) {
+    var s = arr.reduce(function (a, b) { return a + b; }, 0) || 1;
+    return arr.map(function (v) { return v / s; });
+  }
+  var LOAD_PROFILES = {
+    residential: _normalize24(_RAW_LOAD_PROFILES.residential),
+    commercial_industrial: _normalize24(_RAW_LOAD_PROFILES.commercial_industrial)
+  };
 
   var DAYS_PER_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 
@@ -92,8 +111,9 @@
     var declRad = (23.44 * Math.PI / 180) * Math.sin((2 * Math.PI / 365) * (midDoy - 81));
     var cosWs = Math.max(-0.96, Math.min(0.96, -Math.tan(latRad) * Math.tan(declRad)));
     var halfDayH = (Math.acos(cosWs) * 180 / Math.PI) / 15.0;
-    // Mediodía local peninsular medio (~13.0h CET/CEST) -> Invierno Dic ~8.35h-17.65h (~9.3h), Verano Jun ~5.55h-20.45h (~14.9h)
-    var noonLocal = 13.0;
+    // Hora oficial española (CET/CEST) alineada con TOU y financials.js
+    var isDST = (m >= 3 && m <= 9);
+    var noonLocal = isDST ? 14.15 : 13.25;
     var sunrise = noonLocal - halfDayH;
     var sunset = noonLocal + halfDayH;
     var span = Math.max(sunset - sunrise, 2.0);
@@ -103,7 +123,10 @@
       var bVal = 0;
       if (h0 + 0.5 > sunrise && h0 + 0.5 < sunset) {
         var norm = (h0 + 0.5 - sunrise) / span;
-        bVal = Math.max(0, Math.sin(norm * Math.PI));
+        var sVal = Math.sin(norm * Math.PI);
+        if (sVal > 0) {
+          bVal = Math.pow(sVal, 1.2);
+        }
       }
       rawBell[h0] = bVal;
       sumBell += bVal;
@@ -147,27 +170,9 @@
     var profile = profileType || 'commercial_industrial'; // industrial, commercial, residential
     var hourly = new Float32Array(8760);
 
-    // Curvas normalizadas por hora típica de día laborable
-    var weekdayWeights;
-    var weekendFactor = 0.40;
-
-    if (profile === 'residential') {
-      weekdayWeights = [
-        0.02, 0.015, 0.015, 0.015, 0.018, 0.025, // 00h - 05h
-        0.045, 0.065, 0.060, 0.045, 0.040, 0.040, // 06h - 11h
-        0.055, 0.060, 0.050, 0.045, 0.045, 0.050, // 12h - 17h
-        0.070, 0.085, 0.090, 0.080, 0.055, 0.030  // 18h - 23h
-      ];
-      weekendFactor = 1.05;
-    } else {
-      // Comercial e Industrial (picos de 08h a 19h)
-      weekdayWeights = [
-        0.020, 0.020, 0.020, 0.020, 0.022, 0.025,
-        0.038, 0.060, 0.075, 0.080, 0.082, 0.080,
-        0.075, 0.065, 0.068, 0.072, 0.075, 0.070,
-        0.055, 0.040, 0.030, 0.025, 0.023, 0.020
-      ];
-    }
+    var isRes = (profile === 'residential' || profile === 'particular');
+    var weekdayWeights = isRes ? LOAD_PROFILES.residential : LOAD_PROFILES.commercial_industrial;
+    var weekendFactor = isRes ? 1.05 : 0.40;
 
     var hourIdx = 0;
     var rawSum = 0;
@@ -175,10 +180,11 @@
 
     for (var m = 0; m < 12; m++) {
       var days = DAYS_PER_MONTH[m];
+      var mLoadW = MONTH_LOAD_WEIGHTS[m] || 1.0;
       for (var d = 0; d < days; d++) {
         var dayOfWeek = (d + 2) % 7; // aproximación arbitraria
         var isWeekend = (dayOfWeek === 5 || dayOfWeek === 6);
-        var fDay = isWeekend ? weekendFactor : 1.0;
+        var fDay = (isWeekend ? weekendFactor : 1.0) * mLoadW;
 
         for (var h = 0; h < 24; h++) {
           var v = weekdayWeights[h] * fDay;
@@ -346,20 +352,20 @@
       var mSolarArr = Array.isArray(p.monthlySolarKwh) && p.monthlySolarKwh.length === 12
         ? p.monthlySolarKwh
         : MONTHLY_SOLAR_WEIGHTS.map(function (w) { return annualSolar * w; });
-      var isRes = (p.consumptionProfile === 'residential');
-      var wDay = isRes
-        ? [0.02,0.015,0.015,0.015,0.018,0.025,0.045,0.065,0.060,0.045,0.040,0.040,0.055,0.060,0.050,0.045,0.045,0.050,0.070,0.085,0.090,0.080,0.055,0.030]
-        : [0.020,0.020,0.020,0.020,0.022,0.025,0.038,0.060,0.075,0.080,0.082,0.080,0.075,0.065,0.068,0.072,0.075,0.070,0.055,0.040,0.030,0.025,0.023,0.020];
-      var wkBlend = isRes ? ((5 + 2 * 1.05) / 7) : ((5 + 2 * 0.40) / 7);
+      var isRes = (p.consumptionProfile === 'residential' || p.consumptionProfile === 'particular');
+      var wDay = isRes ? LOAD_PROFILES.residential : LOAD_PROFILES.commercial_industrial;
       var sumWDay = wDay.reduce(function (a, b) { return a + b; }, 0) || 1;
-      var consDayTotal = annualCons / 365.0;
+      var wLoadNorm = MONTH_LOAD_WEIGHTS.reduce(function (acc, w, idx) {
+        return acc + w * DAYS_PER_MONTH[idx];
+      }, 0) / 365.0 || 1.0;
+      var sumWind24 = DIURNAL_WIND_FACTORS.reduce(function (a, b) { return a + b; }, 0) || 24;
 
       for (var mFast = 0; mFast < 12; mFast++) {
         var mDays = DAYS_PER_MONTH[mFast];
         var solarDayKwh = (mSolarArr[mFast] || 0) / mDays;
         var windDayKwh = (annualWind * MONTHLY_WIND_WEIGHTS[mFast]) / mDays;
+        var consDayTotal = (annualCons / 365.0) * (MONTH_LOAD_WEIGHTS[mFast] / wLoadNorm);
         var shape24 = _computeMonthSolarShape24h(mFast, p.latDeg);
-        var sumWind24 = DIURNAL_WIND_FACTORS.reduce(function (a, b) { return a + b; }, 0) || 24;
 
         // Pre-calentamiento cíclico de 1 día para estabilizar SoC sin sesgo de origen
         if (battCap > 0) {
@@ -475,6 +481,12 @@
   }
 
   var HybridDispatch = {
+    MONTHLY_WIND_WEIGHTS: MONTHLY_WIND_WEIGHTS,
+    MONTHLY_SOLAR_WEIGHTS: MONTHLY_SOLAR_WEIGHTS,
+    DIURNAL_WIND_FACTORS: DIURNAL_WIND_FACTORS,
+    MONTH_LOAD_WEIGHTS: MONTH_LOAD_WEIGHTS,
+    LOAD_PROFILES: LOAD_PROFILES,
+    getMonthlySolarShape24h: _computeMonthSolarShape24h,
     generateWindHourly8760: generateWindHourly8760,
     generateSolarHourly8760: generateSolarHourly8760,
     generateDemandHourly8760: generateDemandHourly8760,

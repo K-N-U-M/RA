@@ -12,20 +12,14 @@
 
 try {
   importScripts('radiation-engine.js?v=20261118_t3');
-} catch (eRadImport) {}
+} catch (eRadImport) {
+  console.error('[solar-worker] Error cargando radiation-engine.js:', eRadImport);
+}
 try {
   importScripts('polygon-shadow-math.js?v=20261126_f3');
-} catch (ePolyImport) {}
-
-const SOLAR_CONST = 1367;
-
-const _T_AMB_TABLE = {
-  costal_med: [11.0, 12.0, 14.0, 16.0, 20.0, 25.0, 28.0, 28.5, 24.0, 19.0, 14.0, 11.0],
-  costa_med:  [11.0, 12.0, 14.0, 16.0, 20.0, 25.0, 28.0, 28.5, 24.0, 19.0, 14.0, 11.0],
-  interior:   [5.0,  7.0,  10.0, 12.0, 17.0, 23.0, 27.0, 27.0, 22.0, 15.0,  9.0,  5.0],
-  atlantico:  [9.0,  10.0, 12.0, 13.0, 16.0, 19.0, 21.0, 21.5, 19.0, 15.0, 11.0,  9.0],
-  canarias:   [18.0, 18.5, 19.0, 20.0, 21.5, 23.5, 25.0, 26.0, 25.5, 23.5, 21.0, 19.0]
-};
+} catch (ePolyImport) {
+  console.error('[solar-worker] Error cargando polygon-shadow-math.js:', ePolyImport);
+}
 
 const _T_AMP_TABLE = {
   costal_med: 4.5,
@@ -35,137 +29,11 @@ const _T_AMP_TABLE = {
   canarias:   3.5
 };
 
-// ── 1. GEOMETRÍA 2D OFF-THREAD (cargada desde polygon-shadow-math.js) ───────
+// ── 1. GEOMETRÍA 2D Y RADIACIÓN OFF-THREAD (SSOT: polygon-shadow-math.js & radiation-engine.js) ──
+// dividePanelIntoSubstrings2D, precalcQuadAABB, convexHull2D y polygonsIntersect2D llegan de polygon-shadow-math.js.
+// RA.Radiation (computeSolarPosition, decomposeErbs, transposeComponents, estimateMonthlyGHI, getAmbientTempMonth) llega de radiation-engine.js.
 
-function dividePanelIntoSubstrings2D(quad) {
-  if (!quad || quad.length !== 4) return quad ? [quad] : [];
-  const p0 = quad[0], p1 = quad[1], p2 = quad[2], p3 = quad[3];
-  const d01 = Math.hypot(p1.u - p0.u, p1.v - p0.v);
-  const d12 = Math.hypot(p2.u - p1.u, p2.v - p1.v);
-
-  const lerp = (a, b, t) => ({ u: a.u + (b.u - a.u) * t, v: a.v + (b.v - a.v) * t });
-
-  if (d12 >= d01) {
-    const a0 = p0, b0 = p3;
-    const a1 = lerp(p0, p1, 1 / 3), b1 = lerp(p3, p2, 1 / 3);
-    const a2 = lerp(p0, p1, 2 / 3), b2 = lerp(p3, p2, 2 / 3);
-    const a3 = p1, b3 = p2;
-    return [
-      [a0, a1, b1, b0],
-      [a1, a2, b2, b1],
-      [a2, a3, b3, b2]
-    ];
-  } else {
-    const a0 = p0, b0 = p1;
-    const a1 = lerp(p0, p3, 1 / 3), b1 = lerp(p1, p2, 1 / 3);
-    const a2 = lerp(p0, p3, 2 / 3), b2 = lerp(p1, p2, 2 / 3);
-    const a3 = p3, b3 = p2;
-    return [
-      [a0, b0, b1, a1],
-      [a1, b1, b2, a2],
-      [a2, b2, b3, a3]
-    ];
-  }
-}
-
-// ── 2. FÍSICA SOLAR Y MODELO DE RADIACIÓN ───────────────────────────────────
-
-function computeSolarPositionWorker(latDeg, lonDeg, dayOfYear, utcHour) {
-  if (typeof self !== 'undefined' && self.RA && self.RA.Radiation && typeof self.RA.Radiation.computeSolarPosition === 'function') {
-    return self.RA.Radiation.computeSolarPosition(latDeg, lonDeg, dayOfYear, utcHour, true);
-  }
-  const gamma = (2 * Math.PI / 365) * (dayOfYear - 1 + (utcHour - 12) / 24);
-  const eqtime = 229.18 * (0.000075 + 0.001868 * Math.cos(gamma) - 0.032077 * Math.sin(gamma)
-    - 0.014615 * Math.cos(2 * gamma) - 0.040849 * Math.sin(2 * gamma));
-
-  const declRad = 0.006918 - 0.399912 * Math.cos(gamma) + 0.070257 * Math.sin(gamma)
-    - 0.006758 * Math.cos(2 * gamma) + 0.000907 * Math.sin(2 * gamma)
-    - 0.002697 * Math.cos(3 * gamma) + 0.00148 * Math.sin(3 * gamma);
-
-  const timeOffset = eqtime + 4 * lonDeg;
-  const tst = utcHour * 60 + timeOffset;
-  const haRad = ((tst / 4) - 180) * Math.PI / 180;
-
-  const latRad = latDeg * Math.PI / 180;
-  const sinLat = Math.sin(latRad), cosLat = Math.cos(latRad);
-  const sinDec = Math.sin(declRad), cosDec = Math.cos(declRad);
-  const cosHa = Math.cos(haRad);
-
-  const sinElev = sinLat * sinDec + cosLat * cosDec * cosHa;
-  const elevRad = Math.asin(Math.max(-1, Math.min(1, sinElev)));
-  const elevDeg = elevRad * 180 / Math.PI;
-
-  let azDegFromNorth = 180;
-  if (elevDeg > -89.9 && elevDeg < 89.9) {
-    const cosAz = (sinDec - sinLat * sinElev) / (cosLat * Math.cos(elevRad) + 1e-12);
-    const clampedCosAz = Math.max(-1, Math.min(1, cosAz));
-    let az = Math.acos(clampedCosAz) * 180 / Math.PI;
-    if (Math.sin(haRad) > 0) az = 360 - az;
-    azDegFromNorth = az;
-  }
-
-  const elevRad_ = Math.max(0, elevRad);
-  const azNRad = (azDegFromNorth * Math.PI) / 180;
-  const sunVecENU = {
-    x: Math.cos(elevRad_) * Math.sin(azNRad),
-    y: Math.cos(elevRad_) * Math.cos(azNRad),
-    z: Math.sin(elevRad_)
-  };
-
-  const sDirHorizontal = { x: -sunVecENU.x, y: -sunVecENU.y, z: 0 };
-  const magH = Math.hypot(sDirHorizontal.x, sDirHorizontal.y);
-  if (magH > 1e-6) {
-    sDirHorizontal.x /= magH;
-    sDirHorizontal.y /= magH;
-  }
-
-  return {
-    elevDeg,
-    elevRad,
-    azDegFromNorth,
-    isDay: elevDeg > 0,
-    sunVecENU,
-    sDirENU: sDirHorizontal,
-    shadowLenPerM: elevDeg >= 5.0 ? Math.min(1 / Math.tan(elevRad_), 5.67) : 0
-  };
-}
-
-function decomposeErbsWorker(ghi, elevation, dayOfYear) {
-  if (typeof self !== 'undefined' && self.RA && self.RA.Radiation && typeof self.RA.Radiation.decomposeErbs === 'function') {
-    return self.RA.Radiation.decomposeErbs(ghi, elevation, dayOfYear);
-  }
-  const elevRad = Math.max(0.01, elevation * Math.PI / 180);
-  const sinAlt = Math.sin(elevRad);
-  // [AUD-2026 · D-04] Excentricidad orbital: I0(n) = 1367·(1 + 0,033·cos(360·n/365)).
-  const e0 = (typeof dayOfYear === 'number' && isFinite(dayOfYear) && dayOfYear >= 1)
-    ? (1 + 0.033 * Math.cos(2 * Math.PI * (dayOfYear - 1) / 365)) : 1;
-  const kt = Math.min(1.0, Math.max(0.0, ghi / (SOLAR_CONST * e0 * sinAlt + 1e-3)));
-  let DHI_fraction;
-  if (kt < 0.22) DHI_fraction = 1.0 - 0.09 * kt;
-  else if (kt < 0.80) DHI_fraction = 0.9511 - 0.1604 * kt + 4.388 * kt * kt - 16.638 * Math.pow(kt, 3) + 12.336 * Math.pow(kt, 4);
-  else DHI_fraction = 0.165;
-  const dhi = ghi * DHI_fraction;
-  const dni = Math.max(0, (ghi - dhi) / sinAlt);
-  return { dhi, dni, kt };
-}
-
-// ── 3. EJECUCIÓN PRINCIPAL DEL SIMULADOR ────────────────────────────────────
-
-function precalcQuadAABB(quad) {
-  let qUMin = Infinity, qUMax = -Infinity, qVMin = Infinity, qVMax = -Infinity;
-  for (let qi = 0; qi < quad.length; qi++) {
-    const qpt = quad[qi];
-    if (qpt.u < qUMin) qUMin = qpt.u;
-    if (qpt.u > qUMax) qUMax = qpt.u;
-    if (qpt.v < qVMin) qVMin = qpt.v;
-    if (qpt.v > qVMax) qVMax = qpt.v;
-  }
-  quad.uMin = qUMin;
-  quad.uMax = qUMax;
-  quad.vMin = qVMin;
-  quad.vMax = qVMax;
-  return quad;
-}
+// ── 2. EJECUCIÓN PRINCIPAL DEL SIMULADOR ────────────────────────────────────
 
 self.onmessage = async function(e) {
   const data = e.data;
@@ -177,6 +45,8 @@ self.onmessage = async function(e) {
     lng,
     resolution,
     detailedBypass,
+    shadowSimConfig,
+    raShadowSimConfig,
     panels,
     faldones,
     climaticZone,
@@ -185,6 +55,12 @@ self.onmessage = async function(e) {
     horizonProfile,
     basePct
   } = data;
+  const sSimCfg = shadowSimConfig || raShadowSimConfig || {};
+  const includeObstacles = sSimCfg.includeObstacles !== false;
+  const includeBuildings = sSimCfg.includeBuildings !== false;
+  const includeInterRow = sSimCfg.includeInterRow !== false;
+  const shadowWeightPct = (typeof sSimCfg.shadowWeightPct === 'number' && isFinite(sSimCfg.shadowWeightPct)) ? sSimCfg.shadowWeightPct : 100;
+  const shadowWeightFactor = Math.max(0, Math.min(1, shadowWeightPct / 100.0));
   const horizonElevations = (Array.isArray(horizonProfile) && horizonProfile.length === 16) ? horizonProfile : null;
   const customMonthlyGHI = Array.isArray(monthlyGHI) ? monthlyGHI : null;
   const useDetailedBypass = (detailedBypass !== undefined) ? !!detailedBypass : true;
@@ -239,13 +115,15 @@ self.onmessage = async function(e) {
     });
   });
 
-  // [AAA ARCHITECTURE] Pre-cálculo estático del Factor de Visión de Cielo (SVF) por panel usando el centroide real de poly2D.
+  // [AAA ARCHITECTURE] Pre-cálculo estático del Factor de Visión de Cielo (SVF) y atenuación de penumbra por panel usando el centroide real de poly2D.
   const panelSvfMap = new Map();
+  const panelPenumbraMap = new Map();
   panels.forEach(p => {
     const faldon = faldones[p.polyIdx] || faldones[0] || {};
     const obsList = faldon.obstacles2D || [];
     let diffuseOcclusion = 0.0;
-    if (obsList.length > 0) {
+    let minObsDist = Infinity;
+    if (obsList.length > 0 && (includeObstacles || includeBuildings)) {
       let pu = p.u || 0, pv = p.v || 0;
       if (Array.isArray(p.poly2D) && p.poly2D.length >= 3) {
         let su = 0, sv = 0;
@@ -255,6 +133,7 @@ self.onmessage = async function(e) {
       }
       for (let oi = 0; oi < obsList.length; oi++) {
         const o = obsList[oi];
+        if (o.isBuilding ? !includeBuildings : !includeObstacles) continue;
         const pts = o.points2D || [];
         if (pts.length === 0) continue;
         let cU = 0, cV = 0;
@@ -265,6 +144,7 @@ self.onmessage = async function(e) {
         cU /= pts.length;
         cV /= pts.length;
         const dist = Math.hypot(pu - cU, pv - cV);
+        if (dist < minObsDist) minObsDist = dist;
         const hObs = o.height || 1.2;
         if (dist > 0.1 && dist < 25.0) {
           const elevAng = Math.atan2(hObs, dist);
@@ -275,6 +155,12 @@ self.onmessage = async function(e) {
     }
     const svf = Math.max(0.20, Math.min(1.0, 1.0 - diffuseOcclusion));
     panelSvfMap.set(p.id, svf);
+    let penumbraAttenuation = 1.0;
+    if (minObsDist < Infinity && minObsDist > 0.5) {
+      const penumbraWidth = minObsDist * 0.00925;
+      if (penumbraWidth > 0.08) penumbraAttenuation = Math.max(0.85, 1.0 - (penumbraWidth / 2.0));
+    }
+    panelPenumbraMap.set(p.id, penumbraAttenuation);
   });
 
   // [AAA ARCHITECTURE] Pre-cálculo estático geométrico de paneles (AABB, Substrings con margen de marco activo y Penumbra)
@@ -292,6 +178,14 @@ self.onmessage = async function(e) {
       return { u: cx + du * scale, v: cy + dv * scale };
     });
   };
+
+  const mp = moduleProps || {};
+  const defaultModWp = (typeof mp.wp === 'number' && mp.wp > 0) ? mp.wp : 450;
+  const noctModule = mp.noct || 45;
+  const gammaCoeff = mp.gammaCoeff || -0.0034;
+  const isBifacial = mp.isBifacial || false;
+  const bifacialityFactor = mp.bifacialityFactor || 0.75;
+  const iamB0 = mp.iamB0 || 0.05;
 
   const preparedPanels = panels.map(pData => {
     const w = pData.w || 1.05;
@@ -341,9 +235,11 @@ self.onmessage = async function(e) {
     const panelH = pData.h || 2.10;
     const pGridA = (typeof pData.gridA === 'number') ? pData.gridA : ((pData.frame && typeof pData.frame.Lu === 'number') ? ((pData.u || 0) * pData.frame.Lu + (pData.v || 0) * pData.frame.Lv) : null);
 
-    const tiltRad = (pData.tiltDeg || 20) * Math.PI / 180;
+    const tiltDeg = (typeof pData.tiltDeg === 'number' && !isNaN(pData.tiltDeg)) ? pData.tiltDeg : 20;
+    const tiltRad = tiltDeg * Math.PI / 180;
     const fViewSky = (1 + Math.cos(tiltRad)) / 2;
     const fViewGround = (1 - Math.cos(tiltRad)) / 2;
+    const penumbraAttenuation = panelPenumbraMap.get(pData.id) || 1.0;
 
     return {
       id: pData.id,
@@ -353,6 +249,7 @@ self.onmessage = async function(e) {
       v: pData.v || 0,
       w: w,
       h: panelH,
+      wp: (typeof pData.wp === 'number' && pData.wp > 0) ? pData.wp : defaultModWp,
       uMin: uMin,
       uMax: uMax,
       vMin: vMin,
@@ -375,23 +272,21 @@ self.onmessage = async function(e) {
     };
   });
 
+  const _radW = (typeof self !== 'undefined' && self.RA && self.RA.Radiation) ? self.RA.Radiation : null;
+  if (!_radW) {
+    self.postMessage({ type: 'ERROR', simGenerationId, error: 'RA.Radiation no cargado en solar-worker' });
+    return;
+  }
+
   const totalSteps = monthsDoy.length * hours.length;
   let currentStep = 0;
 
-  const noctModule = moduleProps.noct || 45;
-  const gammaCoeff = moduleProps.gammaCoeff || -0.0034;
-  const isBifacial = moduleProps.isBifacial || false;
-  const bifacialityFactor = moduleProps.bifacialityFactor || 0.75;
-  const iamB0 = (moduleProps && moduleProps.iamB0) || 0.05;
-
   for (let mIdx = 0; mIdx < monthsDoy.length; mIdx++) {
     const m = monthsReal[mIdx];
-    const tAmbMonth = (_T_AMB_TABLE[climaticZone] || _T_AMB_TABLE.interior)[m];
+    const tAmbMonth = _radW.getAmbientTempMonth(climaticZone, m);
     const GHI_daily_Wh = (customMonthlyGHI && customMonthlyGHI[m] > 0)
       ? customMonthlyGHI[m]
-      : ((typeof self !== 'undefined' && self.RA && self.RA.Radiation && typeof self.RA.Radiation.estimateMonthlyGHI === 'function')
-          ? self.RA.Radiation.estimateMonthlyGHI(lat, m)
-          : (4600 * (1 + 0.32 * Math.sin((m - 2) * Math.PI / 6))));
+      : _radW.estimateMonthlyGHI(lat, m);
 
     const _gammaM = (2 * Math.PI / 365) * (monthsDoy[mIdx] - 1);
     const _EtM = 229.18 * (0.000075 + 0.001868 * Math.cos(_gammaM) - 0.032077 * Math.sin(_gammaM)
@@ -400,9 +295,9 @@ self.onmessage = async function(e) {
     let _sinAltSum = 0;
     for (let _hs = 0; _hs < hours.length; _hs++) {
       const _utcPre = hours[_hs] - (4 * lng + _EtM) / 60;
-      const _spPre = computeSolarPositionWorker(lat, lng, monthsDoy[mIdx], _utcPre);
+      const _spPre = _radW.computeSolarPosition(lat, lng, monthsDoy[mIdx], _utcPre, true);
       if (_spPre && _spPre.isDay && _spPre.elevDeg >= 5.0) {
-        _sinAltSum += Math.sin(_spPre.elevDeg * Math.PI / 180);
+        _sinAltSum += Math.sin(_spPre.elevDeg * Math.PI / 180) * hourWeights[_hs];
       }
     }
     if (_sinAltSum <= 0) _sinAltSum = 1;
@@ -412,7 +307,7 @@ self.onmessage = async function(e) {
       currentStep++;
 
       const utcHour = h - (4 * lng + _EtM) / 60;
-      const sp = computeSolarPositionWorker(lat, lng, monthsDoy[mIdx], utcHour);
+      const sp = _radW.computeSolarPosition(lat, lng, monthsDoy[mIdx], utcHour, true);
 
       if (!sp || !sp.isDay || sp.elevDeg < 5.0) {
         continue;
@@ -420,14 +315,15 @@ self.onmessage = async function(e) {
 
       const elevRad = sp.elevRad;
       const sinAlt = Math.sin(elevRad);
-      const GHI_instant = Math.max(0, (GHI_daily_Wh / (_sinAltSum * hourStepDt)) * sinAlt);
-      const { dhi: G_dhi, dni: G_dni } = decomposeErbsWorker(GHI_instant, sp.elevDeg, monthsDoy[mIdx]);
+      const GHI_instant = Math.max(0, (GHI_daily_Wh / _sinAltSum) * sinAlt);
+      const { dhi: G_dhi, dni: G_dni } = _radW.decomposeErbs(GHI_instant, sp.elevDeg, monthsDoy[mIdx]);
 
       // Pre-calcular siluetas de sombra de obstáculos por faldón para esta hora (O(F) en vez de O(N*F))
       const faldonShadowQuads = new Map();
       faldones.forEach((faldon, fIdx) => {
-        const hasObs = Array.isArray(faldon.obstacles2D) && faldon.obstacles2D.length > 0;
-        const hasInterRow = Array.isArray(faldon.interRowEdges) && faldon.interRowEdges.length > 0;
+        const hasObs = (includeObstacles || includeBuildings) && Array.isArray(faldon.obstacles2D) &&
+          faldon.obstacles2D.some(obs => obs && (obs.isBuilding ? includeBuildings : includeObstacles));
+        const hasInterRow = includeInterRow && Array.isArray(faldon.interRowEdges) && faldon.interRowEdges.length > 0;
         if (!hasObs && !hasInterRow) {
           faldonShadowQuads.set(fIdx, []);
           return;
@@ -449,6 +345,7 @@ self.onmessage = async function(e) {
         if (hasObs && sDotN > 0.02) {
           const nz = Math.max(0.15, nVec.z || 1.0);
           faldon.obstacles2D.forEach(obs => {
+            if (!obs || (obs.isBuilding ? !includeBuildings : !includeObstacles)) return;
             const hObs = obs.height || 1.2;
             const maxObsShadowLen = 45.0; // Límite físico para evitar proyecciones infinitas
             const tRay = (hObs * nz) / sDotN;
@@ -464,14 +361,27 @@ self.onmessage = async function(e) {
             const dV = dx * vVec.x + dy * vVec.y + dz * vVec.z;
             const basePoly = obs.points2D || [];
             if (basePoly.length >= 3) {
+              let obsCenterU = 0, obsCenterV = 0;
+              for (let bi = 0; bi < basePoly.length; bi++) {
+                obsCenterU += basePoly[bi].u;
+                obsCenterV += basePoly[bi].v;
+              }
+              obsCenterU /= basePoly.length;
+              obsCenterV /= basePoly.length;
               const topPoly = basePoly.map(pt => ({ u: pt.u + dU, v: pt.v + dV }));
-              const hull = convexHull2D([...basePoly, ...topPoly]);
+              const hull = (typeof convexHull2D === 'function') ? convexHull2D([...basePoly, ...topPoly]) : null;
               if (hull && hull.length >= 3) {
-                quads.push(precalcQuadAABB(hull));
+                const q = precalcQuadAABB(hull);
+                q.obsCenterU = obsCenterU;
+                q.obsCenterV = obsCenterV;
+                quads.push(q);
               } else {
                 for (let i = 0; i < basePoly.length; i++) {
                   const next = (i + 1) % basePoly.length;
-                  quads.push(precalcQuadAABB([basePoly[i], basePoly[next], topPoly[next], topPoly[i]]));
+                  const q = precalcQuadAABB([basePoly[i], basePoly[next], topPoly[next], topPoly[i]]);
+                  q.obsCenterU = obsCenterU;
+                  q.obsCenterV = obsCenterV;
+                  quads.push(q);
                 }
               }
             }
@@ -479,7 +389,7 @@ self.onmessage = async function(e) {
         }
 
         // Autosombreado Inter-filas entre paneles elevados de la misma cubierta
-        if (faldon.interRowEdges && faldon.interRowEdges.length > 0) {
+        if (hasInterRow) {
           faldon.interRowEdges.forEach(edge => {
             const dU = sU * edge.effHMod * shadowLen;
             const dV = sV * edge.effHMod * shadowLen;
@@ -506,8 +416,6 @@ self.onmessage = async function(e) {
       });
 
       const e0 = (1 + 0.033 * Math.cos(2 * Math.PI * (monthsDoy[mIdx] - 1) / 365));
-      const I0 = SOLAR_CONST * e0;
-      const Ai = Math.max(0, Math.min(1.0, G_dni / (I0 + 1e-3)));
 
       // Evaluación de alto rendimiento por panel (Broadphase O(1) + Narrowphase optimizada)
       preparedPanels.forEach(p => {
@@ -518,25 +426,16 @@ self.onmessage = async function(e) {
         const pNorm = p.normalENU;
         const cosTheta = Math.max(0, sp.sunVecENU.x * pNorm.x + sp.sunVecENU.y * pNorm.y + sp.sunVecENU.z * pNorm.z);
 
-        let G_beam = 0, G_diff = 0, G_refl = 0;
-        const _radW = (typeof self !== 'undefined' && self.RA && self.RA.Radiation) ? self.RA.Radiation : null;
-        if (_radW && typeof _radW.transposeComponents === 'function') {
-          const _tp = _radW.transposeComponents({
-            ghi: GHI_instant, dhi: G_dhi, dni: G_dni,
-            cosTheta: cosTheta, tiltRad: p.tiltRad,
-            albedo: 0.20, iamB0: iamB0, sunElevDeg: sp.elevDeg,
-            diffuseModel: 'perez'
-          });
-          G_beam = _tp.G_b_eff;
-          G_diff = _tp.G_d_eff * p.svfAmbient;
-          G_refl = _tp.G_r_eff;
-        } else {
-          const Rb = (sinAlt > 0.05) ? Math.max(0, cosTheta / sinAlt) : 0;
-          const iam = (cosTheta > 0.005) ? Math.max(0, 1 - iamB0 * (1 / Math.max(cosTheta, 0.01) - 1)) : 0;
-          G_beam = G_dni * cosTheta * iam;
-          G_diff = G_dhi * (Ai * Rb + (1 - Ai) * p.fViewSky) * p.svfAmbient;
-          G_refl = GHI_instant * 0.20 * p.fViewGround;
-        }
+        const _tp = _radW.transposeComponents({
+          ghi: GHI_instant, dhi: G_dhi, dni: G_dni,
+          cosTheta: cosTheta, tiltRad: p.tiltRad,
+          albedo: 0.20, iamB0: iamB0, sunElevDeg: sp.elevDeg,
+          dayOfYear: monthsDoy[mIdx], e0: e0,
+          diffuseModel: 'perez'
+        });
+        const G_beam = _tp.G_b_eff;
+        const G_diff = _tp.G_d_eff * p.svfAmbient;
+        const G_refl = _tp.G_r_eff;
 
         const isRaised = !p.coplanar || (p.clearance >= 0.25);
         const clearanceFactor = isRaised
@@ -549,7 +448,7 @@ self.onmessage = async function(e) {
         const G_poa = G_beam + G_diff + G_refl + albedoGain;
 
         // Derating térmico: perfil diurno sinusoidal T_amb(h) + modelo Faiman
-        const tAmp = _T_AMP_TABLE[climateZone] || 5.0;
+        const tAmp = _T_AMP_TABLE[climaticZone] || 5.0;
         const tAmbHour = tAmbMonth + tAmp * Math.sin(Math.PI * (h - 9) / 12);
         const vWind = (typeof data.windSpeed === 'number' && isFinite(data.windSpeed)) ? data.windSpeed : 2.0;
         const u0Faiman = (p.coplanar && p.clearance < 0.25) ? 20.0 : 25.0;
@@ -567,6 +466,7 @@ self.onmessage = async function(e) {
         // Evaluación de sombreado
         let isShaded = false;
         let shadedSubstringsCount = 0;
+        let minPenumbra = 1.0;
 
         const shadowQuads = faldonShadowQuads.get(p.polyIdx) || [];
 
@@ -575,6 +475,17 @@ self.onmessage = async function(e) {
           const subShaded = new Array(subStrings.length).fill(false);
           const myIndex = p.myIndex;
           const panelH = p.h;
+
+          const computeQuadPenumbra = (q) => {
+            if (typeof q.obsCenterU === 'number' && typeof q.obsCenterV === 'number') {
+              const dObs = Math.hypot(p.u - q.obsCenterU, p.v - q.obsCenterV);
+              if (dObs > 0.5) {
+                const penumbraWidth = dObs * 0.00925;
+                if (penumbraWidth > 0.08) return Math.max(0.85, 1.0 - (penumbraWidth / 2.0));
+              }
+            }
+            return 1.0;
+          };
 
           for (let qIdx = 0; qIdx < shadowQuads.length; qIdx++) {
             const quad = shadowQuads[qIdx];
@@ -608,18 +519,26 @@ self.onmessage = async function(e) {
 
             // [NARROWPHASE SUB-STRING / MONOLÍTICO]:
             if (useDetailedBypass) {
+              let quadHit = false;
               for (let sIdx = 0; sIdx < subStrings.length; sIdx++) {
                 if (subShaded[sIdx]) continue;
                 const sub = subStrings[sIdx];
                 if (sub.uMax < quad.uMin || sub.uMin > quad.uMax || sub.vMax < quad.vMin || sub.vMin > quad.vMax) continue;
-                if (polygonsIntersect2D(sub.poly, quad)) {
+                if (typeof polygonsIntersect2D === 'function' && polygonsIntersect2D(sub.poly, quad)) {
                   subShaded[sIdx] = true;
+                  quadHit = true;
                 }
+              }
+              if (quadHit) {
+                const qp = computeQuadPenumbra(quad);
+                if (qp < minPenumbra) minPenumbra = qp;
               }
               if (subShaded.every(s => s)) break;
             } else {
-              if (polygonsIntersect2D(p.panelPoly, quad)) {
+              if (typeof polygonsIntersect2D === 'function' && polygonsIntersect2D(p.panelPoly, quad)) {
                 isShaded = true;
+                const qp = computeQuadPenumbra(quad);
+                if (qp < minPenumbra) minPenumbra = qp;
                 break;
               }
             }
@@ -633,9 +552,9 @@ self.onmessage = async function(e) {
           }
         }
 
-        const beamShadedFraction = (shadedSubstringsCount > 0)
+        const beamShadedFraction = ((shadedSubstringsCount > 0)
           ? (shadedSubstringsCount / 3.0)
-          : (isShaded ? 1.0 : 0.0);
+          : (isShaded ? 1.0 : 0.0)) * shadowWeightFactor;
 
         // Topología eléctrica: Suavizado físico realista para módulos half-cut (6 sub-cadenas / 3 diodos de bypass)
         // Evita el escalón artificial binario entre placas adyacentes cuando solo roza una esquina del módulo.
@@ -679,7 +598,7 @@ self.onmessage = async function(e) {
         }
 
         const isOccludedBy3D = (p.occlusion3D && p.occlusion3D[currentStep - 1] === 1);
-        const envOcclusionFrac = isOccludedBy3D ? 1.0 : horizonOcclusionFrac;
+        const envOcclusionFrac = (isOccludedBy3D ? 1.0 : horizonOcclusionFrac) * shadowWeightFactor;
         const isEnvironmentOccluded = envOcclusionFrac > 0.01;
 
         const effectiveShaded = isShaded || isEnvironmentOccluded;
@@ -702,7 +621,7 @@ self.onmessage = async function(e) {
         }
 
         const effectiveLossW = (effectiveShaded && instantLossW > 0) ? instantLossW : 0;
-        _monthlyNetWh[m] += (instantPotentialW - effectiveLossW) * mw * dt;
+        _monthlyNetWh[m] += (instantPotentialW - effectiveLossW) * mw * dt * (p.wp / 1000.0);
       });
     }
 

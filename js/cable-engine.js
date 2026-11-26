@@ -1702,6 +1702,860 @@
     },
 
     /**
+     * Renderiza entidades volumétricas de cableado y etiqueta opcional en sState.dcCableEntities.
+     */
+    _renderCablePrimitives: function (viewer, sState, path, volOpts, labelOpts) {
+      if (!viewer || !sState || !Array.isArray(path) || path.length === 0) return [];
+      var ents = this.createVolumetricEntity(viewer, path, volOpts || {});
+      ents.forEach(function (e) { sState.dcCableEntities.push(e); });
+
+      if (labelOpts && typeof global.addLabelEntity === 'function' && path.length >= 2) {
+        var idx = (typeof labelOpts.pointIndex === 'number')
+          ? labelOpts.pointIndex
+          : Math.floor(path.length / 2);
+        var lblPt = path[idx] || path[0];
+        var lbl = global.addLabelEntity(lblPt, labelOpts.text, labelOpts.offsetY != null ? labelOpts.offsetY : -6, {
+          bg: labelOpts.bg || 'rgba(15, 23, 42, 0.90)',
+          borderColor: labelOpts.borderColor || (volOpts && volOpts.colorHex) || '#38BDF8',
+          textColor: labelOpts.textColor || '#FFFFFF',
+          font: labelOpts.font || "bold 10px 'JetBrains Mono', monospace",
+          inspectOnHover: labelOpts.inspectOnHover !== false,
+          category: labelOpts.category || 'cable'
+        });
+        if (lbl) sState.dcCableEntities.push(lbl);
+      }
+      return ents;
+    },
+
+    /**
+     * Renderiza codos interactivos y tiradores "+" de rutas manuales DC/AC.
+     */
+    _renderRouteHandles: function (viewer, sState, routeType, pts, colorHex) {
+      if (!Array.isArray(pts) || pts.length === 0) return;
+      var self = this;
+      var labelPrefix = (routeType === 'ac') ? 'Codo Tubo AC #' : 'Codo Bandeja DC #';
+      var liftM = self.auditElevationMode ? (self.CONFIG.AUDIT_ELEVATION_M || 0.24) : 0;
+      var selRV = (typeof global.selectedRouteVertex !== 'undefined') ? global.selectedRouteVertex : null;
+      var visualPts = [];
+
+      pts.forEach(function (pt, pIdx) {
+        var pC3 = self.toCartesian3(pt);
+        if (!pC3) return;
+        var visPos = pC3;
+        if (liftM > 0) {
+          var upV = Cesium.Ellipsoid.WGS84.geodeticSurfaceNormal(pC3, new Cesium.Cartesian3());
+          visPos = Cesium.Cartesian3.add(pC3, Cesium.Cartesian3.multiplyByScalar(upV, liftM, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+        }
+        visualPts.push(visPos);
+        var isSel = !!(selRV && selRV.type === routeType && selRV.index === pIdx);
+        var node = viewer.entities.add({
+          id: 'ra_route_handle_' + routeType + '_' + pIdx,
+          name: labelPrefix + (pIdx + 1),
+          position: visPos,
+          point: {
+            pixelSize: isSel ? 14 : 11,
+            color: Cesium.Color.fromCssColorString(isSel ? '#10B981' : colorHex),
+            outlineColor: isSel ? Cesium.Color.fromCssColorString('#FDE047') : Cesium.Color.WHITE,
+            outlineWidth: isSel ? 3 : 2,
+            disableDepthTestDistance: Number.POSITIVE_INFINITY
+          }
+        });
+        sState.dcCableEntities.push(node);
+      });
+
+      for (var si = 0; si < visualPts.length - 1; si++) {
+        var midVis = Cesium.Cartesian3.midpoint(visualPts[si], visualPts[si + 1], new Cesium.Cartesian3());
+        var midNode = viewer.entities.add({
+          id: 'ra_route_mid_' + routeType + '_' + si,
+          name: 'Insertar codo intermedio (+)',
+          position: midVis,
+          point: {
+            pixelSize: 8,
+            color: Cesium.Color.fromCssColorString('#10B981').withAlpha(0.85),
+            outlineColor: Cesium.Color.WHITE,
+            outlineWidth: 1.5,
+            disableDepthTestDistance: Number.POSITIVE_INFINITY
+          }
+        });
+        sState.dcCableEntities.push(midNode);
+      }
+    },
+
+    /**
+     * Resuelve la posición 3D de la caja de conexiones de un módulo.
+     */
+    _getJunctionBoxPos: function (panel) {
+      if (!panel) return null;
+      var center = panel.center;
+      if (!center && panel.corners && panel.corners.length > 0) center = panel.corners[0];
+      if (!center || typeof center.x !== 'number' || isNaN(center.x)) return null;
+
+      if (Array.isArray(panel.corners) && panel.corners.length === 4) {
+        try {
+          var topEdgeMid = Cesium.Cartesian3.midpoint(panel.corners[2], panel.corners[3], new Cesium.Cartesian3());
+          var jPos = Cesium.Cartesian3.lerp(center, topEdgeMid, 0.22, new Cesium.Cartesian3());
+          if (!isNaN(jPos.x) && !isNaN(jPos.y) && !isNaN(jPos.z)) {
+            return jPos;
+          }
+        } catch (_) {}
+      }
+
+      try {
+        var basisFb = this.getRoofOrthonormalBasis(center, panel.polyIdx);
+        if (basisFb && basisFb.vVec && typeof panel.h === 'number' && !isNaN(panel.h)) {
+          var offset = Cesium.Cartesian3.multiplyByScalar(basisFb.vVec, panel.h * 0.12, new Cesium.Cartesian3());
+          var jPos2 = Cesium.Cartesian3.add(center, offset, new Cesium.Cartesian3());
+          if (!isNaN(jPos2.x) && !isNaN(jPos2.y) && !isNaN(jPos2.z)) {
+            return jPos2;
+          }
+        }
+      } catch (_) {}
+
+      return center;
+    },
+
+    /**
+     * Registra un clúster único de bajante (tierra o bandeja común) por cubierta o proximidad.
+     */
+    _registerUniqueCluster: function (anchors, anchorPos, roofKey) {
+      if (!anchorPos) return true;
+      var aC3 = this.toCartesian3(anchorPos);
+      if (!aC3) return true;
+      var aCarto = (Cesium.Cartographic && typeof Cesium.Cartographic.fromCartesian === 'function')
+        ? Cesium.Cartographic.fromCartesian(aC3)
+        : null;
+      var rKeyNorm = (roofKey !== undefined && roofKey !== null) ? String(roofKey) : null;
+      for (var ci = 0; ci < anchors.length; ci++) {
+        var ex = anchors[ci];
+        if (rKeyNorm !== null && ex.roofKey !== null) {
+          if (ex.roofKey === rKeyNorm) {
+            ex.count = (ex.count || 1) + 1;
+            return false;
+          }
+          continue;
+        }
+        var dHoriz = Cesium.Cartesian3.distance(aC3, ex.pos);
+        var dElev = Math.abs((aCarto ? aCarto.height : 0) - ex.height);
+        if (dHoriz < 8.0 && dElev < 1.5) {
+          ex.count = (ex.count || 1) + 1;
+          return false;
+        }
+      }
+      anchors.push({ pos: aC3, height: aCarto ? aCarto.height : 0, roofKey: rKeyNorm, count: 1 });
+      return true;
+    },
+
+    /**
+     * Enruta los strings DC (o ramales AC en modo microinversores), latiguillos intermódulo,
+     * retorno anti-bucle UNE-EN 62305, homeruns pareados y bajantes equipotenciales ITC-BT-18.
+     * @returns {boolean} true si la topología (microinversores) finaliza completamente el flujo.
+     */
+    _routeDcStrings: function (ctx) {
+      var self = this;
+      var viewer = ctx.viewer;
+      var sState = ctx.sState;
+      var allStrings = ctx.allStrings;
+      var cfg = ctx.cfg;
+
+      if (ctx.isMicroTopology) {
+        // ── MODO MICROINVERSORES AC (PARTICIÓN POR RAMAL 20A Y CAÍDA EN BUS TRONCAL) ─
+        var allMicroPanels = [];
+        allStrings.forEach(function (st) {
+          if (st && Array.isArray(st.panels)) {
+            st.panels.forEach(function (p) { if (p) allMicroPanels.push(p); });
+          }
+        });
+
+        var catMi = (global.equipmentCatalog && Array.isArray(global.equipmentCatalog.microinverters)) ? global.equipmentCatalog.microinverters : [];
+        var miSpec = catMi.find(function (m) { return m && m.id === cfg.selectedMicroinverterId && !(m.type && m.type.indexOf('Optimizador') !== -1); })
+          || catMi.find(function (m) { return m && !(m.type && m.type.indexOf('Optimizador') !== -1); })
+          || { kw: 0.8, inputsPerUnit: 2 };
+        var miRatio = (typeof global.raGetMicroinverterRatio === 'function') ? global.raGetMicroinverterRatio(miSpec) : (miSpec.inputsPerUnit || 2);
+        var miUnitKw = (miSpec && miSpec.kw > 0) ? miSpec.kw : 0.8;
+        var isMonoMicro = (cfg.gridSupply === 'single_phase');
+        var maxBranchKw = isMonoMicro ? 3.68 : 11.0;
+        var maxUnitsPerBranch = Math.max(1, Math.floor(maxBranchKw / miUnitKw));
+        var maxPanelsPerBranch = Math.max(2, maxUnitsPerBranch * miRatio);
+
+        var panelsByRoof = {};
+        var roofOrder = [];
+        allMicroPanels.forEach(function (p) {
+          var rKey = (typeof p.polyIdx === 'number') ? ('roof_' + p.polyIdx) : 'roof_0';
+          if (!panelsByRoof[rKey]) { panelsByRoof[rKey] = []; roofOrder.push(rKey); }
+          panelsByRoof[rKey].push(p);
+        });
+
+        var acMainTarget = ctx.meterPos || ctx.invPos || ctx.dcTargetPos;
+        var maxBranchAcM = 0;
+        var maxBranchTrunkBusM = 0;
+
+        roofOrder.forEach(function (rKey, rIdx) {
+          var rPanels = panelsByRoof[rKey];
+          if (!rPanels || rPanels.length === 0) return;
+          var rSample = self.toCartesian3(rPanels[0].center || (rPanels[0].corners && rPanels[0].corners[0]));
+          var rBasis = self.getRoofOrthonormalBasis(rSample, rPanels[0] && rPanels[0].polyIdx);
+          var sortedMicroPanels = self.sortPanelsForStringing(rPanels, rBasis);
+
+          for (var bStart = 0, bIdx = 0; bStart < sortedMicroPanels.length; bStart += maxPanelsPerBranch, bIdx++) {
+            var branchPanels = sortedMicroPanels.slice(bStart, bStart + maxPanelsPerBranch);
+            if (branchPanels.length === 0) continue;
+
+            var trunkPts = [];
+            for (var mp = 0; mp < branchPanels.length; mp++) {
+              var jPt = self.toCartesian3(self._getJunctionBoxPos(branchPanels[mp]));
+              if (jPt) {
+                var elMPt = self.elevatePoint(jPt, self.CONFIG.TRAY_OFFSET, rBasis.normal);
+                trunkPts.push(elMPt);
+                var mNode = self.addJunctionConnectionNode(viewer, elMPt, { role: 'micro' });
+                if (mNode) sState.dcCableEntities.push(mNode);
+              }
+            }
+            if (trunkPts.length >= 2) {
+              var trunkBusLen = self.computePathLength(trunkPts);
+              if (trunkBusLen > maxBranchTrunkBusM) maxBranchTrunkBusM = trunkBusLen;
+              ctx.totalMicroTrunkBusM += trunkBusLen;
+              ctx.totalAcTrunkM += trunkBusLen;
+              self._renderCablePrimitives(viewer, sState, trunkPts, {
+                name: 'Bus AC Troncal Microinversores Faldón #' + (rIdx + 1) + ' Ramal #' + (bIdx + 1),
+                colorHex: '#F59E0B',
+                width: 4.5
+              });
+            }
+
+            var jBoxStart = self.toCartesian3(self._getJunctionBoxPos(branchPanels[0]));
+            if (jBoxStart && acMainTarget) {
+              ctx.acJunctionBoxCount++;
+              var dropPillarAc = self.findClosestStructurePillar(jBoxStart, acMainTarget, branchPanels);
+              var acDropPath = self.buildOrthogonalManhattanPath3D(jBoxStart, acMainTarget, {
+                normalOffset: self.CONFIG.AC_OFFSET + (bIdx * 0.012),
+                descentPoint: dropPillarAc,
+                sourcePolyIdx: (branchPanels[0] && typeof branchPanels[0].polyIdx === 'number') ? branchPanels[0].polyIdx : null,
+                basis: rBasis,
+                waypoints: (rIdx === 0 && bIdx === 0 && ctx.hasManualAc) ? sState.routes.ac : null
+              });
+              var lAcBranch = self.computePathLength(acDropPath);
+              if (lAcBranch > maxBranchAcM) maxBranchAcM = lAcBranch;
+              ctx.totalMicroDropM += lAcBranch;
+              ctx.totalAcTrunkM += lAcBranch;
+
+              self._renderCablePrimitives(viewer, sState, acDropPath, {
+                name: 'Derivación AC Caja IP65 Cubierta ➔ CGBT (Faldón #' + (rIdx + 1) + ' Ramal #' + (bIdx + 1) + ')',
+                colorHex: self.CONFIG.COLOR_AC,
+                radius: self.CONFIG.CABLE_RADIUS_AC
+              });
+
+              if (self._registerUniqueCluster(ctx.groundingClusterAnchors, jBoxStart, rKey)) {
+                var gPathMicro = self.buildOrthogonalManhattanPath3D(jBoxStart, acMainTarget, {
+                  normalOffset: self.CONFIG.GROUND_OFFSET,
+                  descentPoint: dropPillarAc,
+                  basis: rBasis
+                });
+                ctx.totalGroundingM += self.computePathLength(gPathMicro) + (branchPanels.length * 0.75);
+                self._renderCablePrimitives(viewer, sState, gPathMicro, {
+                  name: 'Tierra Equipotencial Cu ' + ctx.earthSecMm2 + 'mm² Cubierta #' + (rIdx + 1) + ' (ITC-BT-18)',
+                  colorHex: self.CONFIG.COLOR_GROUNDING,
+                  width: 3.0,
+                  radius: 0.010
+                });
+              } else {
+                ctx.totalGroundingM += (branchPanels.length * 0.75);
+              }
+            }
+          }
+        });
+
+        var totalMicroUnitsCount = Math.max(1, Math.ceil(allMicroPanels.length / Math.max(1, miRatio)));
+        sState.L_dc_measured = 0;
+        sState.L_dc_string_measured = 0;
+        sState.L_dc_trunk_measured = 0;
+        sState.L_ac_measured = Math.round((maxBranchAcM + (maxBranchTrunkBusM * 0.5)) * 10) / 10;
+        this.updateElectricalSizingAndHUD(0, sState.L_ac_measured);
+        sState.stringTelemetry = [];
+        sState.cableBreakdown = {
+          topology: 'microinverter',
+          totalDcCableMeters: 0,
+          dcStringCableMeters: 0,
+          dcTrunkCableMeters: 0,
+          totalInterModuleMeters: 0,
+          interModuleJumperCount: 0,
+          totalTrayMeters: Math.round(ctx.totalAcTrunkM * 10) / 10,
+          trayType: 'Bus AC Troncal (' + ctx.acJunctionBoxCount + ' ramal(es) ≤20A) + Caja estanca IP65',
+          trayWidthMm: 60,
+          totalAcConduitMeters: Math.round(ctx.totalMicroDropM * 10) / 10,
+          acConduitSpec: 'Tubo rígido curvable en frío M32 libre de halógenos (REBT ITC-BT-20)',
+          totalAcCableMeters: Math.round(ctx.totalAcTrunkM * 10) / 10,
+          acMainCableMeters: Math.round(ctx.totalMicroDropM * 10) / 10,
+          microTrunkCableMeters: Math.round(ctx.totalMicroTrunkBusM * 10) / 10,
+          acBranchCableMeters: Math.round(ctx.totalMicroTrunkBusM * 10) / 10,
+          acCableSpec: 'Manguera RZ1-K (AS) 0,6/1 kV libre de halógenos ' + (sState.S_ac_recommended || 6) + ' mm²',
+          totalGroundingMeters: Math.round(ctx.totalGroundingM * 10) / 10,
+          groundingSecMm2: ctx.earthSecMm2,
+          groundingSpec: 'Cable de cobre Cu ' + ctx.earthSecMm2 + ' mm² equipotencial único por cubierta (ITC-BT-18)',
+          mc4ConnectorPairs: 0,
+          microBusConnectors: totalMicroUnitsCount + (ctx.acJunctionBoxCount * 2),
+          acJunctionBoxes: ctx.acJunctionBoxCount,
+          gatewayIncluded: true,
+          fillFactorPct: 20
+        };
+        if (viewer.scene && typeof viewer.scene.requestRender === 'function') viewer.scene.requestRender();
+        return true;
+      }
+
+      // Centroide común positivo y negativo para topología Paralelo Y
+      if (ctx.isParallelY && allStrings.length >= 2) {
+        var sumPos = new Cesium.Cartesian3(0, 0, 0);
+        var sumNeg = new Cesium.Cartesian3(0, 0, 0);
+        var cntPos = 0, cntNeg = 0;
+        allStrings.forEach(function (strItem) {
+          if (strItem && Array.isArray(strItem.panels) && strItem.panels.length > 0) {
+            var pStart = self.toCartesian3(strItem.panels[0].center);
+            var pEnd = self.toCartesian3(strItem.panels[strItem.panels.length - 1].center);
+            if (pStart) { Cesium.Cartesian3.add(sumPos, pStart, sumPos); cntPos++; }
+            if (pEnd) { Cesium.Cartesian3.add(sumNeg, pEnd, sumNeg); cntNeg++; }
+          }
+        });
+        if (cntPos >= 2) ctx.yBranchNodePos = Cesium.Cartesian3.divideByScalar(sumPos, cntPos, new Cesium.Cartesian3());
+        if (cntNeg >= 2) ctx.yBranchNodeNeg = Cesium.Cartesian3.divideByScalar(sumNeg, cntNeg, new Cesium.Cartesian3());
+        if (ctx.yBranchNodePos && ctx.yBranchNodeNeg) {
+          ctx.yBranchNode = Cesium.Cartesian3.midpoint(ctx.yBranchNodePos, ctx.yBranchNodeNeg, new Cesium.Cartesian3());
+        } else {
+          ctx.yBranchNode = ctx.yBranchNodePos || ctx.yBranchNodeNeg;
+        }
+      }
+
+      var isSeparateGroundStructureJump = function (pA, pB) {
+        if (!pA || !pB) return false;
+        if (typeof pA.polyIdx !== 'number' || typeof pB.polyIdx !== 'number' || pA.polyIdx === pB.polyIdx) return false;
+        var WPcur = global.WP || (typeof window !== 'undefined' ? window.WP : null);
+        if (!WPcur || !Array.isArray(WPcur.polylines)) return false;
+        var plA = WPcur.polylines[pA.polyIdx];
+        var plB = WPcur.polylines[pB.polyIdx];
+        var isGroundOrPerg = function (pl) {
+          var st = (pl && ((pl.estructura && pl.estructura.tipo) || pl.structureType || pl.modStructure || '')) || '';
+          return /pergola|carport|ground|suelo|marquesina/i.test(st);
+        };
+        return isGroundOrPerg(plA) && isGroundOrPerg(plB);
+      };
+
+      // 5. Generar y Renderizar Trazados DC para cada String con Retorno Compensado Anti-Bucle (UNE-EN 62305)
+      allStrings.forEach(function (strObj, sIdx) {
+        var rawPanels = strObj.panels || [];
+        if (rawPanels.length === 0) return;
+
+        var samplePos = self.toCartesian3(rawPanels[0].center || (rawPanels[0].corners && rawPanels[0].corners[0]));
+        var basis = self.getRoofOrthonormalBasis(samplePos, rawPanels[0] && rawPanels[0].polyIdx);
+        var activeTopo = (global.solarProjectConfig && global.solarProjectConfig.stringWiringTopology) || 'leapfrog';
+        var alreadyOrdered = (activeTopo === 'leapfrog') || !!strObj.preSorted || (rawPanels.length > 1 && !!rawPanels[0].stringName);
+        var sPanels = alreadyOrdered ? rawPanels.slice() : self.sortPanelsForStringing(rawPanels, basis);
+
+        var firstPanel = sPanels[0];
+        var termPanel = sPanels[sPanels.length - 1];
+
+        var startPos = self.toCartesian3(self._getJunctionBoxPos(firstPanel));
+        var termPos = self.toCartesian3(self._getJunctionBoxPos(termPanel));
+        if (!startPos || !termPos || !ctx.dcTargetPos) return;
+
+        var descentPillar = self.findClosestStructurePillar(startPos, ctx.dcTargetPos, sPanels);
+        var stringColor = (firstPanel && firstPanel.stringColor) || self.CONFIG.STRING_COLORS[sIdx % self.CONFIG.STRING_COLORS.length];
+
+        // ── 5.1 LATIGUILLOS INTERMÓDULO (STRINGING 3D) ─────────────────────────
+        var interModuleM = 0;
+        if (sPanels.length > 1) {
+          for (var p = 0; p < sPanels.length - 1; p++) {
+            var pCur = sPanels[p];
+            var pNext = sPanels[p + 1];
+            var pCurBasis = (p > 0 && typeof pCur.polyIdx === 'number' && typeof rawPanels[0].polyIdx === 'number' && pCur.polyIdx !== rawPanels[0].polyIdx)
+              ? self.getRoofOrthonormalBasis(self.toCartesian3(pCur.center || (pCur.corners && pCur.corners[0])), pCur.polyIdx)
+              : basis;
+            var jA = self.toCartesian3(self._getJunctionBoxPos(pCur));
+            var jB = self.toCartesian3(self._getJunctionBoxPos(pNext));
+            if (jA && jB) {
+              var elevatedA = self.elevatePoint(jA, self.CONFIG.JUMPER_OFFSET, pCurBasis.normal);
+              var elevatedB = self.elevatePoint(jB, self.CONFIG.JUMPER_OFFSET, pCurBasis.normal);
+              var directDist = Cesium.Cartesian3.distance(elevatedA, elevatedB);
+
+              var jumperPts;
+              var isUndergroundTrench = isSeparateGroundStructureJump(pCur, pNext);
+              var isRoofGapJump = !isUndergroundTrench && (directDist > 2.4);
+
+              if (isUndergroundTrench) {
+                var upA = Cesium.Ellipsoid.WGS84.geodeticSurfaceNormal(elevatedA, new Cesium.Cartesian3());
+                var upB = Cesium.Ellipsoid.WGS84.geodeticSurfaceNormal(elevatedB, new Cesium.Cartesian3());
+                var dropDistA = 3.5;
+                var dropDistB = 3.5;
+                if (ctx.dcTargetPos) {
+                  var diffZA = Cesium.Cartesian3.dot(Cesium.Cartesian3.subtract(elevatedA, ctx.dcTargetPos, new Cesium.Cartesian3()), upA);
+                  if (diffZA > 0.8) dropDistA = diffZA;
+                  var diffZB = Cesium.Cartesian3.dot(Cesium.Cartesian3.subtract(elevatedB, ctx.dcTargetPos, new Cesium.Cartesian3()), upB);
+                  if (diffZB > 0.8) dropDistB = diffZB;
+                }
+                var footA = Cesium.Cartesian3.subtract(elevatedA, Cesium.Cartesian3.multiplyByScalar(upA, dropDistA, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+                var footB = Cesium.Cartesian3.subtract(elevatedB, Cesium.Cartesian3.multiplyByScalar(upB, dropDistB, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+                jumperPts = [elevatedA, footA, footB, elevatedB];
+              } else if (isRoofGapJump && pCurBasis && pCurBasis.uVec) {
+                var dispJ = Cesium.Cartesian3.subtract(elevatedB, elevatedA, new Cesium.Cartesian3());
+                var midJ = Cesium.Cartesian3.add(elevatedA, Cesium.Cartesian3.multiplyByScalar(pCurBasis.uVec, Cesium.Cartesian3.dot(dispJ, pCurBasis.uVec), new Cesium.Cartesian3()), new Cesium.Cartesian3());
+                jumperPts = self.detourAroundObstacles([elevatedA, midJ, elevatedB], pCurBasis, 0.52);
+              } else {
+                jumperPts = self.detourAroundObstacles([elevatedA, elevatedB], pCurBasis, 0.45);
+              }
+
+              var jLen = self.computePathLength(jumperPts);
+              if (isUndergroundTrench || isRoofGapJump) {
+                interModuleM += jLen;
+                ctx.totalInterModuleJumperCount += Math.max(1, Math.ceil(jLen / 1.5));
+              } else if (activeTopo === 'leapfrog' && directDist > 1.35) {
+                ctx.totalInterModuleJumperCount += 1;
+              }
+
+              self._renderCablePrimitives(viewer, sState, jumperPts, {
+                name: 'Latiguillo ' + (isUndergroundTrench ? 'Subterráneo' : (isRoofGapJump ? 'Sobre Cubierta' : 'Intermódulo')) + ' ' + (p + 1) + '➔' + (p + 2) + ' String #' + (sIdx + 1),
+                colorHex: stringColor,
+                width: (isUndergroundTrench || isRoofGapJump) ? 4.2 : 3.5
+              });
+            }
+          }
+        }
+        ctx.totalInterModuleJumpersM += interModuleM;
+
+        // ── 5.1b NODOS CIRCULARES DE CONEXIÓN POR PLACA ───────────────────────
+        for (var np = 0; np < sPanels.length; np++) {
+          var npPanel = sPanels[np];
+          var npBasis = (np > 0 && typeof npPanel.polyIdx === 'number' && typeof rawPanels[0].polyIdx === 'number' && npPanel.polyIdx !== rawPanels[0].polyIdx)
+            ? self.getRoofOrthonormalBasis(self.toCartesian3(npPanel.center || (npPanel.corners && npPanel.corners[0])), npPanel.polyIdx)
+            : basis;
+          var jNodePos = self.toCartesian3(self._getJunctionBoxPos(npPanel));
+          if (jNodePos) {
+            var elNodePos = self.elevatePoint(jNodePos, self.CONFIG.JUMPER_OFFSET, npBasis.normal);
+            var nodeRole = (np === 0) ? 'start' : ((np === sPanels.length - 1) ? 'end' : 'mid');
+            var connNode = self.addJunctionConnectionNode(viewer, elNodePos, {
+              role: nodeRole,
+              ringColor: stringColor
+            });
+            if (connNode) sState.dcCableEntities.push(connNode);
+          }
+        }
+
+        // ── 5.2 CONDUCTOR DE RETORNO COMPENSADO ANTI-BUCLE (UNE-EN 62305 & IEC 62548) ─
+        var returnPath = [];
+        var lReturn = 0;
+        if (sPanels.length > 1 && Cesium.Cartesian3.distance(termPos, startPos) > 0.4) {
+          var appendReturnSegment = function (targetPath, nextPt) {
+            if (targetPath.length > 0 && basis && basis.uVec) {
+              var prevPt = targetPath[targetPath.length - 1];
+              var segDist = Cesium.Cartesian3.distance(prevPt, nextPt);
+              if (segDist > 2.4) {
+                var dispR = Cesium.Cartesian3.subtract(nextPt, prevPt, new Cesium.Cartesian3());
+                var midR = Cesium.Cartesian3.add(prevPt, Cesium.Cartesian3.multiplyByScalar(basis.uVec, Cesium.Cartesian3.dot(dispR, basis.uVec), new Cesium.Cartesian3()), new Cesium.Cartesian3());
+                var detR = self.detourAroundObstacles([prevPt, midR, nextPt], basis, 0.52);
+                for (var dr = 1; dr < detR.length; dr++) targetPath.push(detR[dr]);
+                return;
+              }
+              var detShort = self.detourAroundObstacles([prevPt, nextPt], basis, 0.45);
+              for (var ds = 1; ds < detShort.length; ds++) targetPath.push(detShort[ds]);
+              return;
+            }
+            targetPath.push(nextPt);
+          };
+
+          var retSideVec = (basis && basis.vVec) ? basis.vVec : Cesium.Cartesian3.UNIT_Y;
+          for (var r = sPanels.length - 1; r >= 0; r--) {
+            var rPos = self.toCartesian3(self._getJunctionBoxPos(sPanels[r]));
+            if (rPos) {
+              var elR = self.elevatePoint(rPos, self.CONFIG.DC_RETURN_OFFSET, basis.normal);
+              if (r > 0 && r < sPanels.length - 1) {
+                elR = Cesium.Cartesian3.add(elR, Cesium.Cartesian3.multiplyByScalar(retSideVec, 0.065, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+              }
+              appendReturnSegment(returnPath, elR);
+            }
+          }
+          returnPath = self.sanitizePositions(returnPath);
+          lReturn = self.computePathLength(returnPath);
+
+          if (returnPath.length >= 2) {
+            self._renderCablePrimitives(viewer, sState, returnPath, {
+              name: 'Retorno Compensado Anti-Bucle String #' + (sIdx + 1) + ' (UNE-EN 62305)',
+              colorHex: self.CONFIG.COLOR_DC_RETURN,
+              width: 3.6
+            });
+          }
+        }
+
+        var targetForStringPos = (ctx.isParallelY && ctx.yBranchNodePos) ? ctx.yBranchNodePos : ctx.dcTargetPos;
+        var targetForStringNeg = (ctx.isParallelY && ctx.yBranchNodeNeg) ? ctx.yBranchNodeNeg : ctx.dcTargetPos;
+
+        // ── 5.3 TIRADAS PRINCIPALES PAREADAS (HOMERUN EN BANDEJA VIRTUAL PARALELA) ─
+        var laneIndex = (sIdx % 6);
+        var totalStrCount = (Array.isArray(allStrings) && allStrings.length > 0) ? allStrings.length : 1;
+        var stringBundleOffset = (laneIndex - Math.min(2.5, (totalStrCount - 1) / 2)) * 0.16;
+        var srcPolyIdxStr = (firstPanel && typeof firstPanel.polyIdx === 'number') ? firstPanel.polyIdx : null;
+
+        var posPath = self.buildOrthogonalManhattanPath3D(startPos, targetForStringPos, {
+          normalOffset: self.CONFIG.DC_POS_OFFSET + (sIdx % 2) * 0.012,
+          lateralOffset: stringBundleOffset + 0.065,
+          descentPoint: descentPillar,
+          sourcePolyIdx: srcPolyIdxStr,
+          basis: basis,
+          waypoints: ctx.hasManualDc ? sState.routes.dc : null
+        });
+
+        var negPath = self.buildOrthogonalManhattanPath3D(startPos, targetForStringNeg, {
+          normalOffset: self.CONFIG.DC_NEG_OFFSET + (sIdx % 2) * 0.012,
+          lateralOffset: stringBundleOffset - 0.065,
+          descentPoint: descentPillar,
+          sourcePolyIdx: srcPolyIdxStr,
+          isNeg: true,
+          basis: basis,
+          waypoints: ctx.hasManualDc ? sState.routes.dc : null
+        });
+
+        var lPos = self.computePathLength(posPath);
+        var lNegHomerun = self.computePathLength(negPath);
+        var lNegTotal = lNegHomerun + lReturn;
+
+        var numMods = sPanels.length;
+        var totalStrLen = lPos + lNegTotal + interModuleM;
+        var strEquivOneWay = totalStrLen / 2.0;
+        if (strEquivOneWay > ctx.maxLdc) ctx.maxLdc = strEquivOneWay;
+
+        var strRoofKey = (firstPanel && typeof firstPanel.polyIdx === 'number') ? ('roof_' + firstPanel.polyIdx) : null;
+        ctx.totalDcStringSingleCoreM += (lPos + lNegTotal);
+        ctx.totalDcSingleCoreM += (lPos + lNegTotal);
+
+        var isNewTrayCluster = self._registerUniqueCluster(ctx.trayClusterAnchors, descentPillar || startPos, strRoofKey);
+        if (isNewTrayCluster) {
+          ctx.totalTrayM += Math.max(lPos, lNegHomerun);
+        } else {
+          var localStub = descentPillar ? Math.min(8.0, Cesium.Cartesian3.distance(startPos, descentPillar)) : 2.0;
+          ctx.totalTrayM += localStub;
+        }
+
+        self._renderCablePrimitives(viewer, sState, posPath, {
+          name: 'Acometida DC+ String #' + (sIdx + 1) + ' (Homerun Pareado)',
+          colorHex: self.CONFIG.COLOR_DC_POS,
+          width: 5.0,
+          radius: self.CONFIG.CABLE_RADIUS_DC
+        }, {
+          text: '⚡ String ' + (sIdx + 1) + ' (DC+/DC-) · ' + totalStrLen.toFixed(1) + ' m [Anti-Bucle]',
+          borderColor: self.CONFIG.COLOR_DC_POS
+        });
+
+        self._renderCablePrimitives(viewer, sState, negPath, {
+          name: 'Acometida DC- String #' + (sIdx + 1) + ' (Homerun Pareado)',
+          colorHex: self.CONFIG.COLOR_DC_NEG,
+          width: 5.0,
+          radius: self.CONFIG.CABLE_RADIUS_DC
+        });
+
+        // ── 5.4 CONDUCTOR DE PUESTA A TIERRA EQUIPOTENCIAL ÚNICO POR CUBIERTA (ITC-BT-18) ──
+        var railBondingM = numMods * 0.75;
+        if (self._registerUniqueCluster(ctx.groundingClusterAnchors, descentPillar || startPos, strRoofKey)) {
+          var groundPath = self.buildOrthogonalManhattanPath3D(startPos, ctx.dcTargetPos, {
+            normalOffset: self.CONFIG.GROUND_OFFSET,
+            lateralOffset: stringBundleOffset + 0.14,
+            descentPoint: descentPillar,
+            sourcePolyIdx: srcPolyIdxStr,
+            basis: basis,
+            waypoints: ctx.hasManualDc ? sState.routes.dc : null
+          });
+          var lGroundMain = self.computePathLength(groundPath);
+          ctx.totalGroundingM += (lGroundMain + railBondingM);
+
+          self._renderCablePrimitives(viewer, sState, groundPath, {
+            name: 'Bajante Principal Tierra Equipotencial Cu ' + ctx.earthSecMm2 + 'mm² (ITC-BT-18)',
+            colorHex: self.CONFIG.COLOR_GROUNDING,
+            width: 3.2,
+            radius: 0.010
+          });
+        } else {
+          ctx.totalGroundingM += railBondingM;
+        }
+
+        ctx.stringTelemetryList.push({
+          index: sIdx + 1,
+          name: strObj.stringName || ('String #' + (sIdx + 1)),
+          numPanels: numMods,
+          homerunLength: Math.round(lPos * 10) / 10,
+          posHomerunLength: Math.round(lPos * 10) / 10,
+          negHomerunLength: Math.round(lNegHomerun * 10) / 10,
+          returnConductorLength: Math.round(lReturn * 10) / 10,
+          interModuleLength: Math.round(interModuleM * 10) / 10,
+          totalCableLength: Math.round(totalStrLen * 10) / 10,
+          isAntiLoop: true
+        });
+      });
+
+      return false;
+    },
+
+    /**
+     * Enruta troncales DC (nodo Paralelo Y, Combiner Box, Cuadro DC ➔ Inversor) y bus DC de batería.
+     */
+    _routeCombiners: function (ctx) {
+      var viewer = ctx.viewer;
+      var sState = ctx.sState;
+      var allStrings = ctx.allStrings;
+      var invPos = ctx.invPos;
+      var cbPos = ctx.cbPos;
+      var dcTargetPos = ctx.dcTargetPos;
+
+      if (ctx.yBranchNode && dcTargetPos) {
+        var yTrunkPath = this.buildOrthogonalManhattanPath3D(ctx.yBranchNode, dcTargetPos, {
+          normalOffset: this.CONFIG.TRAY_OFFSET,
+          waypoints: ctx.hasManualDc ? sState.routes.dc : null
+        });
+        var yTrunkLen = this.computePathLength(yTrunkPath);
+        ctx.maxTrunkLdc += yTrunkLen;
+        ctx.totalTrayM += yTrunkLen;
+        ctx.totalDcTrunkSingleCoreM += (2 * yTrunkLen);
+        ctx.totalDcSingleCoreM += (2 * yTrunkLen);
+
+        this._renderCablePrimitives(viewer, sState, yTrunkPath, {
+          name: 'Troncal DC Bipolar Paralelo Y (90° Manhattan)',
+          colorHex: this.CONFIG.COLOR_TRAY,
+          isTray: true,
+          numStrings: allStrings.length
+        });
+      }
+
+      // 6. Troncal DC: Si existe Combiner Box y además Cuadro DC, la troncal de cubierta baja al Cuadro DC y de ahí al Inversor
+      var dcBoxPos = (sState.dcProtectionPosition && sState.dcProtectionEntity) ? this.toCartesian3(sState.dcProtectionPosition) : null;
+      ctx.dcBoxPos = dcBoxPos;
+      var intermediateTarget = (cbPos && dcBoxPos) ? dcBoxPos : invPos;
+
+      if (cbPos && intermediateTarget && Cesium.Cartesian3.distance(cbPos, intermediateTarget) > 0.05) {
+        var trunkPath = this.buildOrthogonalManhattanPath3D(cbPos, intermediateTarget, {
+          normalOffset: this.CONFIG.TRAY_OFFSET
+        });
+        var lTrunk = this.computePathLength(trunkPath);
+        ctx.maxTrunkLdc += lTrunk;
+        ctx.totalTrayM += lTrunk;
+        ctx.totalDcTrunkSingleCoreM += (2 * lTrunk);
+        ctx.totalDcSingleCoreM += (2 * lTrunk);
+
+        this._renderCablePrimitives(viewer, sState, trunkPath, {
+          name: 'Troncal DC Combiner ➔ Cuadro/Inversor (90° Manhattan 3D)',
+          colorHex: this.CONFIG.COLOR_COMBINER,
+          isTray: true,
+          numStrings: allStrings.length
+        }, {
+          text: '⚡ Troncal DC · ' + lTrunk.toFixed(1) + ' m',
+          borderColor: this.CONFIG.COLOR_COMBINER,
+          font: "bold 10.5px 'JetBrains Mono', monospace"
+        });
+      } else if (!cbPos && dcBoxPos && invPos && Cesium.Cartesian3.distance(dcBoxPos, invPos) > 0.05) {
+        var dcToInvPath = this.buildOrthogonalManhattanPath3D(dcBoxPos, invPos, {
+          normalOffset: this.CONFIG.TRAY_OFFSET
+        });
+        var lDcInv = this.computePathLength(dcToInvPath);
+        ctx.maxTrunkLdc += lDcInv;
+        ctx.totalTrayM += lDcInv;
+        var bridgeCores = Math.max(1, ctx.isParallelY ? 1 : allStrings.length) * 2 * lDcInv;
+        if (ctx.isParallelY) ctx.totalDcTrunkSingleCoreM += bridgeCores;
+        else ctx.totalDcStringSingleCoreM += bridgeCores;
+        ctx.totalDcSingleCoreM += bridgeCores;
+
+        this._renderCablePrimitives(viewer, sState, dcToInvPath, {
+          name: 'Puente DC Cuadro ➔ Inversor (90° Manhattan 3D)',
+          colorHex: this.CONFIG.COLOR_COMBINER,
+          isTray: true,
+          numStrings: allStrings.length
+        });
+      }
+
+      // 6.b Latiguillo de interconexión directa Cuadro DC ➔ Inversor (cuando ambos están presentes con Combiner Box)
+      if (cbPos && dcBoxPos && invPos && Cesium.Cartesian3.distance(dcBoxPos, invPos) > 0.05) {
+        var bridgePath = this.buildOrthogonalManhattanPath3D(dcBoxPos, invPos, {
+          normalOffset: this.CONFIG.TRAY_OFFSET
+        });
+        var lBridge = this.computePathLength(bridgePath);
+        ctx.maxTrunkLdc += lBridge;
+        ctx.totalTrayM += lBridge;
+        ctx.totalDcTrunkSingleCoreM += (2 * lBridge);
+        ctx.totalDcSingleCoreM += (2 * lBridge);
+
+        this._renderCablePrimitives(viewer, sState, bridgePath, {
+          name: 'Puente DC Cuadro ➔ Inversor (90° Manhattan 3D)',
+          colorHex: this.CONFIG.COLOR_COMBINER,
+          isTray: true,
+          numStrings: allStrings.length
+        });
+      }
+
+      // 6.c Bus de Batería DC: Batería LFP ➔ Inversor Híbrido
+      var batPos = (sState.batteryPosition && sState.batteryEntity) ? this.toCartesian3(sState.batteryPosition) : null;
+      if (batPos && invPos && Cesium.Cartesian3.distance(batPos, invPos) > 0.05) {
+        var batBusPath = this.buildOrthogonalManhattanPath3D(batPos, invPos, {
+          normalOffset: this.CONFIG.TRAY_OFFSET
+        });
+        var lBatBus = this.computePathLength(batBusPath);
+        ctx.totalBatteryCableM = Math.round(lBatBus * 2 * 10) / 10;
+
+        this._renderCablePrimitives(viewer, sState, batBusPath, {
+          name: 'Bus DC Batería ➔ Inversor (90° Manhattan 3D)',
+          colorHex: '#10B981',
+          radius: this.CONFIG.CABLE_RADIUS_DC
+        }, {
+          text: '🔋 Bus Batería · ' + lBatBus.toFixed(1) + ' m',
+          borderColor: '#10B981'
+        });
+      }
+    },
+
+    /**
+     * Enruta la línea de evacuación AC (Inversor ➔ Contador) y consolida dimensionamiento REBT,
+     * telemetría de strings y desglose BOM.
+     */
+    _routeAcEvacuation: function (ctx) {
+      var viewer = ctx.viewer;
+      var sState = ctx.sState;
+      var allStrings = ctx.allStrings;
+      var cfg = ctx.cfg;
+      var invPos = ctx.invPos;
+      var meterPos = ctx.meterPos;
+
+      // 7. Línea de Evacuación AC (Inversor ➔ Contador de Red)
+      if (invPos && meterPos) {
+        var acPath = this.buildOrthogonalManhattanPath3D(invPos, meterPos, {
+          normalOffset: this.CONFIG.AC_OFFSET,
+          waypoints: ctx.hasManualAc ? sState.routes.ac : null
+        });
+        var lAc = this.computePathLength(acPath);
+        sState.L_ac_measured = Math.round(lAc * 10) / 10;
+
+        this._renderCablePrimitives(viewer, sState, acPath, {
+          name: 'Línea Evacuación AC (90° Manhattan 3D)',
+          colorHex: this.CONFIG.COLOR_AC,
+          radius: this.CONFIG.CABLE_RADIUS_AC
+        }, {
+          text: '🔌 Evacuación AC · ' + lAc.toFixed(1) + ' m [Tubo]',
+          borderColor: this.CONFIG.COLOR_AC,
+          font: "bold 10.5px 'JetBrains Mono', monospace"
+        });
+      }
+
+      sState.L_dc_string_measured = Math.round(ctx.maxLdc * 10) / 10;
+      sState.L_dc_trunk_measured = Math.round(ctx.maxTrunkLdc * 10) / 10;
+      sState.L_dc_measured = Math.round((ctx.maxLdc + ctx.maxTrunkLdc) * 10) / 10;
+
+      // 8. Dimensionamiento Eléctrico REBT ITC-BT-40 y Actualización de Telemetría (SSOT)
+      this.updateElectricalSizingAndHUD(sState.L_dc_string_measured, sState.L_ac_measured);
+
+      // 9. Completar Telemetría REBT por String y Desglose de Materiales (BOM / Memoria Técnica)
+      var modCfg = global.panelConfig || { potencia: 450, isc: 13.8, imp: 13.05, vmp: 34.5, voc: 41.5 };
+      var vmpNom = modCfg.vmp || 34.5;
+      var vocNom = modCfg.voc || (vmpNom * 1.20);
+      var invCfgForLimits = (global.solarProjectConfig && global.solarProjectConfig.calculatedLimits && global.solarProjectConfig.calculatedLimits.inverter)
+        ? global.solarProjectConfig.calculatedLimits.inverter
+        : { vMaxAbs: 1000, vMpptMin: 200, vMpptMax: 850, vStart: 200 };
+      var climColdC = (global.solarProjectConfig && typeof global.solarProjectConfig.tempMinC === 'number')
+        ? global.solarProjectConfig.tempMinC : undefined;
+      var climHotC = (global.solarProjectConfig && typeof global.solarProjectConfig.tempMaxCellC === 'number')
+        ? global.solarProjectConfig.tempMaxCellC : undefined;
+      var dynLim = (typeof global.calculateDynamicMPPTStringLimits === 'function')
+        ? global.calculateDynamicMPPTStringLimits(
+            { voc: vocNom, vmp: vmpNom, tempCoeffVoc: modCfg.tempCoeffVoc ?? -0.0026, tempCoeffPmax: modCfg.tempCoeffPmax ?? -0.0034 },
+            invCfgForLimits,
+            { Tmin: climColdC, TmaxCell: climHotC }
+          )
+        : null;
+
+      var rawCoeffPmax = modCfg.tempCoeffPmax ?? modCfg.gammaPmp ?? -0.0034;
+      var effCoeffPmax = Math.abs(rawCoeffPmax) > 0.05 ? rawCoeffPmax / 100.0 : rawCoeffPmax;
+      var rawCoeffVoc = modCfg.tempCoeffVoc ?? modCfg.gammaVoc ?? -0.0026;
+      var effCoeffVoc = Math.abs(rawCoeffVoc) > 0.05 ? rawCoeffVoc / 100.0 : rawCoeffVoc;
+
+      var vmpHotMod = (dynLim && (dynLim.Vmp_Tmax > 0 || dynLim.vmpHot > 0))
+        ? (dynLim.Vmp_Tmax || dynLim.vmpHot)
+        : (vmpNom * (1 + effCoeffPmax * (70 - 25)));
+      var vocColdMod = (dynLim && (dynLim.Voc_Tmin > 0 || dynLim.vocCold > 0))
+        ? (dynLim.Voc_Tmin || dynLim.vocCold)
+        : (vocNom * (1 + effCoeffVoc * (-10 - 25)));
+      var rho90 = (global.ELEC_CONSTANTS && global.ELEC_CONSTANTS.RHO_CU_90) ? global.ELEC_CONSTANTS.RHO_CU_90 : 0.023;
+      var imp = modCfg.imp || 13.05;
+      var bifacialGainSt = (global.RA && global.RA.Electrical && typeof global.RA.Electrical.getBifacialGainFactor === 'function')
+        ? global.RA.Electrical.getBifacialGainFactor(modCfg)
+        : (function () {
+            var isBif = !!(modCfg && (modCfg.bifacial || modCfg.isBifacial || (modCfg.bifacialityFactor && modCfg.bifacialityFactor > 0) || (modCfg.tecnologia && String(modCfg.tecnologia).toLowerCase().indexOf('bifacial') !== -1) || /bifacial/i.test(modCfg.name || modCfg.model || modCfg.modelo || '')));
+            if (!isBif) return 1.0;
+            var bf = (typeof modCfg.bifacialityFactor === 'number' && modCfg.bifacialityFactor > 0) ? Math.min(1.0, modCfg.bifacialityFactor) : 0.75;
+            var pCfg = global.solarProjectConfig || {};
+            var rg = (typeof modCfg.rearGain === 'number' && modCfg.rearGain >= 0) ? modCfg.rearGain : ((typeof pCfg.bifacialRearGain === 'number' && pCfg.bifacialRearGain >= 0) ? pCfg.bifacialRearGain : 0.20);
+            return 1.0 + (bf * rg);
+          })();
+      var impEff = imp * bifacialGainSt;
+      var secDc = sState.S_dc_recommended || 6;
+
+      ctx.stringTelemetryList.forEach(function (st) {
+        var nMods = st.numPanels || 1;
+        st.vmpHot = Math.round(nMods * vmpHotMod * 10) / 10;
+        st.vocCold = Math.round(nMods * vocColdMod * 10) / 10;
+        st.recommendedSection = secDc;
+        var hasPos = (typeof st.posHomerunLength === 'number' || typeof st.homerunLength === 'number');
+        var fullLoopM = hasPos
+          ? ((st.posHomerunLength || st.homerunLength || 0) + (st.negHomerunLength || st.homerunLength || 0) + (st.returnConductorLength || 0) + (st.interModuleLength || 0))
+          : (2 * (sState.L_dc_string_measured || 20));
+        st.fullLoopLength = Math.round(fullLoopM * 10) / 10;
+        var dVStr = (rho90 * fullLoopM * impEff) / secDc;
+        var dVpctStr = (dVStr / Math.max(12.0, st.vmpHot)) * 100;
+        st.voltageDropV = Math.round(dVStr * 100) / 100;
+        st.voltageDropPct = Math.round(dVpctStr * 100) / 100;
+        st.compliance = (dVpctStr <= 1.5);
+      });
+      sState.stringTelemetry = ctx.stringTelemetryList;
+
+      var numStrings = allStrings.length;
+      var maxStringsInSingleTray = 1;
+      for (var tci = 0; tci < ctx.trayClusterAnchors.length; tci++) {
+        if ((ctx.trayClusterAnchors[tci].count || 1) > maxStringsInSingleTray) {
+          maxStringsInSingleTray = ctx.trayClusterAnchors[tci].count;
+        }
+      }
+      var effTrayStrings = (ctx.trayClusterAnchors.length > 0) ? maxStringsInSingleTray : numStrings;
+      var trayWidthMm = (effTrayStrings <= 1) ? 60 : ((effTrayStrings === 2) ? 60 : ((effTrayStrings <= 4) ? 100 : 150));
+      var trayDesc = (effTrayStrings <= 1)
+        ? 'Tubo rígido D=32mm libre de halógenos'
+        : ('Bandeja metálica perforada ' + trayWidthMm + 'x60 mm con tapa (REBT ITC-BT-19)');
+
+      var invCountBreakdown = (cfg && cfg.autoSizing && cfg.autoSizing.inverters && Number.isFinite(cfg.autoSizing.inverters.count))
+        ? Math.max(1, cfg.autoSizing.inverters.count) : 1;
+
+      sState.cableBreakdown = {
+        totalDcCableMeters: Math.round(ctx.totalDcSingleCoreM * 10) / 10,
+        dcStringCableMeters: Math.round(ctx.totalDcStringSingleCoreM * 10) / 10,
+        dcTrunkCableMeters: Math.round(ctx.totalDcTrunkSingleCoreM * 10) / 10,
+        dcStringSecMm2: sState.S_dc_recommended || 6,
+        dcTrunkSecMm2: sState.S_mdc_recommended || sState.S_dc_recommended || 6,
+        batteryCableMeters: ctx.totalBatteryCableM,
+        batteryCableSecMm2: 25,
+        totalInterModuleMeters: Math.round(ctx.totalInterModuleJumpersM * 10) / 10,
+        interModuleJumperCount: ctx.totalInterModuleJumperCount,
+        totalTrayMeters: Math.round(ctx.totalTrayM * 10) / 10,
+        trayType: trayDesc,
+        trayWidthMm: trayWidthMm,
+        totalAcConduitMeters: Math.round((sState.L_ac_measured || 0) * 10) / 10,
+        acConduitSpec: 'Tubo rígido curvable en frío M32 libre de halógenos (REBT ITC-BT-20)',
+        totalAcCableMeters: Math.round((sState.L_ac_measured || 0) * 10) / 10,
+        acMainCableMeters: Math.round((sState.L_ac_measured || 0) * 10) / 10,
+        acBranchCableMeters: (invCountBreakdown > 1) ? (invCountBreakdown * 5) : 0,
+        acMainSecMm2: sState.S_ac_recommended || 10,
+        acBranchSecMm2: sState.S_ac_branch_recommended || sState.S_ac_recommended || 10,
+        acCableSpec: 'Manguera RZ1-K (AS) 0,6/1 kV libre de halógenos ' + (sState.S_ac_recommended || 10) + ' mm²',
+        totalGroundingMeters: Math.round(ctx.totalGroundingM * 10) / 10,
+        groundingSecMm2: sState.S_earth_recommended || ctx.earthSecMm2,
+        groundingSpec: 'Cable de cobre Cu ' + (sState.S_earth_recommended || ctx.earthSecMm2) + ' mm² equipotencial único por cubierta (ITC-BT-18)',
+        mc4ConnectorPairs: (numStrings * 2) + (ctx.isParallelY ? Math.max(1, numStrings - 1) * 2 : 0) + (ctx.dcBoxPos ? numStrings * 2 : 0),
+        fillFactorPct: Math.min(40, Math.round(((effTrayStrings * 2 * 35) / (trayWidthMm * 60)) * 100))
+      };
+
+      console.info('[RACableEngine] ⚡ Cables generados con éxito: ' + allStrings.length + ' string(s), maxLdc=' + ctx.maxLdc.toFixed(1) + 'm, Lac=' + (sState.L_ac_measured || 0).toFixed(1) + 'm');
+
+      if (viewer.scene && typeof viewer.scene.requestRender === 'function') {
+        viewer.scene.requestRender();
+      }
+    },
+
+    /**
      * Motor Principal de Renderizado de Cableado DC y AC con Trazado Ortogonal 3D y Sombras
      */
     renderAllCables: function () {
@@ -1732,924 +2586,92 @@
           sState.dcCableEntities = [];
         }
 
-      // 2. Recolectar strings y asegurar equipos
-      var allStrings = this.gatherAllStrings();
-      if (!allStrings || allStrings.length === 0) {
-        sState.L_dc_measured = 0;
-        sState.L_ac_measured = 0;
-        this.updateElectricalSizingAndHUD(0, 0);
-        return;
-      }
-
-      this.ensureDefaultEquipmentPositions(allStrings);
-
-      var invPos = this.toCartesian3(sState.position);
-      var cbPos = (sState.combinerBox && sState.combinerBox.position && sState.combinerBox.isEnabled)
-        ? this.toCartesian3(sState.combinerBox.position)
-        : null;
-      var meterPos = (sState.gridMeter && sState.gridMeter.position)
-        ? this.toCartesian3(sState.gridMeter.position)
-        : null;
-      var dcTargetPos = cbPos || (sState.dcProtectionPosition ? this.toCartesian3(sState.dcProtectionPosition) : invPos);
-
-      if (!dcTargetPos) {
-        sState.L_dc_measured = 0;
-        sState.L_ac_measured = 0;
-        this.updateElectricalSizingAndHUD(0, 0);
-        return;
-      }
-
-      var hasManualDc = (sState.routes && Array.isArray(sState.routes.dc) && sState.routes.dc.length > 0);
-      var hasManualAc = (sState.routes && Array.isArray(sState.routes.ac) && sState.routes.ac.length > 0);
-      var maxLdc = 0;
-      var self = this;
-
-      // 3. Renderizar Codos Interactivos + Puntos Medios "+" (DC y AC) si hay rutas manuales
-      function renderRouteHandles(routeType, pts, colorHex) {
-        if (!Array.isArray(pts) || pts.length === 0) return;
-        var labelPrefix = (routeType === 'ac') ? 'Codo Tubo AC #' : 'Codo Bandeja DC #';
-        var liftM = self.auditElevationMode ? (self.CONFIG.AUDIT_ELEVATION_M || 0.24) : 0;
-        var selRV = (typeof global.selectedRouteVertex !== 'undefined') ? global.selectedRouteVertex : null;
-        var visualPts = [];
-
-        pts.forEach(function (pt, pIdx) {
-          var pC3 = self.toCartesian3(pt);
-          if (!pC3) return;
-          var visPos = pC3;
-          if (liftM > 0) {
-            var upV = Cesium.Ellipsoid.WGS84.geodeticSurfaceNormal(pC3, new Cesium.Cartesian3());
-            visPos = Cesium.Cartesian3.add(pC3, Cesium.Cartesian3.multiplyByScalar(upV, liftM, new Cesium.Cartesian3()), new Cesium.Cartesian3());
-          }
-          visualPts.push(visPos);
-          var isSel = !!(selRV && selRV.type === routeType && selRV.index === pIdx);
-          var node = viewer.entities.add({
-            id: 'ra_route_handle_' + routeType + '_' + pIdx,
-            name: labelPrefix + (pIdx + 1),
-            position: visPos,
-            point: {
-              pixelSize: isSel ? 14 : 11,
-              color: Cesium.Color.fromCssColorString(isSel ? '#10B981' : colorHex),
-              outlineColor: isSel ? Cesium.Color.fromCssColorString('#FDE047') : Cesium.Color.WHITE,
-              outlineWidth: isSel ? 3 : 2,
-              disableDepthTestDistance: Number.POSITIVE_INFINITY
-            }
-          });
-          sState.dcCableEntities.push(node);
-        });
-
-        // Tiradores intermedios "+" para insertar un nuevo codo en cualquier segmento
-        for (var si = 0; si < visualPts.length - 1; si++) {
-          var midVis = Cesium.Cartesian3.midpoint(visualPts[si], visualPts[si + 1], new Cesium.Cartesian3());
-          var midNode = viewer.entities.add({
-            id: 'ra_route_mid_' + routeType + '_' + si,
-            name: 'Insertar codo intermedio (+)',
-            position: midVis,
-            point: {
-              pixelSize: 8,
-              color: Cesium.Color.fromCssColorString('#10B981').withAlpha(0.85),
-              outlineColor: Cesium.Color.WHITE,
-              outlineWidth: 1.5,
-              disableDepthTestDistance: Number.POSITIVE_INFINITY
-            }
-          });
-          sState.dcCableEntities.push(midNode);
-        }
-      }
-      if (hasManualDc) renderRouteHandles('dc', sState.routes.dc, self.CONFIG.COLOR_TRAY);
-      if (hasManualAc) renderRouteHandles('ac', sState.routes.ac, self.CONFIG.COLOR_AC);
-
-      // 4. Determinar Topología (Microinversores AC vs Serie/Optimizadores vs Paralelo Y)
-      var cfg = global.solarProjectConfig || {};
-      var isMicroTopology = (cfg.selectedTopology === 'microinverter');
-      var _dcTopo = this.getDcTopologyInfo(allStrings.length);
-      var isParallelY = !isMicroTopology && _dcTopo.isParallel && allStrings.length >= 2;
-
-      function getJunctionBoxPos(panel) {
-        if (!panel) return null;
-        var center = panel.center;
-        if (!center && panel.corners && panel.corners.length > 0) center = panel.corners[0];
-        if (!center || typeof center.x !== 'number' || isNaN(center.x)) return null;
-
-        // 1. Si disponemos de las 4 esquinas 3D (panel.corners), ubicar la caja centrada sobre el eje del módulo
-        // (22% hacia el tercio superior, nunca pegada al marco exterior donde se confunde con la placa adyacente)
-        if (Array.isArray(panel.corners) && panel.corners.length === 4) {
-          try {
-            var topEdgeMid = Cesium.Cartesian3.midpoint(panel.corners[2], panel.corners[3], new Cesium.Cartesian3());
-            var jPos = Cesium.Cartesian3.lerp(center, topEdgeMid, 0.22, new Cesium.Cartesian3());
-            if (!isNaN(jPos.x) && !isNaN(jPos.y) && !isNaN(jPos.z)) {
-              return jPos;
-            }
-          } catch (_) {}
+        // 2. Recolectar strings y asegurar equipos
+        var allStrings = this.gatherAllStrings();
+        if (!allStrings || allStrings.length === 0) {
+          sState.L_dc_measured = 0;
+          sState.L_ac_measured = 0;
+          this.updateElectricalSizingAndHUD(0, 0);
+          return;
         }
 
-        // 2. Fallback usando el vector V de la base ortonormal del tejado
-        try {
-          var basisFb = self.getRoofOrthonormalBasis(center, panel.polyIdx);
-          if (basisFb && basisFb.vVec && typeof panel.h === 'number' && !isNaN(panel.h)) {
-            var offset = Cesium.Cartesian3.multiplyByScalar(basisFb.vVec, panel.h * 0.12, new Cesium.Cartesian3());
-            var jPos2 = Cesium.Cartesian3.add(center, offset, new Cesium.Cartesian3());
-            if (!isNaN(jPos2.x) && !isNaN(jPos2.y) && !isNaN(jPos2.z)) {
-              return jPos2;
-            }
-          }
-        } catch (_) {}
+        this.ensureDefaultEquipmentPositions(allStrings);
 
-        return center;
-      }
-
-      // Helper compartido: registrar clúster único de bajante (tierra o bandeja común) por cubierta (roofKey) y punto de descenso
-      var groundingClusterAnchors = [];
-      var trayClusterAnchors = [];
-      function registerUniqueCluster(anchors, anchorPos, roofKey) {
-        if (!anchorPos) return true;
-        var aC3 = self.toCartesian3(anchorPos);
-        if (!aC3) return true;
-        var aCarto = (Cesium.Cartographic && typeof Cesium.Cartographic.fromCartesian === 'function')
-          ? Cesium.Cartographic.fromCartesian(aC3)
+        var invPos = this.toCartesian3(sState.position);
+        var cbPos = (sState.combinerBox && sState.combinerBox.position && sState.combinerBox.isEnabled)
+          ? this.toCartesian3(sState.combinerBox.position)
           : null;
-        var rKeyNorm = (roofKey !== undefined && roofKey !== null) ? String(roofKey) : null;
-        for (var ci = 0; ci < anchors.length; ci++) {
-          var ex = anchors[ci];
-          if (rKeyNorm !== null && ex.roofKey !== null) {
-            if (ex.roofKey === rKeyNorm) {
-              ex.count = (ex.count || 1) + 1;
-              return false;
-            }
-            continue;
-          }
-          var dHoriz = Cesium.Cartesian3.distance(aC3, ex.pos);
-          var dElev = Math.abs((aCarto ? aCarto.height : 0) - ex.height);
-          if (dHoriz < 8.0 && dElev < 1.5) {
-            ex.count = (ex.count || 1) + 1;
-            return false;
-          }
-        }
-        anchors.push({ pos: aC3, height: aCarto ? aCarto.height : 0, roofKey: rKeyNorm, count: 1 });
-        return true;
-      }
+        var meterPos = (sState.gridMeter && sState.gridMeter.position)
+          ? this.toCartesian3(sState.gridMeter.position)
+          : null;
+        var dcTargetPos = cbPos || (sState.dcProtectionPosition ? this.toCartesian3(sState.dcProtectionPosition) : invPos);
 
-      // Variables acumuladoras para desglose y metrado REBT por tipo de conductor
-      var totalDcSingleCoreM = 0;
-      var totalDcStringSingleCoreM = 0;
-      var totalDcTrunkSingleCoreM = 0;
-      var totalInterModuleJumpersM = 0;
-      var totalInterModuleJumperCount = 0;
-      var totalBatteryCableM = 0;
-      var maxTrunkLdc = 0;
-      var totalTrayM = 0;
-      var totalGroundingM = 0;
-      var totalAcTrunkM = 0;
-      var totalMicroTrunkBusM = 0;
-      var totalMicroDropM = 0;
-      var acJunctionBoxCount = 0;
-      var stringTelemetryList = [];
-      var hasExtLightning = !!(cfg && cfg.hasExternalLightningRod);
-      var earthSecMm2 = hasExtLightning ? 16 : 6;
-
-      if (isMicroTopology) {
-        // ── MODO MICROINVERSORES AC (PARTICIÓN POR RAMAL 20A Y CAÍDA EN BUS TRONCAL) ─
-        var allMicroPanels = [];
-        allStrings.forEach(function (st) {
-          if (st && Array.isArray(st.panels)) {
-            st.panels.forEach(function (p) { if (p) allMicroPanels.push(p); });
-          }
-        });
-
-        var catMi = (global.equipmentCatalog && Array.isArray(global.equipmentCatalog.microinverters)) ? global.equipmentCatalog.microinverters : [];
-        var miSpec = catMi.find(function (m) { return m && m.id === cfg.selectedMicroinverterId && !(m.type && m.type.indexOf('Optimizador') !== -1); })
-          || catMi.find(function (m) { return m && !(m.type && m.type.indexOf('Optimizador') !== -1); })
-          || { kw: 0.8, inputsPerUnit: 2 };
-        var miRatio = (typeof global.raGetMicroinverterRatio === 'function') ? global.raGetMicroinverterRatio(miSpec) : (miSpec.inputsPerUnit || 2);
-        var miUnitKw = (miSpec && miSpec.kw > 0) ? miSpec.kw : 0.8;
-        var isMonoMicro = (cfg.gridSupply === 'single_phase');
-        // Límite reglamentario por circuito ramal de 20 A (16 A continuos: ~3.68 kW en 1F 230V, ~11.0 kW en 3F 400V)
-        var maxBranchKw = isMonoMicro ? 3.68 : 11.0;
-        var maxUnitsPerBranch = Math.max(1, Math.floor(maxBranchKw / miUnitKw));
-        var maxPanelsPerBranch = Math.max(2, maxUnitsPerBranch * miRatio);
-
-        // Agrupar paneles por faldón físico (polyIdx) y subdividir en ramales según capacidad máxima del bus AC
-        var panelsByRoof = {};
-        var roofOrder = [];
-        allMicroPanels.forEach(function (p) {
-          var rKey = (typeof p.polyIdx === 'number') ? ('roof_' + p.polyIdx) : 'roof_0';
-          if (!panelsByRoof[rKey]) { panelsByRoof[rKey] = []; roofOrder.push(rKey); }
-          panelsByRoof[rKey].push(p);
-        });
-
-        var acMainTarget = meterPos || invPos || dcTargetPos;
-        var maxBranchAcM = 0;
-        var maxBranchTrunkBusM = 0;
-
-        roofOrder.forEach(function (rKey, rIdx) {
-          var rPanels = panelsByRoof[rKey];
-          if (!rPanels || rPanels.length === 0) return;
-          var rSample = self.toCartesian3(rPanels[0].center || (rPanels[0].corners && rPanels[0].corners[0]));
-          var rBasis = self.getRoofOrthonormalBasis(rSample, rPanels[0] && rPanels[0].polyIdx);
-          var sortedMicroPanels = self.sortPanelsForStringing(rPanels, rBasis);
-
-          for (var bStart = 0, bIdx = 0; bStart < sortedMicroPanels.length; bStart += maxPanelsPerBranch, bIdx++) {
-            var branchPanels = sortedMicroPanels.slice(bStart, bStart + maxPanelsPerBranch);
-            if (branchPanels.length === 0) continue;
-
-            var trunkPts = [];
-            for (var mp = 0; mp < branchPanels.length; mp++) {
-              var jPt = self.toCartesian3(getJunctionBoxPos(branchPanels[mp]));
-              if (jPt) {
-                var elMPt = self.elevatePoint(jPt, self.CONFIG.TRAY_OFFSET, rBasis.normal);
-                trunkPts.push(elMPt);
-                var mNode = self.addJunctionConnectionNode(viewer, elMPt, { role: 'micro' });
-                if (mNode) sState.dcCableEntities.push(mNode);
-              }
-            }
-            var trunkBusLen = 0;
-            if (trunkPts.length >= 2) {
-              trunkBusLen = self.computePathLength(trunkPts);
-              if (trunkBusLen > maxBranchTrunkBusM) maxBranchTrunkBusM = trunkBusLen;
-              totalMicroTrunkBusM += trunkBusLen;
-              totalAcTrunkM += trunkBusLen;
-              var microTrunkEnts = self.createVolumetricEntity(viewer, trunkPts, {
-                name: 'Bus AC Troncal Microinversores Faldón #' + (rIdx + 1) + ' Ramal #' + (bIdx + 1),
-                colorHex: '#F59E0B',
-                width: 4.5
-              });
-              microTrunkEnts.forEach(function (e) { sState.dcCableEntities.push(e); });
-            }
-
-            // Caja de derivación estanca IP65 en cabecera del ramal AC -> bajante al Cuadro General AC
-            var jBoxStart = self.toCartesian3(getJunctionBoxPos(branchPanels[0]));
-            if (jBoxStart && acMainTarget) {
-              acJunctionBoxCount++;
-              var dropPillarAc = self.findClosestStructurePillar(jBoxStart, acMainTarget, branchPanels);
-              var acDropPath = self.buildOrthogonalManhattanPath3D(jBoxStart, acMainTarget, {
-                normalOffset: self.CONFIG.AC_OFFSET + (bIdx * 0.012),
-                descentPoint: dropPillarAc,
-                sourcePolyIdx: (branchPanels[0] && typeof branchPanels[0].polyIdx === 'number') ? branchPanels[0].polyIdx : null,
-                basis: rBasis,
-                waypoints: (rIdx === 0 && bIdx === 0 && hasManualAc) ? sState.routes.ac : null
-              });
-              var lAcBranch = self.computePathLength(acDropPath);
-              if (lAcBranch > maxBranchAcM) maxBranchAcM = lAcBranch;
-              totalMicroDropM += lAcBranch;
-              totalAcTrunkM += lAcBranch;
-
-              var acDropEnts = self.createVolumetricEntity(viewer, acDropPath, {
-                name: 'Derivación AC Caja IP65 Cubierta ➔ CGBT (Faldón #' + (rIdx + 1) + ' Ramal #' + (bIdx + 1) + ')',
-                colorHex: self.CONFIG.COLOR_AC,
-                radius: self.CONFIG.CABLE_RADIUS_AC
-              });
-              acDropEnts.forEach(function (e) { sState.dcCableEntities.push(e); });
-
-              // 1 única bajante equipotencial de tierra por cubierta física (rKey) + enlace entre perfiles (0.75 m/panel)
-              if (registerUniqueCluster(groundingClusterAnchors, jBoxStart, rKey)) {
-                var gPathMicro = self.buildOrthogonalManhattanPath3D(jBoxStart, acMainTarget, {
-                  normalOffset: self.CONFIG.GROUND_OFFSET,
-                  descentPoint: dropPillarAc,
-                  basis: rBasis
-                });
-                totalGroundingM += self.computePathLength(gPathMicro) + (branchPanels.length * 0.75);
-                var gEntMicro = self.createVolumetricEntity(viewer, gPathMicro, {
-                  name: 'Tierra Equipotencial Cu ' + earthSecMm2 + 'mm² Cubierta #' + (rIdx + 1) + ' (ITC-BT-18)',
-                  colorHex: self.CONFIG.COLOR_GROUNDING,
-                  width: 3.0,
-                  radius: 0.010
-                });
-                gEntMicro.forEach(function (e) { sState.dcCableEntities.push(e); });
-              } else {
-                totalGroundingM += (branchPanels.length * 0.75);
-              }
-            }
-          }
-        });
-
-        var totalMicroUnitsCount = Math.max(1, Math.ceil(allMicroPanels.length / Math.max(1, miRatio)));
-        sState.L_dc_measured = 0;
-        sState.L_dc_string_measured = 0;
-        sState.L_dc_trunk_measured = 0;
-        // Longitud equivalente de caída AC: bajante hasta cuadro + 0.5 × bus troncal con carga distribuida en cubierta
-        sState.L_ac_measured = Math.round((maxBranchAcM + (maxBranchTrunkBusM * 0.5)) * 10) / 10;
-        this.updateElectricalSizingAndHUD(0, sState.L_ac_measured);
-        sState.stringTelemetry = [];
-        sState.cableBreakdown = {
-          topology: 'microinverter',
-          totalDcCableMeters: 0,
-          dcStringCableMeters: 0,
-          dcTrunkCableMeters: 0,
-          totalInterModuleMeters: 0,
-          interModuleJumperCount: 0,
-          totalTrayMeters: Math.round(totalAcTrunkM * 10) / 10,
-          trayType: 'Bus AC Troncal (' + acJunctionBoxCount + ' ramal(es) ≤20A) + Caja estanca IP65',
-          trayWidthMm: 60,
-          totalAcConduitMeters: Math.round(totalMicroDropM * 10) / 10,
-          acConduitSpec: 'Tubo rígido curvable en frío M32 libre de halógenos (REBT ITC-BT-20)',
-          totalAcCableMeters: Math.round(totalAcTrunkM * 10) / 10,
-          acMainCableMeters: Math.round(totalMicroDropM * 10) / 10,
-          microTrunkCableMeters: Math.round(totalMicroTrunkBusM * 10) / 10,
-          acBranchCableMeters: Math.round(totalMicroTrunkBusM * 10) / 10,
-          acCableSpec: 'Manguera RZ1-K (AS) 0,6/1 kV libre de halógenos ' + (sState.S_ac_recommended || 6) + ' mm²',
-          totalGroundingMeters: Math.round(totalGroundingM * 10) / 10,
-          groundingSecMm2: earthSecMm2,
-          groundingSpec: 'Cable de cobre Cu ' + earthSecMm2 + ' mm² equipotencial único por cubierta (ITC-BT-18)',
-          mc4ConnectorPairs: 0,
-          microBusConnectors: totalMicroUnitsCount + (acJunctionBoxCount * 2),
-          acJunctionBoxes: acJunctionBoxCount,
-          gatewayIncluded: true,
-          fillFactorPct: 20
-        };
-        if (viewer.scene && typeof viewer.scene.requestRender === 'function') viewer.scene.requestRender();
-        return;
-      }
-
-      // Si la topología es Paralelo Y: centroide común positivo y negativo para todos los strings convergentes
-      var yBranchNodePos = null;
-      var yBranchNodeNeg = null;
-      var yBranchNode = null;
-      if (isParallelY && allStrings.length >= 2) {
-        var sumPos = new Cesium.Cartesian3(0, 0, 0);
-        var sumNeg = new Cesium.Cartesian3(0, 0, 0);
-        var cntPos = 0, cntNeg = 0;
-        allStrings.forEach(function (strItem) {
-          if (strItem && Array.isArray(strItem.panels) && strItem.panels.length > 0) {
-            var pStart = self.toCartesian3(strItem.panels[0].center);
-            var pEnd = self.toCartesian3(strItem.panels[strItem.panels.length - 1].center);
-            if (pStart) { Cesium.Cartesian3.add(sumPos, pStart, sumPos); cntPos++; }
-            if (pEnd) { Cesium.Cartesian3.add(sumNeg, pEnd, sumNeg); cntNeg++; }
-          }
-        });
-        if (cntPos >= 2) yBranchNodePos = Cesium.Cartesian3.divideByScalar(sumPos, cntPos, new Cesium.Cartesian3());
-        if (cntNeg >= 2) yBranchNodeNeg = Cesium.Cartesian3.divideByScalar(sumNeg, cntNeg, new Cesium.Cartesian3());
-        if (yBranchNodePos && yBranchNodeNeg) {
-          yBranchNode = Cesium.Cartesian3.midpoint(yBranchNodePos, yBranchNodeNeg, new Cesium.Cartesian3());
-        } else {
-          yBranchNode = yBranchNodePos || yBranchNodeNeg;
-        }
-      }
-
-      // 5. Generar y Renderizar Trazados DC para cada String con Retorno Compensado Anti-Bucle (UNE-EN 62305)
-      allStrings.forEach(function (strObj, sIdx) {
-        var rawPanels = strObj.panels || [];
-        if (rawPanels.length === 0) return;
-
-        var samplePos = self.toCartesian3(rawPanels[0].center || (rawPanels[0].corners && rawPanels[0].corners[0]));
-        var basis = self.getRoofOrthonormalBasis(samplePos, rawPanels[0] && rawPanels[0].polyIdx);
-        var activeTopo = (global.solarProjectConfig && global.solarProjectConfig.stringWiringTopology) || 'leapfrog';
-        var alreadyOrdered = (activeTopo === 'leapfrog') || !!strObj.preSorted || (rawPanels.length > 1 && !!rawPanels[0].stringName);
-        var sPanels = alreadyOrdered ? rawPanels.slice() : self.sortPanelsForStringing(rawPanels, basis);
-
-        var firstPanel = sPanels[0];
-        var termPanel = sPanels[sPanels.length - 1];
-
-        var startPos = self.toCartesian3(getJunctionBoxPos(firstPanel));
-        var termPos = self.toCartesian3(getJunctionBoxPos(termPanel));
-        if (!startPos || !termPos || !dcTargetPos) return;
-
-        // Pilar o arista de descenso más próximo a los equipos
-        var descentPillar = self.findClosestStructurePillar(startPos, dcTargetPos, sPanels);
-
-        var stringColor = (firstPanel && firstPanel.stringColor) || self.CONFIG.STRING_COLORS[sIdx % self.CONFIG.STRING_COLORS.length];
-
-        // Helper: solo permitir zanja subterránea entre estructuras independientes de suelo/pérgola, jamás atravesando un tejado
-        var isSeparateGroundStructureJump = function (pA, pB) {
-          if (!pA || !pB) return false;
-          if (typeof pA.polyIdx !== 'number' || typeof pB.polyIdx !== 'number' || pA.polyIdx === pB.polyIdx) return false;
-          var WPcur = global.WP || (typeof window !== 'undefined' ? window.WP : null);
-          if (!WPcur || !Array.isArray(WPcur.polylines)) return false;
-          var plA = WPcur.polylines[pA.polyIdx];
-          var plB = WPcur.polylines[pB.polyIdx];
-          var isGroundOrPerg = function (pl) {
-            var st = (pl && ((pl.estructura && pl.estructura.tipo) || pl.structureType || pl.modStructure || '')) || '';
-            return /pergola|carport|ground|suelo|marquesina/i.test(st);
-          };
-          return isGroundOrPerg(plA) && isGroundOrPerg(plB);
-        };
-
-        // ── 5.1 LATIGUILLOS INTERMÓDULO (STRINGING 3D) ─────────────────────────
-        // Entre placas adyacentes en fila (<= 2.4 m) se usan los cables propios de fábrica (~1.1 m);
-        // al saltar chimeneas o huecos en el mismo tejado el cable rodea SIEMPRE sobre cubierta (nunca taladra el forjado).
-        var interModuleM = 0;
-        if (sPanels.length > 1) {
-          for (var p = 0; p < sPanels.length - 1; p++) {
-            var pCur = sPanels[p];
-            var pNext = sPanels[p + 1];
-            var pCurBasis = (p > 0 && typeof pCur.polyIdx === 'number' && typeof rawPanels[0].polyIdx === 'number' && pCur.polyIdx !== rawPanels[0].polyIdx)
-              ? self.getRoofOrthonormalBasis(self.toCartesian3(pCur.center || (pCur.corners && pCur.corners[0])), pCur.polyIdx)
-              : basis;
-            var jA = self.toCartesian3(getJunctionBoxPos(pCur));
-            var jB = self.toCartesian3(getJunctionBoxPos(pNext));
-            if (jA && jB) {
-              var elevatedA = self.elevatePoint(jA, self.CONFIG.JUMPER_OFFSET, pCurBasis.normal);
-              var elevatedB = self.elevatePoint(jB, self.CONFIG.JUMPER_OFFSET, pCurBasis.normal);
-              var directDist = Cesium.Cartesian3.distance(elevatedA, elevatedB);
-
-              var jumperPts;
-              var isUndergroundTrench = isSeparateGroundStructureJump(pCur, pNext);
-              var isRoofGapJump = !isUndergroundTrench && (directDist > 2.4);
-
-              if (isUndergroundTrench) {
-                // Enlace subterráneo exclusivo entre pérgolas/marquesinas independientes en suelo (REBT ITC-BT-07/20)
-                var upA = Cesium.Ellipsoid.WGS84.geodeticSurfaceNormal(elevatedA, new Cesium.Cartesian3());
-                var upB = Cesium.Ellipsoid.WGS84.geodeticSurfaceNormal(elevatedB, new Cesium.Cartesian3());
-                var dropDistA = 3.5;
-                var dropDistB = 3.5;
-                if (dcTargetPos) {
-                  var diffZA = Cesium.Cartesian3.dot(Cesium.Cartesian3.subtract(elevatedA, dcTargetPos, new Cesium.Cartesian3()), upA);
-                  if (diffZA > 0.8) dropDistA = diffZA;
-                  var diffZB = Cesium.Cartesian3.dot(Cesium.Cartesian3.subtract(elevatedB, dcTargetPos, new Cesium.Cartesian3()), upB);
-                  if (diffZB > 0.8) dropDistB = diffZB;
-                }
-                var footA = Cesium.Cartesian3.subtract(elevatedA, Cesium.Cartesian3.multiplyByScalar(upA, dropDistA, new Cesium.Cartesian3()), new Cesium.Cartesian3());
-                var footB = Cesium.Cartesian3.subtract(elevatedB, Cesium.Cartesian3.multiplyByScalar(upB, dropDistB, new Cesium.Cartesian3()), new Cesium.Cartesian3());
-                jumperPts = [elevatedA, footA, footB, elevatedB];
-              } else if (isRoofGapJump && pCurBasis && pCurBasis.uVec) {
-                // Salto de hueco o chimenea SOBRE CUBIERTA: trazado ortogonal en el plano del tejado rodeando obstáculos con margen holgado
-                var dispJ = Cesium.Cartesian3.subtract(elevatedB, elevatedA, new Cesium.Cartesian3());
-                var midJ = Cesium.Cartesian3.add(elevatedA, Cesium.Cartesian3.multiplyByScalar(pCurBasis.uVec, Cesium.Cartesian3.dot(dispJ, pCurBasis.uVec), new Cesium.Cartesian3()), new Cesium.Cartesian3());
-                jumperPts = self.detourAroundObstacles([elevatedA, midJ, elevatedB], pCurBasis, 0.52);
-              } else {
-                // Latiguillo normal bajo los módulos de la misma mesa (verificando igualmente holgura frente a chimeneas próximas)
-                jumperPts = self.detourAroundObstacles([elevatedA, elevatedB], pCurBasis, 0.45);
-              }
-
-              var jLen = self.computePathLength(jumperPts);
-              if (isUndergroundTrench || isRoofGapJump) {
-                interModuleM += jLen;
-                totalInterModuleJumperCount += Math.max(1, Math.ceil(jLen / 1.5));
-              } else if (activeTopo === 'leapfrog' && directDist > 1.35) {
-                totalInterModuleJumperCount += 1;
-              }
-
-              var jumperEntities = self.createVolumetricEntity(viewer, jumperPts, {
-                name: 'Latiguillo ' + (isUndergroundTrench ? 'Subterráneo' : (isRoofGapJump ? 'Sobre Cubierta' : 'Intermódulo')) + ' ' + (p + 1) + '➔' + (p + 2) + ' String #' + (sIdx + 1),
-                colorHex: stringColor,
-                width: (isUndergroundTrench || isRoofGapJump) ? 4.2 : 3.5
-              });
-              jumperEntities.forEach(function (e) { sState.dcCableEntities.push(e); });
-            }
-          }
-        }
-        totalInterModuleJumpersM += interModuleM;
-
-        // ── 5.1b NODOS CIRCULARES DE CONEXIÓN POR PLACA (CAJA DE CONEXIONES + EXTREMOS + / -) ──
-        for (var np = 0; np < sPanels.length; np++) {
-          var npPanel = sPanels[np];
-          var npBasis = (np > 0 && typeof npPanel.polyIdx === 'number' && typeof rawPanels[0].polyIdx === 'number' && npPanel.polyIdx !== rawPanels[0].polyIdx)
-            ? self.getRoofOrthonormalBasis(self.toCartesian3(npPanel.center || (npPanel.corners && npPanel.corners[0])), npPanel.polyIdx)
-            : basis;
-          var jNodePos = self.toCartesian3(getJunctionBoxPos(npPanel));
-          if (jNodePos) {
-            var elNodePos = self.elevatePoint(jNodePos, self.CONFIG.JUMPER_OFFSET, npBasis.normal);
-            var nodeRole = (np === 0) ? 'start' : ((np === sPanels.length - 1) ? 'end' : 'mid');
-            var connNode = self.addJunctionConnectionNode(viewer, elNodePos, {
-              role: nodeRole,
-              ringColor: stringColor
-            });
-            if (connNode) sState.dcCableEntities.push(connNode);
-          }
+        if (!dcTargetPos) {
+          sState.L_dc_measured = 0;
+          sState.L_ac_measured = 0;
+          this.updateElectricalSizingAndHUD(0, 0);
+          return;
         }
 
-        // ── 5.2 CONDUCTOR DE RETORNO COMPENSADO ANTI-BUCLE (UNE-EN 62305 & IEC 62548) ─
-        // Siempre sobre la superficie de cubierta (nunca taladra el forjado hacia abajo al saltar obstáculos).
-        var returnPath = [];
-        var lReturn = 0;
-        if (sPanels.length > 1 && Cesium.Cartesian3.distance(termPos, startPos) > 0.4) {
-          var appendReturnSegment = function (targetPath, nextPt) {
-            if (targetPath.length > 0 && basis && basis.uVec) {
-              var prevPt = targetPath[targetPath.length - 1];
-              var segDist = Cesium.Cartesian3.distance(prevPt, nextPt);
-              if (segDist > 2.4) {
-                var dispR = Cesium.Cartesian3.subtract(nextPt, prevPt, new Cesium.Cartesian3());
-                var midR = Cesium.Cartesian3.add(prevPt, Cesium.Cartesian3.multiplyByScalar(basis.uVec, Cesium.Cartesian3.dot(dispR, basis.uVec), new Cesium.Cartesian3()), new Cesium.Cartesian3());
-                var detR = self.detourAroundObstacles([prevPt, midR, nextPt], basis, 0.52);
-                for (var dr = 1; dr < detR.length; dr++) targetPath.push(detR[dr]);
-                return;
-              }
-              var detShort = self.detourAroundObstacles([prevPt, nextPt], basis, 0.45);
-              for (var ds = 1; ds < detShort.length; ds++) targetPath.push(detShort[ds]);
-              return;
-            }
-            targetPath.push(nextPt);
-          };
-
-          // Retorno compensado anti-bucle estricto (UNE-EN 62305): viaja siempre pegado en paralelo
-          // al recorrido exacto de la serie en sentido inverso (nunca abre lazos por fuera de las placas).
-          var retSideVec = (basis && basis.vVec) ? basis.vVec : Cesium.Cartesian3.UNIT_Y;
-          for (var r = sPanels.length - 1; r >= 0; r--) {
-            var rPos = self.toCartesian3(getJunctionBoxPos(sPanels[r]));
-            if (rPos) {
-              var elR = self.elevatePoint(rPos, self.CONFIG.DC_RETURN_OFFSET, basis.normal);
-              if (r > 0 && r < sPanels.length - 1) {
-                elR = Cesium.Cartesian3.add(elR, Cesium.Cartesian3.multiplyByScalar(retSideVec, 0.065, new Cesium.Cartesian3()), new Cesium.Cartesian3());
-              }
-              appendReturnSegment(returnPath, elR);
-            }
-          }
-          returnPath = self.sanitizePositions(returnPath);
-          lReturn = self.computePathLength(returnPath);
-
-          if (returnPath.length >= 2) {
-            var returnEntities = self.createVolumetricEntity(viewer, returnPath, {
-              name: 'Retorno Compensado Anti-Bucle String #' + (sIdx + 1) + ' (UNE-EN 62305)',
-              colorHex: self.CONFIG.COLOR_DC_RETURN,
-              width: 3.6
-            });
-            returnEntities.forEach(function (e) { sState.dcCableEntities.push(e); });
-          }
-        }
-
-        // Si hay nodo Y en cubierta en tipología Paralelo Y, todos los strings convergen al nodo Y
-        var targetForStringPos = (isParallelY && yBranchNodePos) ? yBranchNodePos : dcTargetPos;
-        var targetForStringNeg = (isParallelY && yBranchNodeNeg) ? yBranchNodeNeg : dcTargetPos;
-
-        // ── 5.3 TIRADAS PRINCIPALES PAREADAS (HOMERUN EN BANDEJA VIRTUAL PARALELA) ─
-        // Carriles deterministas por string y polaridad (±0.075m) para visibilidad limpia sin solapamiento
-        var laneIndex = (sIdx % 6);
-        var totalStrCount = (Array.isArray(allStrings) && allStrings.length > 0) ? allStrings.length : 1;
-        var stringBundleOffset = (laneIndex - Math.min(2.5, (totalStrCount - 1) / 2)) * 0.16;
-        var srcPolyIdxStr = (firstPanel && typeof firstPanel.polyIdx === 'number') ? firstPanel.polyIdx : null;
-
-        var posPath = self.buildOrthogonalManhattanPath3D(startPos, targetForStringPos, {
-          normalOffset: self.CONFIG.DC_POS_OFFSET + (sIdx % 2) * 0.012,
-          lateralOffset: stringBundleOffset + 0.065,
-          descentPoint: descentPillar,
-          sourcePolyIdx: srcPolyIdxStr,
-          basis: basis,
-          waypoints: hasManualDc ? sState.routes.dc : null
-        });
-
-        var negPath = self.buildOrthogonalManhattanPath3D(startPos, targetForStringNeg, {
-          normalOffset: self.CONFIG.DC_NEG_OFFSET + (sIdx % 2) * 0.012,
-          lateralOffset: stringBundleOffset - 0.065,
-          descentPoint: descentPillar,
-          sourcePolyIdx: srcPolyIdxStr,
-          isNeg: true,
-          basis: basis,
-          waypoints: hasManualDc ? sState.routes.dc : null
-        });
-
-        var lPos = self.computePathLength(posPath);
-        var lNegHomerun = self.computePathLength(negPath);
-        var lNegTotal = lNegHomerun + lReturn;
-
-        var numMods = sPanels.length;
-        var totalStrLen = lPos + lNegTotal + interModuleM;
-        var strMaxDc = Math.max(lPos, lNegTotal) + interModuleM;
-        if (strMaxDc > maxLdc) maxLdc = strMaxDc;
-
-        var strRoofKey = (firstPanel && typeof firstPanel.polyIdx === 'number') ? ('roof_' + firstPanel.polyIdx) : null;
-        totalDcStringSingleCoreM += (lPos + lNegTotal);
-        totalDcSingleCoreM += (lPos + lNegTotal);
-        // La bandeja/tubo troncal es compartida por strings de la misma cubierta o bajante: NO multiplicar por nº de strings
-        var isNewTrayCluster = registerUniqueCluster(trayClusterAnchors, descentPillar || startPos, strRoofKey);
-        if (isNewTrayCluster) {
-          totalTrayM += Math.max(lPos, lNegHomerun);
-        } else {
-          // Solo sumar ramal local hasta la bandeja común (aprox. distancia del string a la cabeza del tronco, máx 6 m)
-          var localStub = descentPillar ? Math.min(8.0, Cesium.Cartesian3.distance(startPos, descentPillar)) : 2.0;
-          totalTrayM += localStub;
-        }
-
-        // Crear entidades volumétricas para DC+ y DC- con ancho adaptativo
-        var posEntities = self.createVolumetricEntity(viewer, posPath, {
-          name: 'Acometida DC+ String #' + (sIdx + 1) + ' (Homerun Pareado)',
-          colorHex: self.CONFIG.COLOR_DC_POS,
-          width: 5.0,
-          radius: self.CONFIG.CABLE_RADIUS_DC
-        });
-        posEntities.forEach(function (e) { sState.dcCableEntities.push(e); });
-
-        var negEntities = self.createVolumetricEntity(viewer, negPath, {
-          name: 'Acometida DC- String #' + (sIdx + 1) + ' (Homerun Pareado)',
-          colorHex: self.CONFIG.COLOR_DC_NEG,
-          width: 5.0,
-          radius: self.CONFIG.CABLE_RADIUS_DC
-        });
-        negEntities.forEach(function (e) { sState.dcCableEntities.push(e); });
-
-        // ── 5.4 CONDUCTOR DE PUESTA A TIERRA EQUIPOTENCIAL ÚNICO POR CUBIERTA (ITC-BT-18) ──
-        // En obra no baja un cable verde independiente por cada string: todas las guías se unen en cubierta (0.75 m/módulo)
-        // y baja UNA única línea principal de Cu (6 mm² o 16 mm² con pararrayos) por cada edificio/cubierta hasta barra de tierra.
-        var railBondingM = numMods * 0.75;
-        if (registerUniqueCluster(groundingClusterAnchors, descentPillar || startPos, strRoofKey)) {
-          var groundPath = self.buildOrthogonalManhattanPath3D(startPos, dcTargetPos, {
-            normalOffset: self.CONFIG.GROUND_OFFSET,
-            lateralOffset: stringBundleOffset + 0.14,
-            descentPoint: descentPillar,
-            sourcePolyIdx: srcPolyIdxStr,
-            basis: basis,
-            waypoints: hasManualDc ? sState.routes.dc : null
-          });
-          var lGroundMain = self.computePathLength(groundPath);
-          totalGroundingM += (lGroundMain + railBondingM);
-
-          var groundEntities = self.createVolumetricEntity(viewer, groundPath, {
-            name: 'Bajante Principal Tierra Equipotencial Cu ' + earthSecMm2 + 'mm² (ITC-BT-18)',
-            colorHex: self.CONFIG.COLOR_GROUNDING,
-            width: 3.2,
-            radius: 0.010
-          });
-          groundEntities.forEach(function (e) { sState.dcCableEntities.push(e); });
-        } else {
-          totalGroundingM += railBondingM;
-        }
-
-        // Guardar datos preliminares de este string para telemetría
-        stringTelemetryList.push({
-          index: sIdx + 1,
-          name: strObj.stringName || ('String #' + (sIdx + 1)),
-          numPanels: numMods,
-          homerunLength: Math.round(lPos * 10) / 10,
-          posHomerunLength: Math.round(lPos * 10) / 10,
-          negHomerunLength: Math.round(lNegHomerun * 10) / 10,
-          returnConductorLength: Math.round(lReturn * 10) / 10,
-          interModuleLength: Math.round(interModuleM * 10) / 10,
-          totalCableLength: Math.round(totalStrLen * 10) / 10,
-          isAntiLoop: true
-        });
-
-        // Etiqueta 2D de telemetría de string
-        var midIdx = Math.floor(posPath.length / 2);
-        var midPt = posPath[midIdx] || posPath[0];
-        if (typeof global.addLabelEntity === 'function') {
-          var labelText = '⚡ String ' + (sIdx + 1) + ' (DC+/DC-) · ' + totalStrLen.toFixed(1) + ' m [Anti-Bucle]';
-          var lbl = global.addLabelEntity(midPt, labelText, -6, {
-            bg: 'rgba(15, 23, 42, 0.90)',
-            borderColor: self.CONFIG.COLOR_DC_POS,
-            textColor: '#FFFFFF',
-            font: "bold 10px 'JetBrains Mono', monospace",
-            inspectOnHover: true,
-            category: 'cable'
-          });
-          if (lbl) sState.dcCableEntities.push(lbl);
-        }
-      });
-
-      // Si hay nodo Y en cubierta: renderizar la línea troncal desde el nodo Y al inversor
-      if (yBranchNode && dcTargetPos) {
-        var yTrunkPath = self.buildOrthogonalManhattanPath3D(yBranchNode, dcTargetPos, {
-          normalOffset: self.CONFIG.TRAY_OFFSET,
-          waypoints: hasManualDc ? sState.routes.dc : null
-        });
-        var yTrunkLen = self.computePathLength(yTrunkPath);
-        maxTrunkLdc += yTrunkLen;
-        totalTrayM += yTrunkLen;
-        totalDcTrunkSingleCoreM += (2 * yTrunkLen);
-        totalDcSingleCoreM += (2 * yTrunkLen);
-
-        var yTrunkEntities = self.createVolumetricEntity(viewer, yTrunkPath, {
-          name: 'Troncal DC Bipolar Paralelo Y (90° Manhattan)',
-          colorHex: self.CONFIG.COLOR_TRAY,
-          isTray: true,
-          numStrings: allStrings.length
-        });
-        yTrunkEntities.forEach(function (e) { sState.dcCableEntities.push(e); });
-      }
-
-      // 6. Troncal DC: Si existe Combiner Box y además Cuadro DC, la troncal de cubierta baja al Cuadro DC y de ahí al Inversor
-      var dcBoxPos = (sState.dcProtectionPosition && sState.dcProtectionEntity) ? this.toCartesian3(sState.dcProtectionPosition) : null;
-      var intermediateTarget = (cbPos && dcBoxPos) ? dcBoxPos : invPos;
-
-      if (cbPos && intermediateTarget && Cesium.Cartesian3.distance(cbPos, intermediateTarget) > 0.05) {
-        var trunkPath = self.buildOrthogonalManhattanPath3D(cbPos, intermediateTarget, {
-          normalOffset: self.CONFIG.TRAY_OFFSET
-        });
-        var lTrunk = self.computePathLength(trunkPath);
-        maxTrunkLdc += lTrunk;
-        totalTrayM += lTrunk;
-        totalDcTrunkSingleCoreM += (2 * lTrunk);
-        totalDcSingleCoreM += (2 * lTrunk);
-
-        var trunkEntities = self.createVolumetricEntity(viewer, trunkPath, {
-          name: 'Troncal DC Combiner ➔ Cuadro/Inversor (90° Manhattan 3D)',
-          colorHex: self.CONFIG.COLOR_COMBINER,
-          isTray: true,
-          numStrings: allStrings.length
-        });
-        trunkEntities.forEach(function (e) { sState.dcCableEntities.push(e); });
-
-        if (typeof global.addLabelEntity === 'function' && trunkPath.length >= 2) {
-          var midTrunk = trunkPath[Math.floor(trunkPath.length / 2)];
-          var trunkLbl = global.addLabelEntity(midTrunk, '⚡ Troncal DC · ' + lTrunk.toFixed(1) + ' m', -6, {
-            bg: 'rgba(15, 23, 42, 0.90)',
-            borderColor: self.CONFIG.COLOR_COMBINER,
-            textColor: '#FFFFFF',
-            font: "bold 10.5px 'JetBrains Mono', monospace",
-            inspectOnHover: true,
-            category: 'cable'
-          });
-          if (trunkLbl) sState.dcCableEntities.push(trunkLbl);
-        }
-      } else if (!cbPos && dcBoxPos && invPos && Cesium.Cartesian3.distance(dcBoxPos, invPos) > 0.05) {
-        // Sin combiner box: strings van directo al Cuadro DC y de ahí al Inversor
-        var dcToInvPath = self.buildOrthogonalManhattanPath3D(dcBoxPos, invPos, {
-          normalOffset: self.CONFIG.TRAY_OFFSET
-        });
-        var lDcInv = self.computePathLength(dcToInvPath);
-        maxTrunkLdc += lDcInv;
-        totalTrayM += lDcInv;
-        var bridgeCores = Math.max(1, isParallelY ? 1 : allStrings.length) * 2 * lDcInv;
-        if (isParallelY) totalDcTrunkSingleCoreM += bridgeCores;
-        else totalDcStringSingleCoreM += bridgeCores;
-        totalDcSingleCoreM += bridgeCores;
-
-        var dcToInvEntities = self.createVolumetricEntity(viewer, dcToInvPath, {
-          name: 'Puente DC Cuadro ➔ Inversor (90° Manhattan 3D)',
-          colorHex: self.CONFIG.COLOR_COMBINER,
-          isTray: true,
-          numStrings: allStrings.length
-        });
-        dcToInvEntities.forEach(function (e) { sState.dcCableEntities.push(e); });
-      }
-
-      // 6.b Latiguillo de interconexión directa Cuadro DC ➔ Inversor (cuando ambos están presentes con Combiner Box)
-      if (cbPos && dcBoxPos && invPos && Cesium.Cartesian3.distance(dcBoxPos, invPos) > 0.05) {
-        var bridgePath = self.buildOrthogonalManhattanPath3D(dcBoxPos, invPos, {
-          normalOffset: self.CONFIG.TRAY_OFFSET
-        });
-        var lBridge = self.computePathLength(bridgePath);
-        maxTrunkLdc += lBridge;
-        totalTrayM += lBridge;
-        totalDcTrunkSingleCoreM += (2 * lBridge);
-        totalDcSingleCoreM += (2 * lBridge);
-
-        var bridgeEntities = self.createVolumetricEntity(viewer, bridgePath, {
-          name: 'Puente DC Cuadro ➔ Inversor (90° Manhattan 3D)',
-          colorHex: self.CONFIG.COLOR_COMBINER,
-          isTray: true,
-          numStrings: allStrings.length
-        });
-        bridgeEntities.forEach(function (e) { sState.dcCableEntities.push(e); });
-      }
-
-      // 6.c Bus de Batería DC: Batería LFP ➔ Inversor Híbrido
-      var batPos = (sState.batteryPosition && sState.batteryEntity) ? this.toCartesian3(sState.batteryPosition) : null;
-      if (batPos && invPos && Cesium.Cartesian3.distance(batPos, invPos) > 0.05) {
-        var batBusPath = self.buildOrthogonalManhattanPath3D(batPos, invPos, {
-          normalOffset: self.CONFIG.TRAY_OFFSET
-        });
-        var lBatBus = self.computePathLength(batBusPath);
-        totalBatteryCableM = Math.round(lBatBus * 2 * 10) / 10;
-
-        var batEntities = self.createVolumetricEntity(viewer, batBusPath, {
-          name: 'Bus DC Batería ➔ Inversor (90° Manhattan 3D)',
-          colorHex: '#10B981',
-          radius: self.CONFIG.CABLE_RADIUS_DC
-        });
-        batEntities.forEach(function (e) { sState.dcCableEntities.push(e); });
-
-        if (typeof global.addLabelEntity === 'function' && batBusPath.length >= 2) {
-          var midBat = batBusPath[Math.floor(batBusPath.length / 2)];
-          var batLbl = global.addLabelEntity(midBat, '🔋 Bus Batería · ' + lBatBus.toFixed(1) + ' m', -6, {
-            bg: 'rgba(15, 23, 42, 0.90)',
-            borderColor: '#10B981',
-            textColor: '#FFFFFF',
-            font: "bold 10px 'JetBrains Mono', monospace",
-            inspectOnHover: true,
-            category: 'cable'
-          });
-          if (batLbl) sState.dcCableEntities.push(batLbl);
-        }
-      }
-
-      // 7. Línea de Evacuación AC (Inversor ➔ Contador de Red)
-      if (invPos && meterPos) {
+        var hasManualDc = (sState.routes && Array.isArray(sState.routes.dc) && sState.routes.dc.length > 0);
         var hasManualAc = (sState.routes && Array.isArray(sState.routes.ac) && sState.routes.ac.length > 0);
-        var acPath = self.buildOrthogonalManhattanPath3D(invPos, meterPos, {
-          normalOffset: self.CONFIG.AC_OFFSET,
-          waypoints: hasManualAc ? sState.routes.ac : null
-        });
-        var lAc = self.computePathLength(acPath);
-        sState.L_ac_measured = Math.round(lAc * 10) / 10;
 
-        var acEntities = self.createVolumetricEntity(viewer, acPath, {
-          name: 'Línea Evacuación AC (90° Manhattan 3D)',
-          colorHex: self.CONFIG.COLOR_AC,
-          radius: self.CONFIG.CABLE_RADIUS_AC
-        });
-        acEntities.forEach(function (e) { sState.dcCableEntities.push(e); });
+        // 3. Renderizar Codos Interactivos + Puntos Medios "+" (DC y AC) si hay rutas manuales
+        if (hasManualDc) this._renderRouteHandles(viewer, sState, 'dc', sState.routes.dc, this.CONFIG.COLOR_TRAY);
+        if (hasManualAc) this._renderRouteHandles(viewer, sState, 'ac', sState.routes.ac, this.CONFIG.COLOR_AC);
 
-        if (typeof global.addLabelEntity === 'function' && acPath.length >= 2) {
-          var midAc = acPath[Math.floor(acPath.length / 2)];
-          var acLbl = global.addLabelEntity(midAc, '🔌 Evacuación AC · ' + lAc.toFixed(1) + ' m [Tubo]', -6, {
-            bg: 'rgba(15, 23, 42, 0.90)',
-            borderColor: self.CONFIG.COLOR_AC,
-            textColor: '#FFFFFF',
-            font: "bold 10.5px 'JetBrains Mono', monospace",
-            inspectOnHover: true,
-            category: 'cable'
-          });
-          if (acLbl) sState.dcCableEntities.push(acLbl);
-        }
-      }
+        // 4. Determinar Topología y Contexto de Enrutamiento
+        var cfg = global.solarProjectConfig || {};
+        var isMicroTopology = (cfg.selectedTopology === 'microinverter');
+        var _dcTopo = this.getDcTopologyInfo(allStrings.length);
+        var isParallelY = !isMicroTopology && _dcTopo.isParallel && allStrings.length >= 2;
+        var hasExtLightning = !!(cfg && cfg.hasExternalLightningRod);
 
-      sState.L_dc_string_measured = Math.round(maxLdc * 10) / 10;
-      sState.L_dc_trunk_measured = Math.round(maxTrunkLdc * 10) / 10;
-      sState.L_dc_measured = Math.round((maxLdc + maxTrunkLdc) * 10) / 10;
+        var ctx = {
+          viewer: viewer,
+          sState: sState,
+          allStrings: allStrings,
+          cfg: cfg,
+          invPos: invPos,
+          cbPos: cbPos,
+          meterPos: meterPos,
+          dcTargetPos: dcTargetPos,
+          dcBoxPos: null,
+          hasManualDc: hasManualDc,
+          hasManualAc: hasManualAc,
+          isMicroTopology: isMicroTopology,
+          isParallelY: isParallelY,
+          groundingClusterAnchors: [],
+          trayClusterAnchors: [],
+          maxLdc: 0,
+          totalDcSingleCoreM: 0,
+          totalDcStringSingleCoreM: 0,
+          totalDcTrunkSingleCoreM: 0,
+          totalInterModuleJumpersM: 0,
+          totalInterModuleJumperCount: 0,
+          totalBatteryCableM: 0,
+          maxTrunkLdc: 0,
+          totalTrayM: 0,
+          totalGroundingM: 0,
+          totalAcTrunkM: 0,
+          totalMicroTrunkBusM: 0,
+          totalMicroDropM: 0,
+          acJunctionBoxCount: 0,
+          stringTelemetryList: [],
+          earthSecMm2: hasExtLightning ? 16 : 6,
+          yBranchNodePos: null,
+          yBranchNodeNeg: null,
+          yBranchNode: null
+        };
 
-      // 8. Dimensionamiento Eléctrico REBT ITC-BT-40 y Actualización de Telemetría (SSOT)
-      this.updateElectricalSizingAndHUD(sState.L_dc_string_measured, sState.L_ac_measured);
+        // 5. Enrutar Strings DC (o Microinversores AC)
+        if (this._routeDcStrings(ctx)) return;
 
-      // 9. Completar Telemetría REBT por String y Desglose de Materiales (BOM / Memoria Técnica)
-      var modCfg = global.panelConfig || { potencia: 450, isc: 13.8, imp: 13.05, vmp: 34.5, voc: 41.5 };
-      var vmpNom = modCfg.vmp || 34.5;
-      var vocNom = modCfg.voc || (vmpNom * 1.20);
-      var invCfgForLimits = (global.solarProjectConfig && global.solarProjectConfig.calculatedLimits && global.solarProjectConfig.calculatedLimits.inverter)
-        ? global.solarProjectConfig.calculatedLimits.inverter
-        : { vMaxAbs: 1000, vMpptMin: 200, vMpptMax: 850, vStart: 200 };
-      var climColdC = (global.solarProjectConfig && typeof global.solarProjectConfig.tempMinC === 'number')
-        ? global.solarProjectConfig.tempMinC : undefined;
-      var climHotC = (global.solarProjectConfig && typeof global.solarProjectConfig.tempMaxCellC === 'number')
-        ? global.solarProjectConfig.tempMaxCellC : undefined;
-      var dynLim = (typeof global.calculateDynamicMPPTStringLimits === 'function')
-        ? global.calculateDynamicMPPTStringLimits(
-            { voc: vocNom, vmp: vmpNom, tempCoeffVoc: modCfg.tempCoeffVoc ?? -0.0026, tempCoeffPmax: modCfg.tempCoeffPmax ?? -0.0034 },
-            invCfgForLimits,
-            { Tmin: climColdC, TmaxCell: climHotC }
-          )
-        : null;
+        // 6. Enrutar Troncales DC, Combiner, Cuadro y Bus de Batería
+        this._routeCombiners(ctx);
 
-      // Normalizar coeficientes térmicos garantizando base unitaria (dividir entre 100 si vienen en porcentaje)
-      var rawCoeffPmax = modCfg.tempCoeffPmax ?? modCfg.gammaPmp ?? -0.0034;
-      var effCoeffPmax = Math.abs(rawCoeffPmax) > 0.05 ? rawCoeffPmax / 100.0 : rawCoeffPmax;
-      var rawCoeffVoc = modCfg.tempCoeffVoc ?? modCfg.gammaVoc ?? -0.0026;
-      var effCoeffVoc = Math.abs(rawCoeffVoc) > 0.05 ? rawCoeffVoc / 100.0 : rawCoeffVoc;
-
-      var vmpHotMod = (dynLim && (dynLim.Vmp_Tmax > 0 || dynLim.vmpHot > 0))
-        ? (dynLim.Vmp_Tmax || dynLim.vmpHot)
-        : (vmpNom * (1 + effCoeffPmax * (70 - 25)));
-      var vocColdMod = (dynLim && (dynLim.Voc_Tmin > 0 || dynLim.vocCold > 0))
-        ? (dynLim.Voc_Tmin || dynLim.vocCold)
-        : (vocNom * (1 + effCoeffVoc * (-10 - 25)));
-      var rho90 = (global.ELEC_CONSTANTS && global.ELEC_CONSTANTS.RHO_CU_90) ? global.ELEC_CONSTANTS.RHO_CU_90 : 0.023;
-      var imp = modCfg.imp || 13.05;
-      var isBifacialSt = !!(modCfg && (modCfg.bifacial || modCfg.isBifacial || (modCfg.bifacialityFactor && modCfg.bifacialityFactor > 0) || (modCfg.tecnologia && modCfg.tecnologia.toLowerCase().indexOf('bifacial') !== -1) || /bifacial/i.test(modCfg.name || modCfg.model || modCfg.modelo || '')));
-      var impEff = imp * (isBifacialSt ? 1.15 : 1.0);
-      var secDc = sState.S_dc_recommended || 6;
-
-      stringTelemetryList.forEach(function (st) {
-        var nMods = st.numPanels || 1;
-        st.vmpHot = Math.round(nMods * vmpHotMod * 10) / 10;
-        st.vocCold = Math.round(nMods * vocColdMod * 10) / 10;
-        st.recommendedSection = secDc;
-        var fullLoopM = (st.posHomerunLength || st.homerunLength || 20) + (st.negHomerunLength || st.homerunLength || 20) + (st.returnConductorLength || 0) + (st.interModuleLength || 0);
-        st.fullLoopLength = Math.round(fullLoopM * 10) / 10;
-        var dVStr = (rho90 * fullLoopM * impEff) / secDc;
-        var dVpctStr = (dVStr / Math.max(12.0, st.vmpHot)) * 100;
-        st.voltageDropV = Math.round(dVStr * 100) / 100;
-        st.voltageDropPct = Math.round(dVpctStr * 100) / 100;
-        st.compliance = (dVpctStr <= 1.5);
-      });
-      sState.stringTelemetry = stringTelemetryList;
-
-      var numStrings = allStrings.length;
-      var maxStringsInSingleTray = 1;
-      for (var tci = 0; tci < trayClusterAnchors.length; tci++) {
-        if ((trayClusterAnchors[tci].count || 1) > maxStringsInSingleTray) {
-          maxStringsInSingleTray = trayClusterAnchors[tci].count;
-        }
-      }
-      var effTrayStrings = (trayClusterAnchors.length > 0) ? maxStringsInSingleTray : numStrings;
-      var trayWidthMm = (effTrayStrings <= 1) ? 60 : ((effTrayStrings === 2) ? 60 : ((effTrayStrings <= 4) ? 100 : 150));
-      var trayDesc = (effTrayStrings <= 1)
-        ? 'Tubo rígido D=32mm libre de halógenos'
-        : ('Bandeja metálica perforada ' + trayWidthMm + 'x60 mm con tapa (REBT ITC-BT-19)');
-
-      var totalPanelsCount = 0;
-      allStrings.forEach(function (s) { totalPanelsCount += (s.panels ? s.panels.length : 0); });
-      var invCountBreakdown = (cfg && cfg.autoSizing && cfg.autoSizing.inverters && Number.isFinite(cfg.autoSizing.inverters.count))
-        ? Math.max(1, cfg.autoSizing.inverters.count) : 1;
-
-      sState.cableBreakdown = {
-        totalDcCableMeters: Math.round(totalDcSingleCoreM * 10) / 10,
-        dcStringCableMeters: Math.round(totalDcStringSingleCoreM * 10) / 10,
-        dcTrunkCableMeters: Math.round(totalDcTrunkSingleCoreM * 10) / 10,
-        dcStringSecMm2: sState.S_dc_recommended || 6,
-        dcTrunkSecMm2: sState.S_mdc_recommended || sState.S_dc_recommended || 6,
-        batteryCableMeters: totalBatteryCableM,
-        batteryCableSecMm2: 25,
-        totalInterModuleMeters: Math.round(totalInterModuleJumpersM * 10) / 10,
-        interModuleJumperCount: totalInterModuleJumperCount,
-        totalTrayMeters: Math.round(totalTrayM * 10) / 10,
-        trayType: trayDesc,
-        trayWidthMm: trayWidthMm,
-        totalAcConduitMeters: Math.round((sState.L_ac_measured || 0) * 10) / 10,
-        acConduitSpec: 'Tubo rígido curvable en frío M32 libre de halógenos (REBT ITC-BT-20)',
-        totalAcCableMeters: Math.round((sState.L_ac_measured || 0) * 10) / 10,
-        acMainCableMeters: Math.round((sState.L_ac_measured || 0) * 10) / 10,
-        acBranchCableMeters: (invCountBreakdown > 1) ? (invCountBreakdown * 5) : 0,
-        acMainSecMm2: sState.S_ac_recommended || 10,
-        acBranchSecMm2: sState.S_ac_branch_recommended || sState.S_ac_recommended || 10,
-        acCableSpec: 'Manguera RZ1-K (AS) 0,6/1 kV libre de halógenos ' + (sState.S_ac_recommended || 10) + ' mm²',
-        totalGroundingMeters: Math.round(totalGroundingM * 10) / 10,
-        groundingSecMm2: sState.S_earth_recommended || earthSecMm2,
-        groundingSpec: 'Cable de cobre Cu ' + (sState.S_earth_recommended || earthSecMm2) + ' mm² equipotencial único por cubierta (ITC-BT-18)',
-        mc4ConnectorPairs: (numStrings * 2) + (isParallelY ? Math.max(1, numStrings - 1) * 2 : 0) + (dcBoxPos ? numStrings * 2 : 0),
-        fillFactorPct: Math.min(40, Math.round(((effTrayStrings * 2 * 35) / (trayWidthMm * 60)) * 100))
-      };
-
-      console.info('[RACableEngine] ⚡ Cables generados con éxito: ' + allStrings.length + ' string(s), maxLdc=' + maxLdc.toFixed(1) + 'm, Lac=' + (sState.L_ac_measured || 0).toFixed(1) + 'm');
-
-        if (viewer.scene && typeof viewer.scene.requestRender === 'function') {
-          viewer.scene.requestRender();
-        }
+        // 7-9. Enrutar Evacuación AC, Dimensionamiento REBT y Telemetría/BOM
+        this._routeAcEvacuation(ctx);
       } finally {
         sState.__isRenderingCables = false;
       }
@@ -2692,8 +2714,15 @@
       var lAcVal = Lac || 15;
       var imp = modCfg.imp || 13.05;
 
-      var isBifacial = !!(modCfg.bifacial || modCfg.isBifacial || (modCfg.bifacialityFactor && modCfg.bifacialityFactor > 0) || (modCfg.tecnologia && modCfg.tecnologia.toLowerCase().includes('bifacial')));
-      var bifacialGain = isBifacial ? 1.15 : 1.0;
+      var bifacialGain = (global.RA && global.RA.Electrical && typeof global.RA.Electrical.getBifacialGainFactor === 'function')
+        ? global.RA.Electrical.getBifacialGainFactor(modCfg)
+        : (function () {
+            var isBif = !!(modCfg && (modCfg.bifacial || modCfg.isBifacial || (modCfg.bifacialityFactor && modCfg.bifacialityFactor > 0) || (modCfg.tecnologia && String(modCfg.tecnologia).toLowerCase().includes('bifacial'))));
+            if (!isBif) return 1.0;
+            var bf = (typeof modCfg.bifacialityFactor === 'number' && modCfg.bifacialityFactor > 0) ? Math.min(1.0, modCfg.bifacialityFactor) : 0.75;
+            var rg = (typeof modCfg.rearGain === 'number' && modCfg.rearGain >= 0) ? modCfg.rearGain : ((typeof projCfg.bifacialRearGain === 'number' && projCfg.bifacialRearGain >= 0) ? projCfg.bifacialRearGain : 0.20);
+            return 1.0 + (bf * rg);
+          })();
       var iscEffective = (modCfg.isc || 13.8) * bifacialGain;
       var impEffective = imp * bifacialGain;
 
@@ -2709,15 +2738,62 @@
       var invCount = (projCfg.autoSizing && projCfg.autoSizing.inverters && Number.isFinite(projCfg.autoSizing.inverters.count))
         ? Math.max(1, projCfg.autoSizing.inverters.count) : 1;
 
+      // Resolver geometría/latitud real del proyecto (faldón activo → lastRoofInfo → paneles → polygonAnalysis → config)
+      var realTiltDeg = null;
+      var realAzimutDeg = null;
+      var realLatDeg = null;
+      if (global.WP && Array.isArray(global.WP.polylines) && global.WP.polylines.length > 0) {
+        var selIdxEng = (typeof global.WP.selectedPolyIdx === 'number' && global.WP.selectedPolyIdx >= 0 && global.WP.selectedPolyIdx < global.WP.polylines.length)
+          ? global.WP.selectedPolyIdx : 0;
+        var selPolyEng = global.WP.polylines[selIdxEng] || global.WP.polylines[0];
+        var pInfEng = selPolyEng && (selPolyEng.roofInfo || (typeof global.computeSinglePolylineRoofInfo === 'function' ? global.computeSinglePolylineRoofInfo(selPolyEng.points, selPolyEng) : null));
+        if (pInfEng) {
+          if (typeof pInfEng.moduleTiltDeg === 'number') realTiltDeg = pInfEng.moduleTiltDeg;
+          else if (typeof pInfEng.tiltDeg === 'number') realTiltDeg = pInfEng.tiltDeg;
+          if (typeof pInfEng.moduleAzimuthDeg === 'number') realAzimutDeg = pInfEng.moduleAzimuthDeg;
+          else if (typeof pInfEng.azimuthN === 'number') realAzimutDeg = pInfEng.azimuthN - 180;
+          else if (typeof pInfEng.azimuthDeg === 'number') realAzimutDeg = pInfEng.azimuthDeg;
+          if (typeof pInfEng.latDeg === 'number') realLatDeg = pInfEng.latDeg;
+        }
+      }
+      if (global.lastRoofInfo) {
+        if (realTiltDeg === null) realTiltDeg = (typeof global.lastRoofInfo.moduleTiltDeg === 'number') ? global.lastRoofInfo.moduleTiltDeg : (typeof global.lastRoofInfo.tiltDeg === 'number' ? global.lastRoofInfo.tiltDeg : null);
+        if (realAzimutDeg === null) realAzimutDeg = (typeof global.lastRoofInfo.moduleAzimuthDeg === 'number') ? global.lastRoofInfo.moduleAzimuthDeg : (typeof global.lastRoofInfo.azimuthDeg === 'number' ? global.lastRoofInfo.azimuthDeg : null);
+        if (realLatDeg === null && typeof global.lastRoofInfo.latDeg === 'number') realLatDeg = global.lastRoofInfo.latDeg;
+      }
+      if ((realTiltDeg === null || realAzimutDeg === null) && Array.isArray(global.allRenderedPanels) && global.allRenderedPanels.length > 0) {
+        var firstActPan = global.allRenderedPanels.find(function (p) { return p && !p.deleted && !p.disabled; });
+        if (firstActPan) {
+          if (realTiltDeg === null && typeof firstActPan.tiltDeg === 'number') realTiltDeg = firstActPan.tiltDeg;
+          if (realAzimutDeg === null && typeof firstActPan.azimuthDeg === 'number') realAzimutDeg = firstActPan.azimuthDeg;
+        }
+      }
+      if ((realTiltDeg === null || realAzimutDeg === null || realLatDeg === null) && typeof global.polygonAnalysis === 'function') {
+        try {
+          var paEng = global.polygonAnalysis();
+          if (paEng) {
+            if (realTiltDeg === null && typeof paEng.tiltDeg === 'number') realTiltDeg = paEng.tiltDeg;
+            if (realAzimutDeg === null && typeof paEng.azimuthDeg === 'number') realAzimutDeg = paEng.azimuthDeg;
+            if (realLatDeg === null && typeof paEng.latDeg === 'number') realLatDeg = paEng.latDeg;
+          }
+        } catch (ePa) {}
+      }
+      if (realLatDeg === null) {
+        if (typeof projCfg.latitude === 'number') realLatDeg = projCfg.latitude;
+        else if (typeof projCfg.lat === 'number') realLatDeg = projCfg.lat;
+        else if (sState.carto && typeof sState.carto.latitude === 'number') realLatDeg = sState.carto.latitude;
+        else if (typeof global.latitude === 'number') realLatDeg = global.latitude;
+      }
+
       // [FASE 1 SSOT] Si el motor eléctrico canónico está disponible, delegar en computeSizingEngineering
       // para garantizar coincidencia matemática 100% entre Visor 3D, Memoria Técnica y Presupuesto BOM.
       if (global.RA && global.RA.Electrical && typeof global.RA.Electrical.computeSizingEngineering === 'function' && totalPanelsForEng > 0) {
         var engSSOT = global.RA.Electrical.computeSizingEngineering({
           numPanels: totalPanelsForEng,
           cfg: modCfg,
-          tiltDeg: 15,
-          azimutDeg: 0,
-          latDeg: 40.4,
+          tiltDeg: (realTiltDeg !== null && Number.isFinite(realTiltDeg)) ? realTiltDeg : 15,
+          azimutDeg: (realAzimutDeg !== null && Number.isFinite(realAzimutDeg)) ? realAzimutDeg : 0,
+          latDeg: (realLatDeg !== null && Number.isFinite(realLatDeg)) ? realLatDeg : 40.4,
           invCount: invCount
         });
         if (engSSOT && engSSOT.S_str > 0 && engSSOT.S_ac > 0) {
@@ -2844,7 +2920,8 @@
           ? global.raInverterPhases(invCfg)
           : ((invCfg.type || '').toLowerCase().indexOf('mono') !== -1 ? 1 : 3))) === 1;
       var vAc = isMono ? 230 : 400;
-      var iAc = isMono ? (pAcKw * 1000) / (vAc * 0.95) : (pAcKw * 1000) / (Math.sqrt(3) * vAc * 0.95);
+      var cosPAc = (invCfg && typeof invCfg.cosPhi === 'number' && invCfg.cosPhi > 0) ? Math.min(1.0, invCfg.cosPhi) : 0.95;
+      var iAc = isMono ? (pAcKw * 1000) / (vAc * cosPAc) : (pAcKw * 1000) / (Math.sqrt(3) * vAc * cosPAc);
       var iAcDesign = 1.25 * iAc;
       var _elecSec = (global.RA && global.RA.Electrical && global.RA.Electrical.SECCIONES) || null;
       var secAcAvail = (_elecSec && Array.isArray(_elecSec.ac)) ? _elecSec.ac : [2.5, 4, 6, 10, 16, 25, 35, 50, 70];
@@ -2857,7 +2934,6 @@
       var acCompliant = false;
 
       var xMeterAc = 0.08 / 1000.0; // Reactancia inductiva normalizada 0.08 Ohm/km (REBT ITC-BT-40)
-      var cosPAc = 0.95;
       var sinPAc = Math.sqrt(Math.max(0, 1.0 - cosPAc * cosPAc));
       for (var j = 0; j < secAcAvail.length; j++) {
         var sa = secAcAvail[j];
@@ -3090,17 +3166,6 @@
 
   // Enlaces de compatibilidad directa con los nombres legacy para no romper el HTML
   global.wpCalculateAndRenderInverterCables = function () {
-    var currentStep = (typeof global.wpCurrentStep !== 'undefined')
-      ? global.wpCurrentStep
-      : ((typeof window !== 'undefined' && window.wpCurrentStep) || 1);
-    if (currentStep < 4) {
-      RACableEngine.clearAllCables();
-      setElectricalEquipmentVisibility(false);
-      return;
-    }
-    return RACableEngine.renderAllCables();
-  };
-  global.wpCalculateAndRenderACCables = function () {
     var currentStep = (typeof global.wpCurrentStep !== 'undefined')
       ? global.wpCurrentStep
       : ((typeof window !== 'undefined' && window.wpCurrentStep) || 1);

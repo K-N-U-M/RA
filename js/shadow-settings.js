@@ -53,7 +53,7 @@
     quality: 'medium',
     radius: 400,
     biasMeters: 0.08,
-    selfShadows: true,
+    selfShadows: false,
     terrainShadows: true,
     simResolution: 'medium', // 'sketch' | 'fast' (16h) | 'medium' (72h) | 'ultra' (192h)
     detailedBypass: true,    // true: 3 sub-strings | false: monolítico
@@ -101,13 +101,17 @@
     if (shadowMap.size !== preset.size) {
       shadowMap.size = preset.size;
     }
-    shadowMap.softShadows = preset.softShadows;
+    var motionBoostActive = !!(global.RALodManager && typeof global.RALodManager.isMotionBoostActive === 'function' && global.RALodManager.isMotionBoostActive());
+    if (!motionBoostActive) {
+      shadowMap.softShadows = preset.softShadows;
+    }
     shadowMap.maximumDistance = radiusMeters;
     shadowMap._fitNearFar = false;
     shadowMap.fadingEnabled = true;
     shadowMap.cascadesEnabled = true;
     shadowMap.numberOfCascades = 2;
     shadowMap.enabled = true;
+    shadowMap._raShadowConfigured = true;
 
     // Cálculo de depthBias combinado con polygonOffset hardware para evitar auto-oclusión
     // en ángulos rasantes al orbitar sobre Google 3D Tiles y terreno

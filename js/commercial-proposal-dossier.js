@@ -38,13 +38,21 @@
   // [AUD-2026 v2 · SEC2-03/06] Escape HTML local: todo dato dinámico interpolado en el dossier
   // pasa por aquí antes de entrar en HTML.
   function escD(value) {
-    if (global.RASanitize && typeof global.RASanitize.plain === 'function') return global.RASanitize.plain(value);
+    var san = (global.RA && (global.RA.Sanitizer || global.RA.Sanitize)) || global.RASanitize;
+    if (san && typeof san.plain === 'function') return san.plain(value);
     return String(value == null ? '' : value)
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;');
+  }
+
+  function _dSvg(name, size, color, extraStyle) {
+    if (global.RA_SvgCatalog && typeof global.RA_SvgCatalog.mini === 'function') {
+      return global.RA_SvgCatalog.mini(name, size || 14, color || 'currentColor', extraStyle || '');
+    }
+    return '<svg width="' + (size || 14) + '" height="' + (size || 14) + '" viewBox="0 0 24 24" fill="none" stroke="' + (color || 'currentColor') + '" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-0.18em;flex-shrink:0;' + (extraStyle || '') + '"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>';
   }
 
   // Configuración activa del dossier
@@ -581,13 +589,6 @@
     var curSnapshot = getViewerSnapshot();
     ProposalConfig.renderSnapshot = curSnapshot;
 
-    function _dSvg(name, size, color, extraStyle) {
-      if (global.RA_SvgCatalog && typeof global.RA_SvgCatalog.mini === 'function') {
-        return global.RA_SvgCatalog.mini(name, size || 14, color || 'currentColor', extraStyle || '');
-      }
-      return '<svg width="' + (size || 14) + '" height="' + (size || 14) + '" viewBox="0 0 24 24" fill="none" stroke="' + (color || 'currentColor') + '" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-0.18em;flex-shrink:0;' + (extraStyle || '') + '"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>';
-    }
-
     var modal = document.createElement('div');
     modal.id = 'ra-dossier-config-modal';
     modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(15,23,42,0.85);backdrop-filter:blur(8px);z-index:999999;display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;';
@@ -952,13 +953,6 @@
         '<div class="dossier-resize-handle no-print" title="Arrastrar para redimensionar">◢</div>' +
         inner +
       '</div>';
-    }
-
-    function _dSvg(name, size, color, extraStyle) {
-      if (global.RA_SvgCatalog && typeof global.RA_SvgCatalog.mini === 'function') {
-        return global.RA_SvgCatalog.mini(name, size || 14, color || 'currentColor', extraStyle || '');
-      }
-      return '<svg width="' + (size || 14) + '" height="' + (size || 14) + '" viewBox="0 0 24 24" fill="none" stroke="' + (color || 'currentColor') + '" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-0.18em;flex-shrink:0;' + (extraStyle || '') + '"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>';
     }
 
     function makeImgBox(imgSrc, altText, extraStyle, labelText) {
@@ -1934,39 +1928,44 @@
       '    }',
       '  },',
       '',
+      '  _rt: function() {',
+      '    try {',
+      '      if (window.RADocRuntime) return window.RADocRuntime;',
+      '      if (window.opener && !window.opener.closed && window.opener.RADocRuntime) return window.opener.RADocRuntime;',
+      '      if (window.parent && window.parent !== window && window.parent.RADocRuntime) return window.parent.RADocRuntime;',
+      '    } catch(e) {}',
+      '    return null;',
+      '  },',
+      '',
       '  setupDragAndResize: function() {',
       '    var self = this;',
+      '    var rt = this._rt();',
+      '    if (rt && typeof rt.setupDossierCardDragAndResize === "function") {',
+      '      rt.setupDossierCardDragAndResize({',
+      '        win: window,',
+      '        isEditMode: function() { return self.isEditMode; },',
+      '        onMutate: function() { self.triggerAutoSave(); self.checkSheetOverflows(); }',
+      '      });',
+      '      return;',
+      '    }',
       '    document.querySelectorAll(".card").forEach(function(card) {',
-      '      // 1. Arrastre de contenedores con límites de confinamiento dentro de la lámina A4',
       '      var dh = card.querySelector(".dossier-drag-handle");',
       '      if (dh) {',
       '        dh.onmousedown = function(e) {',
       '          if (!self.isEditMode) return;',
       '          e.preventDefault();',
       '          e.stopPropagation();',
-      '',
-      '          var startX = e.clientX;',
-      '          var startY = e.clientY;',
-      '',
+      '          var startX = e.clientX, startY = e.clientY;',
       '          var transform = card.style.transform || "";',
       '          var curX = 0, curY = 0;',
-      '          var match = /translate\(([-\\d.]+)px,\s*([-\\d.]+)px\)/.exec(transform);',
-      '          if (match) {',
-      '            curX = parseFloat(match[1]);',
-      '            curY = parseFloat(match[2]);',
-      '          }',
-      '',
+      '          var match = /translate\\(([-\\d.]+)px,\\s*([-\\d.]+)px\\)/.exec(transform);',
+      '          if (match) { curX = parseFloat(match[1]); curY = parseFloat(match[2]); }',
       '          card.style.zIndex = "1000";',
-      '',
       '          function onMouseMove(moveEvent) {',
-      '            var dx = moveEvent.clientX - startX;',
-      '            var dy = moveEvent.clientY - startY;',
-      '            // Confinamiento seguro para no desbordar ni salir del margen A4',
-      '            var targetX = Math.max(-250, Math.min(250, curX + dx));',
-      '            var targetY = Math.max(-180, Math.min(180, curY + dy));',
+      '            var targetX = Math.max(-250, Math.min(250, curX + (moveEvent.clientX - startX)));',
+      '            var targetY = Math.max(-180, Math.min(180, curY + (moveEvent.clientY - startY)));',
       '            card.style.transform = "translate(" + targetX + "px, " + targetY + "px)";',
       '          }',
-      '',
       '          function onMouseUp() {',
       '            document.removeEventListener("mousemove", onMouseMove);',
       '            document.removeEventListener("mouseup", onMouseUp);',
@@ -1974,44 +1973,32 @@
       '            self.triggerAutoSave();',
       '            self.checkSheetOverflows();',
       '          }',
-      '',
       '          document.addEventListener("mousemove", onMouseMove);',
       '          document.addEventListener("mouseup", onMouseUp);',
       '        };',
       '      }',
-      '',
-      '      // 2. Escalabilidad bidireccional con límites proporcionales al A4',
       '      var rh = card.querySelector(".dossier-resize-handle");',
       '      if (rh) {',
       '        rh.onmousedown = function(e) {',
       '          if (!self.isEditMode) return;',
       '          e.preventDefault();',
       '          e.stopPropagation();',
-      '',
-      '          var startX = e.clientX;',
-      '          var startY = e.clientY;',
-      '          var startW = card.offsetWidth;',
-      '          var startH = card.offsetHeight;',
+      '          var startX = e.clientX, startY = e.clientY;',
+      '          var startW = card.offsetWidth, startH = card.offsetHeight;',
       '          var parentSheet = card.closest(".sheet");',
       '          var maxW = parentSheet ? (parentSheet.clientWidth - 50) : 950;',
       '          var maxH = parentSheet ? (parentSheet.clientHeight - 80) : 650;',
-      '',
       '          card.style.flex = "none";',
-      '',
       '          function onMouseMove(moveEvent) {',
-      '            var newW = Math.max(80, Math.min(maxW, startW + (moveEvent.clientX - startX)));',
-      '            var newH = Math.max(40, Math.min(maxH, startH + (moveEvent.clientY - startY)));',
-      '            card.style.width = newW + "px";',
-      '            card.style.height = newH + "px";',
+      '            card.style.width = Math.max(80, Math.min(maxW, startW + (moveEvent.clientX - startX))) + "px";',
+      '            card.style.height = Math.max(40, Math.min(maxH, startH + (moveEvent.clientY - startY))) + "px";',
       '          }',
-      '',
       '          function onMouseUp() {',
       '            document.removeEventListener("mousemove", onMouseMove);',
       '            document.removeEventListener("mouseup", onMouseUp);',
       '            self.triggerAutoSave();',
       '            self.checkSheetOverflows();',
       '          }',
-      '',
       '          document.addEventListener("mousemove", onMouseMove);',
       '          document.addEventListener("mouseup", onMouseUp);',
       '        };',
@@ -2312,9 +2299,13 @@
       '        if (lsSaved && lsSaved !== "__IDB__") saved = lsSaved;',
       '      }',
       '      if (saved) {',
+      '        var rt = this._rt();',
       '        var _okDraft = false;',
-      '        if (window.opener && typeof window.opener.raConfirmAsync === "function") {',
-      '          _okDraft = await window.opener.raConfirmAsync("¿Deseas restaurar el borrador guardado de esta propuesta? Se cargarán todos los textos e imágenes modificadas.", "Restaurar borrador");',
+      '        var _msgDraft = "¿Deseas restaurar el borrador guardado de esta propuesta? Se cargarán todos los textos e imágenes modificadas.";',
+      '        if (rt && typeof rt.confirmAsync === "function") {',
+      '          _okDraft = await rt.confirmAsync(_msgDraft, { title: "Restaurar borrador", confirmLabel: "Restaurar" }, window);',
+      '        } else if (window.opener && typeof window.opener.raConfirmAsync === "function") {',
+      '          _okDraft = await window.opener.raConfirmAsync(_msgDraft, "Restaurar borrador");',
       '        } else {',
       '          _okDraft = await new Promise(function(res){ var ov = document.createElement("div"); ov.style.cssText = "position:fixed;inset:0;background:rgba(2,6,23,0.75);z-index:999999;display:flex;align-items:center;justify-content:center;"; ov.innerHTML = "<div style=\\"background:#0f172a;color:#fff;padding:18px;border-radius:10px;max-width:380px;font-family:sans-serif;\\"><div style=\\"font-size:13px;margin-bottom:14px;\\">¿Deseas restaurar el borrador guardado de esta propuesta? Se cargarán todos los textos e imágenes modificadas.</div><div style=\\"display:flex;justify-content:flex-end;gap:8px;\\"><button type=\\"button\\" data-c=\\"0\\" style=\\"padding:6px 12px;border-radius:6px;border:1px solid #475569;background:#1e293b;color:#fff;cursor:pointer;\\">Cancelar</button><button type=\\"button\\" data-c=\\"1\\" style=\\"padding:6px 12px;border-radius:6px;border:none;background:#059669;color:#fff;font-weight:700;cursor:pointer;\\">Restaurar</button></div></div>"; ov.querySelector("[data-c=\\"0\\"]").onclick=function(){ov.remove();res(false);}; ov.querySelector("[data-c=\\"1\\"]").onclick=function(){ov.remove();res(true);}; document.body.appendChild(ov); });',
       '        }',
@@ -2325,7 +2316,8 @@
       '            this.setupDragAndResize();',
       '            this.ensureAllContentEditable();',
       '            this.checkSheetOverflows();',
-      '            if (window.opener && typeof window.opener.raAlert === "function") window.opener.raAlert("Borrador restaurado con éxito.", "success");',
+      '            if (rt && typeof rt.notify === "function") rt.notify("Borrador restaurado con éxito.", window);',
+      '            else if (window.opener && typeof window.opener.raAlert === "function") window.opener.raAlert("Borrador restaurado con éxito.", "success");',
       '          }',
       '        }',
       '      }',
@@ -2354,11 +2346,25 @@
       '  },',
       '',
       '  exportToWordDocx: async function() {',
+      '    var container = document.getElementById("dossier-container");',
+      '    var rt = this._rt();',
+      '    if (rt && typeof rt.exportDocx === "function") {',
+      '      return rt.exportDocx({',
+      '        win: window,',
+      '        rootEl: container,',
+      '        cleanSelector: ".no-print, .dossier-overflow-warn, .dossier-drag-handle, .dossier-resize-handle, .dossier-img-picker-btn, .dossier-file-input, #dossier-format-bar",',
+      '        orientation: "landscape",',
+      '        title: "Dossier Comercial - " + clientName,',
+      '        filename: "Dossier_Comercial_" + clientName.replace(/[^a-zA-Z0-9_-]/g, "_") + ".docx",',
+      '        buttonId: "btn-dossier-docx",',
+      '        loadingHtml: "GENERANDO DOCX...",',
+      '        defaultHtml: "DESCARGAR WORD (.DOCX)"',
+      '      });',
+      '    }',
       '    var btn = document.getElementById("btn-dossier-docx");',
       '    var origText = btn ? btn.innerHTML : "";',
       '    if (btn) { btn.innerHTML = "GENERANDO DOCX..."; btn.disabled = true; }',
       '    try {',
-      '      var container = document.getElementById("dossier-container");',
       '      var sanitized = this.getSanitizedClone(container);',
       '      var exporter = (window.opener && window.opener.RADocxExporter) || (typeof RADocxExporter !== "undefined" ? RADocxExporter : null);',
       '      if (!exporter && window.opener && window.opener.RALazyLoader && typeof window.opener.RALazyLoader.loadDocxExporter === "function") {',
@@ -2370,17 +2376,9 @@
       '      var styles = document.querySelector("style") ? document.querySelector("style").innerHTML : "";',
       '      var docxBlob = null;',
       '      if (exporter && typeof exporter.buildDocxBlobFromHtml === "function") {',
-      '        docxBlob = exporter.buildDocxBlobFromHtml(sanitized.innerHTML, {',
-      '          orientation: "landscape",',
-      '          styles: styles,',
-      '          title: "Dossier Comercial - " + clientName',
-      '        });',
+      '        docxBlob = exporter.buildDocxBlobFromHtml(sanitized.innerHTML, { orientation: "landscape", styles: styles, title: "Dossier Comercial - " + clientName });',
       '      } else if (typeof buildDocxBlobFromHtml === "function") {',
-      '        docxBlob = buildDocxBlobFromHtml(sanitized.innerHTML, {',
-      '          orientation: "landscape",',
-      '          styles: styles,',
-      '          title: "Dossier Comercial - " + clientName',
-      '        });',
+      '        docxBlob = buildDocxBlobFromHtml(sanitized.innerHTML, { orientation: "landscape", styles: styles, title: "Dossier Comercial - " + clientName });',
       '      } else {',
       '        throw new Error("Módulo RADocxExporter no disponible");',
       '      }',
@@ -2404,6 +2402,15 @@
       '  },',
       '',
       '  exportToHtml: function() {',
+      '    var rt = this._rt();',
+      '    if (rt && typeof rt.exportHtml === "function") {',
+      '      rt.exportHtml({',
+      '        win: window,',
+      '        cleanSelector: ".dossier-toolbar, #dossier-format-bar, .no-print, .dossier-overflow-warn, .dossier-drag-handle, .dossier-resize-handle, .dossier-img-picker-btn, .dossier-file-input",',
+      '        filename: "Propuesta_Comercial_" + clientName.replace(/[^a-zA-Z0-9_-]/g, "_") + ".html"',
+      '      });',
+      '      return;',
+      '    }',
       '    var clone = document.documentElement.cloneNode(true);',
       '    clone.querySelectorAll(".dossier-toolbar, #dossier-format-bar, .no-print, .dossier-overflow-warn, .dossier-drag-handle, .dossier-resize-handle, .dossier-img-picker-btn, .dossier-file-input").forEach(function(el){ el.remove(); });',
       '    clone.querySelectorAll("[contenteditable]").forEach(function(el){ el.removeAttribute("contenteditable"); });',

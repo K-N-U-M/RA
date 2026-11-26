@@ -8,7 +8,7 @@
  * Características:
  * 1. HUD flotante Glassmorphism en el viewport con métricas unificadas (kWp, módulos,
  *    inversor, ratio DC/AC, producción anual y estado del análisis solar).
- * 2. Modo compacto / plegable con atajo de teclado [H] o clic para mínima huella.
+ * 2. Modo compacto / plegable con atajo de teclado [Alt+H] o clic para mínima huella.
  * 3. Arquitectura 100% reactiva dirigida por eventos (sin polling continuo en reposo).
  * 4. Validación proactiva continua:
  *    - Ratio DC/AC admisible [0.85 - 1.35] (IEC 62548).
@@ -103,7 +103,7 @@
     const next = (typeof force === 'boolean') ? force : !_isCompact;
     setCompactMode(next);
     if (typeof root.showStatus === 'function') {
-      root.showStatus(next ? '<i data-lucide="minimize-2" class="icon-sm"></i> HUD DE ESTADO MINIMIZADO [H]' : '<i data-lucide="maximize-2" class="icon-sm"></i> HUD DE ESTADO EXPANDIDO [H]', 1600);
+      root.showStatus(next ? '<i data-lucide="minimize-2" class="icon-sm"></i> HUD DE ESTADO MINIMIZADO [Alt+H]' : '<i data-lucide="maximize-2" class="icon-sm"></i> HUD DE ESTADO EXPANDIDO [Alt+H]', 1600);
     }
   }
 
@@ -128,7 +128,7 @@
       pillBox.style.gap = '0';
       pillBox.style.borderRadius = '8px';
       pillBox.style.cursor = 'pointer';
-      pillBox.title = 'Haz clic o pulsa [H] para expandir el HUD con todas las métricas';
+      pillBox.title = 'Haz clic o pulsa [Alt+H] para expandir el HUD con todas las métricas';
       locRow.style.display = 'none';
       metricsRow.style.display = 'none';
       compactRow.style.display = 'flex';
@@ -189,7 +189,7 @@
           user-select: none;
           transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
         ">
-          <!-- Fila de Ubicación, Estado de Sombra y Botón de Minimizar [H] -->
+          <!-- Fila de Ubicación, Estado de Sombra y Botón de Minimizar [Alt+H] -->
           <div id="ra-hud-location-row" style="display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 10px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); padding-bottom: 4px;">
             <div style="display: flex; align-items: center; gap: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
               <span style="color: #38BDF8;">📍</span>
@@ -199,7 +199,7 @@
               <div id="ra-hud-shadow-badge" style="font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 4px; background: rgba(56, 189, 248, 0.15); color: #38BDF8; white-space: nowrap;">
                 🌤️ Preliminar
               </div>
-              <button id="ra-hud-toggle-btn" type="button" title="Minimizar HUD [H]" style="
+              <button id="ra-hud-toggle-btn" type="button" title="Minimizar HUD [Alt+H]" style="
                 background: rgba(255, 255, 255, 0.08);
                 border: 1px solid rgba(255, 255, 255, 0.15);
                 color: #cbd5e1;
@@ -215,7 +215,7 @@
                 transition: background 0.15s ease, color 0.15s ease;
               ">
                 <span id="ra-hud-toggle-icon">−</span>
-                <span style="font-size: 10px; color: #94a3b8; font-family: monospace;">[H]</span>
+                <span style="font-size: 10px; color: #94a3b8; font-family: monospace;">[Alt+H]</span>
               </button>
             </div>
           </div>
@@ -250,7 +250,7 @@
               <span id="ra-hud-compact-panels" style="color: #94a3b8; font-size: 10px; font-weight: 600;">(0 pnl)</span>
               <span id="ra-hud-compact-alert" style="display: none; font-size: 11px; cursor: help;" title="">⚠️</span>
             </div>
-            <button id="ra-hud-expand-btn" type="button" title="Expandir HUD [H]" style="
+            <button id="ra-hud-expand-btn" type="button" title="Expandir HUD [Alt+H]" style="
               background: rgba(255, 255, 255, 0.08);
               border: 1px solid rgba(255, 255, 255, 0.15);
               color: #cbd5e1;
@@ -266,7 +266,7 @@
               transition: background 0.15s ease, color 0.15s ease;
             ">
               <span>+</span>
-              <span style="font-size: 10px; color: #94a3b8; font-family: monospace;">[H]</span>
+              <span style="font-size: 10px; color: #94a3b8; font-family: monospace;">[Alt+H]</span>
             </button>
           </div>
         </div>
@@ -807,6 +807,26 @@
   let timerId = null;
   let _syncInitialized = false;
 
+  function _onHudDocChange(e) {
+    if (e && e.target && typeof e.target.closest === 'function' &&
+        (e.target.closest('#ra-sidebar') || e.target.closest('.modal-box') || e.target.closest('.doc-modal-box'))) {
+      requestHUDUpdate();
+    }
+  }
+
+  function _onHudKeydown(e) {
+    if (!e || !e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+    const target = e.target;
+    if (target) {
+      const tag = (target.tagName || '').toUpperCase();
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target.isContentEditable) return;
+    }
+    if (e.code === 'KeyH' || (typeof e.key === 'string' && e.key.toLowerCase() === 'h')) {
+      if (typeof e.preventDefault === 'function') e.preventDefault();
+      toggleCompactMode();
+    }
+  }
+
   function startSync() {
     if (typeof window === 'undefined') return;
     if (_syncInitialized) return;
@@ -816,21 +836,20 @@
     requestHUDUpdate();
 
     // 2. Escucha reactiva de eventos personalizados de la plataforma
-    window.addEventListener('ra:project-updated', requestHUDUpdate);
-    window.addEventListener('ra:step-changed', requestHUDUpdate);
-    window.addEventListener('resize', requestHUDUpdate);
+    if (typeof window.addEventListener === 'function') {
+      window.addEventListener('ra:project-updated', requestHUDUpdate);
+      window.addEventListener('ra:step-changed', requestHUDUpdate);
+      window.addEventListener('resize', requestHUDUpdate);
+    }
 
     // 3. Reactividad en cambios de formularios y parámetros (sidebar / modales)
-    document.addEventListener('change', (e) => {
-      if (e.target && (e.target.closest('#ra-sidebar') || e.target.closest('.modal-box') || e.target.closest('.doc-modal-box'))) {
-        requestHUDUpdate();
-      }
-    }, { passive: true });
-
-    // 4. Reactividad al finalizar interacciones CAD/3D (soltar clic de ratón/táctil)
-    document.addEventListener('pointerup', () => {
-      requestHUDUpdate();
-    }, { passive: true });
+    if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
+      document.addEventListener('change', _onHudDocChange, { passive: true });
+      // 4. Reactividad al finalizar interacciones CAD/3D (soltar clic de ratón/táctil)
+      document.addEventListener('pointerup', requestHUDUpdate, { passive: true });
+      // Atajo exclusivo [Alt+H] para minimizar/expandir HUD sin colisionar con Heatmap [H]
+      document.addEventListener('keydown', _onHudKeydown);
+    }
 
     // 5. Hooks no invasivos en funciones globales y Orquestador de 5 pasos
     if (typeof window.wpUpdateUI === 'function') {
@@ -855,6 +874,25 @@
       if (typeof document !== 'undefined' && document.hidden) return;
       updateHUD();
     }, 5000);
+    if (timerId && typeof timerId.unref === 'function') timerId.unref();
+  }
+
+  function stopSync() {
+    if (timerId) {
+      clearInterval(timerId);
+      timerId = null;
+    }
+    _syncInitialized = false;
+    if (typeof window !== 'undefined' && typeof window.removeEventListener === 'function') {
+      window.removeEventListener('ra:project-updated', requestHUDUpdate);
+      window.removeEventListener('ra:step-changed', requestHUDUpdate);
+      window.removeEventListener('resize', requestHUDUpdate);
+    }
+    if (typeof document !== 'undefined' && typeof document.removeEventListener === 'function') {
+      document.removeEventListener('change', _onHudDocChange);
+      document.removeEventListener('pointerup', requestHUDUpdate);
+      document.removeEventListener('keydown', _onHudKeydown);
+    }
   }
 
   const RAProjectStatusHUD = {
@@ -862,6 +900,7 @@
     updateImmediate: updateHUD,
     inspect: inspectProjectState,
     start: startSync,
+    stopSync: stopSync,
     toggleCompact: toggleCompactMode,
     setCompact: setCompactMode,
     isCompact: () => _isCompact

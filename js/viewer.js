@@ -411,10 +411,10 @@ async function loadGoogle3D(opts) {
     }
   } else {
     google3DTileset.show = true;
-    google3DTileset.cullWithChildrenBounds = false;
-    google3DTileset.skipLevelOfDetail = false;
+    google3DTileset.cullWithChildrenBounds = true;
+    google3DTileset.skipLevelOfDetail = true;
     google3DTileset.loadSiblings = !recoveryMode;
-    google3DTileset.dynamicScreenSpaceError = false;
+    google3DTileset.dynamicScreenSpaceError = true;
     globe.show = false;
     show3DTilesLoading('Renderizando Google 3D...', 0, { forceClearError: true });
     hide3DTilesLoading(800);

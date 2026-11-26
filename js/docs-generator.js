@@ -69,8 +69,9 @@ function _unescapePlainDoc(str) {
 }
 
 function escapeHtml(str) {
-  if (typeof window !== 'undefined' && window.RASanitize && typeof window.RASanitize.plain === 'function') {
-    return window.RASanitize.plain(str);
+  if (typeof window !== 'undefined') {
+    const san = (window.RA && (window.RA.Sanitizer || window.RA.Sanitize)) || window.RASanitize;
+    if (san && typeof san.plain === 'function') return san.plain(str);
   }
   if (str === null || str === undefined) return '';
   return _unescapePlainDoc(str)
@@ -391,6 +392,15 @@ function docWindow(title, body, opt) {
   <script>
     let _activeDragBlock = null;
 
+    function _docRt() {
+      try {
+        if (window.RADocRuntime) return window.RADocRuntime;
+        if (window.opener && !window.opener.closed && window.opener.RADocRuntime) return window.opener.RADocRuntime;
+        if (window.parent && window.parent !== window && window.parent.RADocRuntime) return window.parent.RADocRuntime;
+      } catch (e) {}
+      return null;
+    }
+
     function applyDocFormat(cmd, val) {
       document.execCommand(cmd, false, val || null);
     }
@@ -401,6 +411,8 @@ function docWindow(title, body, opt) {
     }
 
     function _docNotify(msg) {
+      const rt = _docRt();
+      if (rt && typeof rt.notify === 'function') { rt.notify(msg, window); return; }
       try {
         const ow = (window.opener && !window.opener.closed) ? window.opener : ((window.parent && window.parent !== window) ? window.parent : null);
         if (ow && typeof ow.raAlert === 'function') { ow.raAlert(msg); return; }
@@ -414,6 +426,8 @@ function docWindow(title, body, opt) {
     }
 
     function _docConfirmAsync(msg) {
+      const rt = _docRt();
+      if (rt && typeof rt.confirmAsync === 'function') { return rt.confirmAsync(msg, { confirmLabel: 'Eliminar', title: 'Confirmar' }, window); }
       try {
         const ow = (window.opener && !window.opener.closed) ? window.opener : ((window.parent && window.parent !== window) ? window.parent : null);
         if (ow && typeof ow.raConfirmAsync === 'function') return ow.raConfirmAsync(msg, 'Confirmar');
@@ -432,7 +446,7 @@ function docWindow(title, body, opt) {
     function handleDocImageInsert(input) {
       if (!input.files || !input.files[0]) return;
       const file = input.files[0];
-      if (!/^image\/(png|jpeg|jpg|webp|gif)$/i.test(file.type || '')) {
+      if (!/^image\\/(png|jpeg|jpg|webp|gif)$/i.test(file.type || '')) {
         _docNotify('Formato no permitido. Usa únicamente imágenes PNG, JPG, WebP o GIF.');
         input.value = '';
         return;
@@ -447,18 +461,19 @@ function docWindow(title, body, opt) {
 
     function capture3DViewToDoc() {
       try {
-        let canvas = null;
-        if (window.opener) {
+        const rt = _docRt();
+        let dataUrl = (rt && typeof rt.capture3DCanvas === 'function') ? rt.capture3DCanvas(window) : null;
+        if (!dataUrl && window.opener) {
+          let canvas = null;
           if (window.opener.viewer && window.opener.viewer.scene && window.opener.viewer.scene.canvas) {
             window.opener.viewer.scene.render();
             canvas = window.opener.viewer.scene.canvas;
           } else {
-            const el = window.opener.document.querySelector('canvas');
-            if (el) canvas = el;
+            canvas = window.opener.document.querySelector('canvas');
           }
+          if (canvas) dataUrl = canvas.toDataURL('image/jpeg', 0.92);
         }
-        if (canvas) {
-          const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+        if (dataUrl) {
           insertImageIntoDoc(dataUrl, 'Captura 3D del Proyecto');
         } else {
           _docNotify('No se pudo acceder al lienzo 3D de la ventana principal. Asegúrate de tener la ventana del proyecto abierta.');
@@ -471,7 +486,7 @@ function docWindow(title, body, opt) {
 
     function insertImageIntoDoc(dataUrl, altText) {
       const s = String(dataUrl || '').trim();
-      if (!/^data:image\/(?:png|jpeg|jpg|webp|gif);base64,[A-Za-z0-9+/=]+$/i.test(s)) {
+      if (!/^data:image\\/(?:png|jpeg|jpg|webp|gif);base64,[A-Za-z0-9+/=]+$/i.test(s)) {
         _docNotify('Imagen inválida o formato no soportado.');
         return;
       }
@@ -490,7 +505,7 @@ function docWindow(title, body, opt) {
       delBtn.onclick = function() { if (wrapper.parentNode) wrapper.parentNode.removeChild(wrapper); };
       wrapper.appendChild(img);
       wrapper.appendChild(delBtn);
-      
+
       const sheet = document.getElementById('editable-doc-sheet');
       const sel = window.getSelection();
       if (sel && sel.rangeCount > 0 && sheet.contains(sel.anchorNode)) {
@@ -503,6 +518,11 @@ function docWindow(title, body, opt) {
     }
 
     function setupDraggableBlocks() {
+      const rt = _docRt();
+      if (rt && typeof rt.setupDocDraggableBlocks === 'function') {
+        rt.setupDocDraggableBlocks({ win: window, sheetId: 'editable-doc-sheet', activeClass: 'mode-edit-layout', confirmMsg: '¿Eliminar este bloque del presupuesto?' });
+        return;
+      }
       const sheet = document.getElementById('editable-doc-sheet');
       if (!sheet) return;
       const candidates = sheet.querySelectorAll('.doc-box, .doc-grid-4, .doc-table, .doc-section-title, .doc-img-resizable, .kpi-card');
@@ -510,8 +530,6 @@ function docWindow(title, body, opt) {
         if (el.hasAttribute('data-has-drag')) return;
         el.setAttribute('data-has-drag', 'true');
         el.classList.add('ra-draggable-block');
-
-        // Botón de eliminar bloque
         const delBtn = document.createElement('button');
         delBtn.type = 'button';
         delBtn.className = 'ra-block-del-btn no-print';
@@ -519,43 +537,31 @@ function docWindow(title, body, opt) {
         delBtn.innerHTML = '✕';
         delBtn.onclick = async function(ev) {
           ev.stopPropagation();
-          if (await _docConfirmAsync('¿Eliminar este bloque del presupuesto?')) {
-            el.remove();
-          }
+          if (await _docConfirmAsync('¿Eliminar este bloque del presupuesto?')) el.remove();
         };
         el.appendChild(delBtn);
-
-        // Tirador de arrastre
         const handle = document.createElement('div');
         handle.className = 'ra-block-drag-handle no-print';
         handle.title = 'Arrastra para mover este bloque arriba o abajo';
         handle.innerHTML = '⠿';
         el.appendChild(handle);
-
         el.setAttribute('draggable', 'true');
-
         el.addEventListener('dragstart', function(ev) {
-          if (!document.body.classList.contains('mode-edit-layout')) {
-            ev.preventDefault();
-            return;
-          }
+          if (!document.body.classList.contains('mode-edit-layout')) { ev.preventDefault(); return; }
           _activeDragBlock = el;
           ev.dataTransfer.effectAllowed = 'move';
           try { ev.dataTransfer.setData('text/plain', ''); } catch(e) {}
           el.style.opacity = '0.4';
         });
-
         el.addEventListener('dragend', function() {
           if (_activeDragBlock) _activeDragBlock.style.opacity = '1';
           _activeDragBlock = null;
         });
-
         el.addEventListener('dragover', function(ev) {
           if (!document.body.classList.contains('mode-edit-layout') || !_activeDragBlock || _activeDragBlock === el) return;
           ev.preventDefault();
           ev.dataTransfer.dropEffect = 'move';
         });
-
         el.addEventListener('drop', function(ev) {
           if (!document.body.classList.contains('mode-edit-layout') || !_activeDragBlock || _activeDragBlock === el) return;
           ev.preventDefault();
@@ -563,39 +569,32 @@ function docWindow(title, body, opt) {
           const parent = el.parentNode;
           if (!parent) return;
           const rect = el.getBoundingClientRect();
-          const next = (ev.clientY - rect.top) > (rect.height / 2);
-          parent.insertBefore(_activeDragBlock, next ? el.nextSibling : el);
+          parent.insertBefore(_activeDragBlock, (ev.clientY - rect.top) > (rect.height / 2) ? el.nextSibling : el);
         });
       });
     }
 
-    // Manejo de selección para barra flotante de formato
-    document.addEventListener('selectionchange', function() {
-      const tb = document.getElementById('doc-format-toolbar');
-      if (!tb || !document.body.classList.contains('mode-edit-layout')) {
-        if (tb) tb.style.display = 'none';
+    (function() {
+      const rt = _docRt();
+      if (rt && typeof rt.bindSelectionToolbar === 'function') {
+        rt.bindSelectionToolbar({ win: window, toolbarId: 'doc-format-toolbar', sheetSelector: '#editable-doc-sheet', activeClass: 'mode-edit-layout' });
         return;
       }
-      const sel = window.getSelection();
-      if (!sel || sel.isCollapsed || !sel.rangeCount) {
-        tb.style.display = 'none';
-        return;
-      }
-      const range = sel.getRangeAt(0);
-      const sheet = document.getElementById('editable-doc-sheet');
-      if (!sheet || !sheet.contains(range.commonAncestorContainer)) {
-        tb.style.display = 'none';
-        return;
-      }
-      const rect = range.getBoundingClientRect();
-      if (rect.width === 0) {
-        tb.style.display = 'none';
-        return;
-      }
-      tb.style.display = 'flex';
-      tb.style.left = Math.max(10, Math.min(window.innerWidth - 380, rect.left + window.scrollX + (rect.width / 2) - 180)) + 'px';
-      tb.style.top = Math.max(54, rect.top + window.scrollY - 44) + 'px';
-    });
+      document.addEventListener('selectionchange', function() {
+        const tb = document.getElementById('doc-format-toolbar');
+        if (!tb || !document.body.classList.contains('mode-edit-layout')) { if (tb) tb.style.display = 'none'; return; }
+        const sel = window.getSelection();
+        if (!sel || sel.isCollapsed || !sel.rangeCount) { tb.style.display = 'none'; return; }
+        const range = sel.getRangeAt(0);
+        const sheet = document.getElementById('editable-doc-sheet');
+        if (!sheet || !sheet.contains(range.commonAncestorContainer)) { tb.style.display = 'none'; return; }
+        const rect = range.getBoundingClientRect();
+        if (rect.width === 0) { tb.style.display = 'none'; return; }
+        tb.style.display = 'flex';
+        tb.style.left = Math.max(10, Math.min(window.innerWidth - 380, rect.left + window.scrollX + (rect.width / 2) - 180)) + 'px';
+        tb.style.top = Math.max(54, rect.top + window.scrollY - 44) + 'px';
+      });
+    })();
 
     function toggleEditMode() {
       const sheet = document.getElementById('editable-doc-sheet');
@@ -623,23 +622,33 @@ function docWindow(title, body, opt) {
     }
 
     async function exportToWordDocx() {
+      const sheet = document.getElementById('editable-doc-sheet');
+      const rt = _docRt();
+      if (rt && typeof rt.exportDocx === 'function') {
+        return rt.exportDocx({
+          win: window,
+          rootEl: sheet,
+          cleanSelector: '.doc-top-bar, #doc-format-toolbar, .no-print, .ra-edit-del-btn, .ra-gap-handle, #ra-gap-tooltip',
+          orientation: 'portrait',
+          title: document.title || ${JSON.stringify(String(title || ''))},
+          filename: '${safeFileBase}.docx',
+          buttonId: 'btn-doc-docx',
+          loadingHtml: '⏳ GENERANDO DOCX...',
+          defaultHtml: '📝 WORD (.DOCX)',
+          useOuterHtml: true
+        });
+      }
       const btnWord = document.getElementById('btn-doc-docx');
       const origText = btnWord ? btnWord.innerHTML : '';
       if (btnWord) { btnWord.innerHTML = '⏳ GENERANDO DOCX...'; btnWord.disabled = true; }
-
       try {
-        const sheet = document.getElementById('editable-doc-sheet');
         if (!sheet) throw new Error('No se encontró la hoja de documento');
         const cloneSheet = sheet.cloneNode(true);
         cloneSheet.querySelectorAll('.doc-top-bar, #doc-format-toolbar, .no-print, .ra-edit-del-btn, .ra-gap-handle, #ra-gap-tooltip').forEach(el => el.remove());
         cloneSheet.querySelectorAll('[contenteditable]').forEach(el => el.removeAttribute('contenteditable'));
         cloneSheet.querySelectorAll('.editable-field').forEach(el => el.classList.remove('editable-field'));
-        cloneSheet.querySelectorAll('[data-editable-box]').forEach(el => {
-          el.removeAttribute('draggable');
-          el.removeAttribute('data-editable-box');
-        });
+        cloneSheet.querySelectorAll('[data-editable-box]').forEach(el => { el.removeAttribute('draggable'); el.removeAttribute('data-editable-box'); });
         cloneSheet.removeAttribute('contenteditable');
-
         let exporter = (window.opener && window.opener.RADocxExporter) || (typeof RADocxExporter !== 'undefined' ? RADocxExporter : null);
         if (!exporter && window.opener && window.opener.RALazyLoader && typeof window.opener.RALazyLoader.loadDocxExporter === 'function') {
           exporter = await window.opener.RALazyLoader.loadDocxExporter();
@@ -648,38 +657,11 @@ function docWindow(title, body, opt) {
         }
         if (exporter && typeof exporter.rasterizeSvgsToPng === 'function') {
           await exporter.rasterizeSvgsToPng(cloneSheet);
-        } else {
-          // Convertir cualquier <svg> a <img> base64 si el módulo rasterizador no está accesible
-          const svgs = Array.from(cloneSheet.querySelectorAll('svg'));
-          for (let i = 0; i < svgs.length; i++) {
-            const svgEl = svgs[i];
-            try {
-              const svgData = new XMLSerializer().serializeToString(svgEl);
-              const svgB64 = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
-              const imgEl = document.createElement('img');
-              imgEl.src = svgB64;
-              imgEl.style.cssText = svgEl.style.cssText || 'display:block;max-width:100%;';
-              if (svgEl.getAttribute('width')) imgEl.setAttribute('width', svgEl.getAttribute('width'));
-              if (svgEl.getAttribute('height')) imgEl.setAttribute('height', svgEl.getAttribute('height'));
-              svgEl.parentNode.replaceChild(imgEl, svgEl);
-            } catch(eSvg) {}
-          }
         }
-
         const stylesEl = document.querySelector('style');
         const styles = stylesEl ? stylesEl.innerHTML : '';
-
-        let docxBlob = null;
-        if (exporter && typeof exporter.buildDocxBlobFromHtml === 'function') {
-          docxBlob = exporter.buildDocxBlobFromHtml(cloneSheet.outerHTML, {
-            orientation: 'portrait',
-            styles: styles,
-            title: document.title || ${JSON.stringify(String(title || ''))}
-          });
-        } else {
-          throw new Error('Módulo RADocxExporter no disponible');
-        }
-
+        if (!exporter || typeof exporter.buildDocxBlobFromHtml !== 'function') throw new Error('Módulo RADocxExporter no disponible');
+        const docxBlob = exporter.buildDocxBlobFromHtml(cloneSheet.outerHTML, { orientation: 'portrait', styles: styles, title: document.title || ${JSON.stringify(String(title || ''))} });
         const a = document.createElement('a');
         a.href = URL.createObjectURL(docxBlob);
         a.download = '${safeFileBase}.docx';
@@ -700,14 +682,20 @@ function docWindow(title, body, opt) {
     }
 
     function exportToHtml() {
+      const rt = _docRt();
+      if (rt && typeof rt.exportHtml === 'function') {
+        rt.exportHtml({
+          win: window,
+          cleanSelector: '.doc-top-bar, #doc-format-toolbar, .no-print, .ra-edit-del-btn, .ra-gap-handle, #ra-gap-tooltip',
+          filename: '${safeFileBase}.html'
+        });
+        return;
+      }
       const clone = document.documentElement.cloneNode(true);
       clone.querySelectorAll('.doc-top-bar, #doc-format-toolbar, .no-print, .ra-edit-del-btn, .ra-gap-handle, #ra-gap-tooltip').forEach(el => el.remove());
       clone.querySelectorAll('[contenteditable]').forEach(el => el.removeAttribute('contenteditable'));
       clone.querySelectorAll('.editable-field').forEach(el => el.classList.remove('editable-field'));
-      clone.querySelectorAll('[data-editable-box]').forEach(el => {
-        el.removeAttribute('draggable');
-        el.removeAttribute('data-editable-box');
-      });
+      clone.querySelectorAll('[data-editable-box]').forEach(el => { el.removeAttribute('draggable'); el.removeAttribute('data-editable-box'); });
       const blob = new Blob(['\\ufeff' + clone.outerHTML], { type: 'text/html;charset=utf-8' });
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);

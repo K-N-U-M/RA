@@ -54,6 +54,16 @@ const Cesium = {
     constructor(cb, isConstant) { this.cb = cb; this.isConstant = isConstant; }
     getValue() { return this.cb(); }
   },
+  ConstantProperty: class {
+    constructor(val) { this._val = val; }
+    getValue() { return this._val; }
+    setValue(val) { this._val = val; }
+  },
+  ConstantPositionProperty: class {
+    constructor(val) { this._val = val; }
+    getValue() { return this._val; }
+    setValue(val) { this._val = val; }
+  },
   LabelStyle: { FILL_AND_OUTLINE: 2 },
   VerticalOrigin: { BOTTOM: 1 },
   ArcType: { NONE: 0 },

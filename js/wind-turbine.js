@@ -161,45 +161,6 @@
     triggerRerender();
   }
 
-  function applyScaleAxis(obs, axis, factor) {
-    if (!obs || obs.type !== 'wind_turbine') return;
-    ensureProps(obs);
-
-    if (axis === 'z') {
-      if (obs.turbineType === 'vawt') {
-        obs.mastHeight = Math.max(1.5, Math.round(obs.mastHeight * factor * 10) / 10);
-      } else {
-        obs.mastHeight = Math.max(1.5, Math.round(obs.mastHeight * factor * 10) / 10);
-        obs.bladeRadius = Math.max(0.3, Math.round(obs.bladeRadius * factor * 10) / 10);
-      }
-    } else if (axis === 'x' || axis === 'y') {
-      obs.bladeRadius = Math.max(0.3, Math.round(obs.bladeRadius * factor * 10) / 10);
-    }
-
-    syncDimensions(obs);
-    invalidateAndRerender('Escala ' + axis.toUpperCase() + ' ajustada');
-    if (typeof root.showStatus === 'function') {
-      root.showStatus('ESCALA EÓLICA ' + axis.toUpperCase() + ' AJUSTADA: ' + (axis === 'z' ? obs.h : (obs.bladeRadius * 2)).toFixed(1) + 'm', 1200);
-    }
-  }
-
-  function applyNudgeDim(obs, dim, delta) {
-    if (!obs || obs.type !== 'wind_turbine') return;
-    ensureProps(obs);
-
-    if (dim === 'h') {
-      obs.mastHeight = Math.max(1.5, Math.round((obs.mastHeight + delta) * 10) / 10);
-    } else if (dim === 'w' || dim === 'l') {
-      obs.bladeRadius = Math.max(0.3, Math.round((obs.bladeRadius + delta / 2) * 10) / 10);
-    }
-
-    syncDimensions(obs);
-    invalidateAndRerender('Dimensión ' + dim.toUpperCase() + ' ajustada');
-    if (typeof root.showStatus === 'function') {
-      root.showStatus('DIMENSIÓN EÓLICA ' + dim.toUpperCase() + ' AJUSTADA: ' + (dim === 'h' ? obs.h : (obs.bladeRadius * 2)).toFixed(1) + 'm', 1200);
-    }
-  }
-
   function onGeneralDimInput(obs) {
     if (!obs || obs.type !== 'wind_turbine') return;
     ensureProps(obs);
@@ -323,143 +284,22 @@
     var rotBaseMat3 = mat3FromCols(rEast, rNorth, up);
     var rootModelMatrix = Cesium.Matrix4.fromRotationTranslation(rotBaseMat3, base, new Cesium.Matrix4());
 
-    var col = function (name) { return isSelected ? COLORS.selected : COLORS[name]; };
-    var VF = Cesium.PerInstanceColorAppearance.VERTEX_FORMAT;
-    var instances = [];
-
-    // Helper: genera GeometryInstance en coordenadas locales del rootModelMatrix (X=rEast, Y=rNorth, Z=up)
-    function addInstance(geom, color, localTranslation, localRotMat3, instId) {
-      var rotM = localRotMat3 || Cesium.Matrix3.IDENTITY;
-      var transM = localTranslation || Cesium.Cartesian3.ZERO;
-      var localMat4 = Cesium.Matrix4.fromRotationTranslation(rotM, transM, new Cesium.Matrix4());
-      instances.push(new Cesium.GeometryInstance({
-        id: instId,
-        geometry: geom,
-        modelMatrix: localMat4,
-        attributes: {
-          color: Cesium.ColorGeometryInstanceAttribute.fromColor(color)
-        }
-      }));
+    if (!root.RAWindVisualizer || typeof root.RAWindVisualizer.buildTurbineGeometryInstances !== 'function') {
+      return null;
     }
-
-    if (obs.turbineType === 'vawt') {
-      // ══════════════ VAWT (Eje Vertical) ══════════════
-      // Palas verticales y brazos sincronizados con medidas de catálogo
-      var vBladeH     = Math.max(0.5, obs.bladeHeightM || obs.bladeLength || (bladeR * 2 * 1.4));
-      var vBladeMid   = Math.max(vBladeH / 2 + 0.3, mastH);
-      var armTopH     = vBladeMid + vBladeH / 2;
-      var armBotH     = Math.max(0.2, vBladeMid - vBladeH / 2);
-
-      // Mástil: asciende y termina EXACTAMENTE en armTopH (al ras del eje superior de palas),
-      // sin sobresalir por encima:
-      var totalMastH  = armTopH;
-      // Mástil cónico proporcional: base nominal 50cm (r=0.25m), coronación 25cm (r=0.125m)
-      var vMastScale  = Math.max(0.6, Math.min(2.5, Math.sqrt(totalMastH / 12.0)));
-      var vMastBotR   = Math.max(0.18, 0.25 * vMastScale);
-      var vMastTopR   = Math.max(0.09, 0.125 * vMastScale);
-      var vMastGeom   = new Cesium.CylinderGeometry({
-        length: totalMastH, topRadius: vMastTopR, bottomRadius: vMastBotR,
-        slices: 16, vertexFormat: VF
-      });
-      addInstance(vMastGeom, col('mast'), new Cesium.Cartesian3(0, 0, elev + totalMastH / 2), null, 'wt_vmast_' + obs.id);
-      var vBladeThick = Math.max(0.03, bladeR * 0.035);
-      var vBladeChord = Math.max(0.12, bladeR * 0.12);
-
-      for (var vb = 0; vb < 3; vb++) {
-        var vAngle = vb * (2 * Math.PI / 3);
-        var vCos = Math.cos(vAngle);
-        var vSin = Math.sin(vAngle);
-        var vDx = bladeR * vCos;
-        var vDy = bladeR * vSin;
-
-        // Rotación local del aspa vertical: X radial, Y tangencial, Z up
-        var vBladeRot = new Cesium.Matrix3(
-          vCos, -vSin, 0,
-          vSin,  vCos, 0,
-             0,     0, 1
-        );
-        var vBladeGeom = Cesium.BoxGeometry.fromDimensions({
-          vertexFormat: VF,
-          dimensions: new Cesium.Cartesian3(vBladeThick, vBladeChord, vBladeH)
-        });
-        addInstance(vBladeGeom, col('blade'), new Cesium.Cartesian3(vDx, vDy, elev + vBladeMid), vBladeRot, 'wt_vbl' + vb + '_' + obs.id);
-
-        // Brazos superior e inferior
-        var vHeights = [armTopH, armBotH];
-        var armThick = Math.max(0.03, vBladeThick);
-        for (var ai = 0; ai < 2; ai++) {
-          var armGeom = Cesium.BoxGeometry.fromDimensions({
-            vertexFormat: VF,
-            dimensions: new Cesium.Cartesian3(bladeR, armThick, armThick)
-          });
-          addInstance(armGeom, col('arm'), new Cesium.Cartesian3((bladeR / 2) * vCos, (bladeR / 2) * vSin, elev + vHeights[ai]), vBladeRot, 'wt_var' + ai + '_' + vb + '_' + obs.id);
-        }
-      }
-    } else {
-      // ══════════════ HAWT (Eje Horizontal) ══════════════
-      // 1. Mástil
-      // Mástil cónico proporcional: base nominal 50cm (r=0.25m), coronación 25cm (r=0.125m)
-      var mastScale = Math.max(0.6, Math.min(2.5, Math.sqrt(mastH / 12.0)));
-      var mastBotR  = Math.max(0.18, 0.25 * mastScale);
-      var mastTopR  = Math.max(0.09, 0.125 * mastScale);
-      var mastGeom  = new Cesium.CylinderGeometry({
-        length: mastH, topRadius: mastTopR, bottomRadius: mastBotR,
-        slices: 16, vertexFormat: VF
-      });
-      addInstance(mastGeom, col('mast'), new Cesium.Cartesian3(0, 0, elev + mastH / 2), null, 'wt_mast_' + obs.id);
-
-      // 2. Góndola proporcional al rotor
-      var rotorScale = Math.max(0.35, Math.min(3.5, bladeR / 2.5));
-      var nacelleW   = 0.5 * rotorScale;
-      var nacelleL   = 1.2 * rotorScale;
-      var nacelleH   = 0.5 * rotorScale;
-      var nacelleGeom = Cesium.BoxGeometry.fromDimensions({
-        vertexFormat: VF,
-        dimensions: new Cesium.Cartesian3(nacelleW, nacelleL, nacelleH)
-      });
-      var nacelleCenterY = nacelleL * 0.25;
-      addInstance(nacelleGeom, col('nacelle'), new Cesium.Cartesian3(0, nacelleCenterY, elev + mastH), null, 'wt_nac_' + obs.id);
-
-      // 3. Buje / Hub (cilindro horizontal en Y+)
-      var hubL = 0.30 * rotorScale;
-      var hubR = 0.20 * rotorScale;
-      var hubGeom = new Cesium.CylinderGeometry({
-        length: hubL, topRadius: hubR, bottomRadius: hubR,
-        slices: 10, vertexFormat: VF
-      });
-      var hubRot = new Cesium.Matrix3(
-        1, 0, 0,
-        0, 0, 1,
-        0, -1, 0
-      );
-      var hubY = nacelleCenterY + (nacelleL / 2) + (hubL / 2);
-      var hubZ = elev + mastH;
-      addInstance(hubGeom, col('hub'), new Cesium.Cartesian3(0, hubY, hubZ), hubRot, 'wt_hub_' + obs.id);
-
-      // 4. Tres aspas (Rotor en el plano X-Z centrado en el buje)
-      for (var b = 0; b < 3; b++) {
-        var bAngle = b * (2 * Math.PI / 3);
-        var cosA = Math.cos(bAngle);
-        var sinA = Math.sin(bAngle);
-
-        var bladeCenterX = (bladeR / 2) * sinA;
-        var bladeCenterZ = hubZ + (bladeR / 2) * cosA;
-
-        var bRot = new Cesium.Matrix3(
-          cosA, 0, sinA,
-          0,    1, 0,
-         -sinA, 0, cosA
-        );
-
-        var bladeW = Math.max(0.08, bladeR * 0.07);
-        var bladeThick = Math.max(0.03, bladeW * 0.25);
-        var bladeGeom = Cesium.BoxGeometry.fromDimensions({
-          vertexFormat: VF,
-          dimensions: new Cesium.Cartesian3(bladeW, bladeThick, bladeR)
-        });
-        addInstance(bladeGeom, col('blade'), new Cesium.Cartesian3(bladeCenterX, hubY, bladeCenterZ), bRot, 'wt_bl' + b + '_' + obs.id);
-      }
-    }
+    var instances = root.RAWindVisualizer.buildTurbineGeometryInstances({
+      Cesium: Cesium,
+      id: obs.id,
+      type: obs.turbineType === 'vawt' ? 'vawt' : 'hawt',
+      mastH: mastH,
+      bladeR: bladeR,
+      vBladeLength: obs.bladeHeightM || obs.bladeLength || (bladeR * 2 * 1.4),
+      elev: elev,
+      isSelected: isSelected,
+      colors: COLORS,
+      vawtPrefix: 'v',
+      vawtRadialThickness: true
+    });
 
     // ── Primitiva Cesium Única Consolidada (1 Draw Call por aerogenerador) ──
     var prim = viewer.scene.primitives.add(new Cesium.Primitive({
@@ -612,10 +452,6 @@
     if (!id) return null;
     var obs = (root.obstacles || []).find(function (o) { return o.id === id; });
     return (obs && obs.type === 'wind_turbine') ? obs : null;
-  }
-
-  function updateLabels(obs) {
-    syncDimensions(obs);
   }
 
   function triggerRerender() {
@@ -774,8 +610,6 @@
     cleanForObs:           cleanForObs,
     ensureProps:           ensureProps,
     syncDimensions:        syncDimensions,
-    applyScaleAxis:        applyScaleAxis,
-    applyNudgeDim:         applyNudgeDim,
     onGeneralDimInput:     onGeneralDimInput,
     onTypeChange:          onTypeChange,
     onMastChange:          onMastChange,

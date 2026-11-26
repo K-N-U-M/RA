@@ -334,7 +334,7 @@
         { id: 'triangles_25', title: 'Triángulos 25° Sur', tilt: 25, numTilt: 25, azimuth: 180, structureType: 'triangles_custom' },
         { id: 'triangles_30', title: 'Triángulos 30° Sur (Estándar)', tilt: 30, numTilt: 30, azimuth: 180, structureType: 'triangles_30' },
         { id: 'triangles_opt', title: 'Inclinación Óptima (' + optimalTilt + '° Sur)', tilt: optimalTilt, numTilt: optimalTilt, azimuth: 180, structureType: 'triangles_custom' },
-        { id: 'east_west_12', title: 'Este-Oeste V-Dome (12° E/W)', tilt: 12, numTilt: 12, azimuth: 'east_west', structureType: 'triangles_15_ew' }
+        { id: 'east_west_15', title: 'Este-Oeste V-Dome (15° E/W)', tilt: 15, numTilt: 15, azimuth: 'east_west', structureType: 'triangles_15_ew' }
       ];
 
       const orientationsToTest = ['portrait', 'landscape', 'hybrid'];
@@ -347,17 +347,52 @@
         if (foundM && foundM.wp) modWp = foundM.wp;
       }
 
-      // Radiación base anual adaptada a la localización geográfica (kWh/kWp)
+      // Radiación base anual adaptada a la localización geográfica (kWh/kWp) con transposición POA estimada
       let baseSolarResource = 1520;
-      const optLat = (typeof window !== 'undefined' && window.solarProjectConfig && window.solarProjectConfig.lat) || (poly && poly.roofInfo && poly.roofInfo.lat) || 40.4;
-      const optLng = (typeof window !== 'undefined' && window.solarProjectConfig && window.solarProjectConfig.lng) || (poly && poly.roofInfo && poly.roofInfo.lng) || -3.7;
-      if (typeof getRobustMonthlyGHI === 'function') {
+      const optLat = (typeof window !== 'undefined' && window.solarProjectConfig && window.solarProjectConfig.lat) || (poly && poly.roofInfo && poly.roofInfo.lat) || lat;
+      const optLng = (typeof window !== 'undefined' && window.solarProjectConfig && window.solarProjectConfig.lng) || (poly && poly.roofInfo && poly.roofInfo.lng) || lon;
+      const fnPhysical = (typeof runPhysicalModel === 'function')
+        ? runPhysicalModel
+        : ((typeof window !== 'undefined' && typeof window.runPhysicalModel === 'function') ? window.runPhysicalModel : null);
+      if (fnPhysical) {
+        try {
+          const refPhys = fnPhysical(1.0, optLat, optLng, optimalTilt, 180, { potencia: modWp, pAcNominalW: 0 });
+          if (refPhys && Number.isFinite(refPhys.annualKWh) && refPhys.annualKWh > 400) {
+            baseSolarResource = Math.round(refPhys.annualKWh);
+          }
+        } catch (_) {}
+      } else if (typeof getRobustMonthlyGHI === 'function') {
         const mDays = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+        const midDoys = [17, 47, 75, 105, 135, 162, 198, 228, 258, 288, 318, 344];
+        const radMod = (typeof window !== 'undefined' && window.RA && window.RA.Radiation) ? window.RA.Radiation : null;
+        let sumPoaKwh = 0;
         let sumGhiKwh = 0;
         for (let m = 0; m < 12; m++) {
-          sumGhiKwh += (getRobustMonthlyGHI(optLat, optLng, m) * mDays[m]) / 1000;
+          const dailyGhiWh = getRobustMonthlyGHI(optLat, optLng, m);
+          const monthGhiKwh = (dailyGhiWh * mDays[m]) / 1000;
+          sumGhiKwh += monthGhiKwh;
+          if (radMod && typeof radMod.poa === 'function' && typeof radMod.computeSolarPosition === 'function') {
+            let dGhi = 0, dPoa = 0;
+            for (let h = 8; h <= 16; h += 2) {
+              const sp = radMod.computeSolarPosition(optLat, optLng, midDoys[m], h, false);
+              if (sp && sp.elevDeg > 5) {
+                const ghiH = Math.max(0, (dailyGhiWh / 6.0) * Math.sin(sp.elevDeg * Math.PI / 180));
+                const poaRes = radMod.poa(ghiH, optLat, optimalTilt, 0, sp.elevDeg, sp.azDegFromSouth, 0.20, midDoys[m]);
+                dGhi += ghiH;
+                dPoa += (poaRes && typeof poaRes.G_poa_raw === 'number') ? poaRes.G_poa_raw : (poaRes ? poaRes.G_poa : ghiH);
+              }
+            }
+            const ratio = dGhi > 0 ? Math.max(0.85, Math.min(1.35, dPoa / dGhi)) : 1.12;
+            sumPoaKwh += monthGhiKwh * ratio;
+          } else {
+            const poaGainEst = 1.0 + 0.14 * Math.sin((optimalTilt * Math.PI) / 180);
+            sumPoaKwh += monthGhiKwh * poaGainEst;
+          }
         }
-        if (sumGhiKwh > 800) baseSolarResource = Math.round(sumGhiKwh * 0.80);
+        const prEst = (typeof window !== 'undefined' && typeof window.raCalculateSystemPR === 'function')
+          ? window.raCalculateSystemPR(0.925).prTotal
+          : 0.82;
+        if (sumGhiKwh > 800) baseSolarResource = Math.round(sumPoaKwh * prEst);
       }
 
       for (const sc of scenariosToTest) {
@@ -395,7 +430,7 @@
               const deltaAzRad = (roofAzSur * Math.PI) / 180.0;
               const azFactor = Math.max(0.55, 1.0 - (0.38 * Math.pow(Math.sin(deltaAzRad / 2.0), 2)));
               yieldFactor = Math.max(0.50, (1.0 - tiltLoss) * azFactor);
-            } else if (sc.id === 'east_west_12') {
+            } else if (sc.id === 'east_west_15' || sc.id === 'east_west_12' || sc.azimuth === 'east_west') {
               yieldFactor = 0.915; // Pérdida geométrica simétrica ~8.5%
             } else {
               const deltaB = sc.numTilt - optimalTilt;

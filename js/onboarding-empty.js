@@ -10,6 +10,8 @@
     var CARD_ID = 'ra-onboarding-empty-card';
     var dismissed = false;
     var pollTimer = null;
+    var unsubs = [];
+    var domListenersBound = false;
 
     function isSceneEmpty() {
         var wp = global.WP;
@@ -26,30 +28,69 @@
         }
     }
 
-    function close() {
-        dismissed = true;
-        hide();
+    function cleanupSubscriptions() {
         if (pollTimer) {
             clearInterval(pollTimer);
             pollTimer = null;
         }
+        while (unsubs.length > 0) {
+            var fn = unsubs.pop();
+            try { if (typeof fn === 'function') fn(); } catch (e) {}
+        }
+        if (domListenersBound) {
+            domListenersBound = false;
+            document.removeEventListener('pointerup', scheduleSync, true);
+            global.removeEventListener('keyup', scheduleSync, true);
+        }
+    }
+
+    function syncVisibility() {
+        if (dismissed || !isSceneEmpty()) {
+            hide();
+            if (!isSceneEmpty()) {
+                cleanupSubscriptions();
+            }
+        }
+    }
+
+    function scheduleSync() {
+        setTimeout(syncVisibility, 40);
+    }
+
+    function close() {
+        dismissed = true;
+        hide();
+        cleanupSubscriptions();
     }
 
     function triggerSearch() {
-        var searchInput = document.querySelector('#search-input, #geocoder-input, input[type="search"], .cesium-geocoder-input');
+        var searchInput = document.querySelector('#ra-search-input, #search-input, #geocoder-input, input[type="search"], .cesium-geocoder-input');
         if (searchInput) {
+            if (typeof searchInput.scrollIntoView === 'function') {
+                searchInput.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
             searchInput.focus();
             if (typeof searchInput.select === 'function') searchInput.select();
         }
     }
 
     function triggerDrawRoof() {
-        if (typeof global.wpStartDrawPolyline === 'function') {
+        var roofBody = document.getElementById('wp-subdock-body-roof');
+        if (roofBody && roofBody.style.display === 'none') {
+            if (typeof global.wpToggleEmplacementSection === 'function') {
+                global.wpToggleEmplacementSection('roof', true);
+            } else {
+                roofBody.style.display = 'flex';
+            }
+        }
+        if (typeof global.startPolylineDrawMode === 'function') {
+            global.startPolylineDrawMode();
+        } else if (typeof global.wpStartDrawPolyline === 'function') {
             global.wpStartDrawPolyline();
         } else if (typeof global.wpToggleDrawMode === 'function') {
             global.wpToggleDrawMode();
         } else {
-            var btn = document.querySelector('[data-action="draw-roof"], #btn-draw-polyline, #wp-draw-btn');
+            var btn = document.querySelector('#btn-draw-polyline, [data-action="draw-roof"], #wp-draw-btn');
             if (btn && typeof btn.click === 'function') btn.click();
         }
     }
@@ -105,16 +146,32 @@
 
     function init() {
         show();
-        if (!pollTimer) {
-            pollTimer = setInterval(function () {
-                if (dismissed || !isSceneEmpty()) {
-                    hide();
-                    if (!isSceneEmpty() && pollTimer) {
-                        clearInterval(pollTimer);
-                        pollTimer = null;
-                    }
-                }
-            }, 600);
+        if (dismissed || !isSceneEmpty()) return;
+
+        var events = global.RA && global.RA.events;
+        var store = global.RA && global.RA.Store;
+
+        if (events && typeof events.on === 'function') {
+            var evNames = ['roof:updated', 'plane:updated', 'panels:updated', 'scene:updated', 'project:loaded', 'step:changed'];
+            for (var i = 0; i < evNames.length; i++) {
+                unsubs.push(events.on(evNames[i], syncVisibility));
+            }
+            if (store && typeof store.subscribe === 'function') {
+                unsubs.push(store.subscribe('sceneEmpty', syncVisibility));
+                unsubs.push(store.subscribe('step', syncVisibility));
+            }
+            if (global.ProjectHierarchy && typeof global.ProjectHierarchy.subscribe === 'function') {
+                var phUnsub = global.ProjectHierarchy.subscribe(syncVisibility);
+                if (typeof phUnsub === 'function') unsubs.push(phUnsub);
+            }
+            if (!domListenersBound) {
+                domListenersBound = true;
+                document.addEventListener('pointerup', scheduleSync, true);
+                global.addEventListener('keyup', scheduleSync, true);
+            }
+        } else if (!pollTimer) {
+            // Fallback seguro si ra-events.js aún no ha cargado
+            pollTimer = setInterval(syncVisibility, 600);
         }
     }
 

@@ -89,28 +89,29 @@
   }
 
   /**
-   * Evalúa si las aspas de una turbina proyectan sombra sobre un punto receptor receptor (x, y, z)
-   * para un vector solar dado.
+   * Evalúa si el rotor de una turbina proyecta sombra sobre un punto receptor (x, y, z)
+   * mediante intersección real rayo-plano del disco del rotor orientado por yaw (HAWT)
+   * o cilindro vertical equivalente (VAWT).
    */
   function checkTurbineShadowHit(turbine, receptorLocal, solarPos) {
-    if (!solarPos.isDaylight) return false;
+    if (!solarPos || !solarPos.isDaylight) return false;
 
-    var cat = turbine._catalog || {};
-    var hubH = (turbine.supportStructure && turbine.supportStructure.hubHeightM) || 18;
+    var cat = (turbine && turbine._catalog) || {};
+    var hubH = (turbine && turbine.supportStructure && turbine.supportStructure.hubHeightM) || 18;
     var rotorR = (cat.rotorDiameterM ? cat.rotorDiameterM / 2.0 : 4.0);
+    var isVawt = (cat.type === 'VAWT' || cat.type === 'vawt');
 
-    // Posición del buje respecto al receptor
-    // dx = x_hub - x_rec, dy = y_hub - y_rec, dz = z_hub - z_rec
+    // Posición del buje respecto al receptor: H = P_hub - P_rec
     var dx = -receptorLocal.dx;
     var dy = -receptorLocal.dy;
     var dz = hubH - (receptorLocal.dz || 0);
 
     var dist2D = Math.sqrt(dx * dx + dy * dy);
-    // Más allá de 10x el diámetro de rotor la sombra se difumina por penumbra óptica
+    // Más allá de 10x el diámetro de rotor (o 300 m mínimo) la sombra se difumina por penumbra óptica
     var maxShadowDistM = Math.max(rotorR * 20.0, 300);
     if (dist2D > maxShadowDistM) return false;
 
-    // Vector solar unitario desde el receptor hacia el sol
+    // Vector solar unitario desde el receptor hacia el sol: rayo P(t) = t · S (t > 0)
     var azRad = solarPos.azimuthDeg * DEG2RAD;
     var elRad = solarPos.elevationDeg * DEG2RAD;
 
@@ -118,26 +119,61 @@
     var sunVy = Math.cos(azRad) * Math.cos(elRad);
     var sunVz = Math.sin(elRad);
 
-    // Proyección en la línea de mira receptor -> sol
-    var tProj = (dx * sunVx + dy * sunVy + dz * sunVz);
-    if (tProj <= 0) return false; // El sol está detrás del receptor respecto a la turbina
+    if (isVawt) {
+      var halfH = (Number(cat.bladeHeightM || cat.bladeLength) || (rotorR * 2.8)) * 0.5;
+      var horizSq = sunVx * sunVx + sunVy * sunVy;
+      if (horizSq < 1e-8) {
+        return dist2D <= rotorR && (dz + halfH) > 0;
+      }
+      var tXY = (dx * sunVx + dy * sunVy) / horizSq;
+      if (tXY <= 0) return false;
+      var perpX = tXY * sunVx - dx;
+      var perpY = tXY * sunVy - dy;
+      var dXY2 = perpX * perpX + perpY * perpY;
+      if (dXY2 > rotorR * rotorR) return false;
+      var dt = Math.sqrt(Math.max(0, rotorR * rotorR - dXY2)) / Math.sqrt(horizSq);
+      var tMin = Math.max(0, tXY - dt);
+      var tMax = tXY + dt;
+      var zMin = tMin * sunVz;
+      var zMax = tMax * sunVz;
+      return zMax >= (dz - halfH) && zMin <= (dz + halfH);
+    }
 
-    var closestX = sunVx * tProj;
-    var closestY = sunVy * tProj;
-    var closestZ = sunVz * tProj;
+    // Normal del disco del rotor HAWT según yaw (0°=N, 90°=E, 180°=S, 270°=O)
+    var fallbackYawDeg = (RAWind.Resource && typeof RAWind.Resource.getConfig === 'function')
+      ? (Number(RAWind.Resource.getConfig().prevailingWindDirDeg) || 270)
+      : 270;
+    var yawRad = (turbine && typeof turbine.orientationRad === 'number' && isFinite(turbine.orientationRad))
+      ? turbine.orientationRad
+      : (fallbackYawDeg * DEG2RAD);
+    var nx = Math.sin(yawRad);
+    var ny = Math.cos(yawRad);
 
-    // Modelado físico como disco orientado (no esfera): proyectar vector de distancia en el plano del rotor
-    var yawRad = (typeof turbine.orientationRad === 'number') ? turbine.orientationRad : (270 * DEG2RAD);
-    var nx = Math.sin(yawRad), ny = Math.cos(yawRad); // Normal horizontal del plano del rotor
-    var cosFacing = Math.abs(sunVx * nx + sunVy * ny);
-    var effHorizScale = Math.max(0.15, cosFacing);
+    // Ecuación del plano del rotor: (P - H) · n = 0 con rayo P(t) = t · S
+    var denom = sunVx * nx + sunVy * ny; // S · n
+    var numer = dx * nx + dy * ny;       // H · n
 
-    var rx = dx - closestX;
-    var ry = dy - closestY;
-    var rz = dz - closestZ;
-    var rTangential = Math.sqrt(rx * rx + ry * ry);
-    var rNormalized = Math.sqrt(Math.pow(rTangential / effHorizScale, 2) + rz * rz);
-    return rNormalized <= (rotorR * 1.05);
+    if (Math.abs(denom) >= 0.05) {
+      var tHit = numer / denom;
+      if (tHit <= 0) return false; // El plano del rotor está detrás del receptor respecto al sol
+      var ix = tHit * sunVx - dx;
+      var iy = tHit * sunVy - dy;
+      var iz = tHit * sunVz - dz;
+      var distInDiskSq = ix * ix + iy * iy + iz * iz;
+      return distInDiskSq <= (rotorR * rotorR);
+    }
+
+    // Incidencia rasante casi paralela al plano del rotor (|S · n| < 0.05):
+    // evaluar espesor efectivo de pala/góndola en proyección ortogonal
+    var tProj = dx * sunVx + dy * sunVy + dz * sunVz;
+    if (tProj <= 0) return false;
+    var rx = tProj * sunVx - dx;
+    var ry = tProj * sunVy - dy;
+    var rz = tProj * sunVz - dz;
+    var dNormal = Math.abs(rx * nx + ry * ny);
+    var dTang = rx * (-ny) + ry * nx;
+    var halfThick = Math.max(0.25, 0.06 * rotorR);
+    return dNormal <= halfThick && (dTang * dTang + rz * rz) <= (rotorR * rotorR);
   }
 
   /**
@@ -224,6 +260,8 @@
 
     var monthlyHoursMap = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
     var daysInMonth = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    var totalDaylightIrradWeight = 0;
+    var solarFieldHitIrradWeight = 0;
 
     var dayOfYear = 1;
     for (var m = 0; m < 12; m++) {
@@ -239,10 +277,13 @@
           var sun = calculateSolarPosition(tLat, tLon, curDay, hDecimal);
 
           if (sun.isDaylight) {
+            // Peso relativo de irradiancia directa/POA según elevación solar (sin(α))
+            var sunshineProb = 0.65;
+            var sinEl = Math.max(0.10, Math.sin(sun.elevationDeg * DEG2RAD));
+            totalDaylightIrradWeight += stepMinutes * stepDays * sunshineProb * sinEl;
+
             targetList.forEach(function (rec) {
               if (checkTurbineShadowHit(turbine, rec, sun)) {
-                // Probabilidad de sol despejado típica en España (horas de sol reales / teóricas ~ 65%)
-                var sunshineProb = 0.65;
                 var effectiveMin = stepMinutes * stepDays * sunshineProb;
                 totalSimulatedMinutes[rec.id] += effectiveMin;
                 dailyMinutesThisDay[rec.id] += stepMinutes * sunshineProb;
@@ -251,6 +292,7 @@
                   monthlyHoursMap[m] += (effectiveMin / 60.0);
                 } else {
                   solarFieldHitMinutes += effectiveMin;
+                  solarFieldHitIrradWeight += effectiveMin * sinEl;
                 }
               }
             });
@@ -289,9 +331,34 @@
     var complies30h = worstHoursYear <= 30.0;
     var complies30m = maxMinDay <= 30;
 
-    // Horas de sombra arrojada sobre el campo solar
+    // Horas de sombra arrojada sobre el campo solar y pérdida energética FV físicamente alineada
     var solarFieldShadowHours = hasSolarTarget
       ? Number((solarFieldHitMinutes / 60.0).toFixed(1))
+      : 0;
+
+    var tCat = turbine._catalog || {};
+    var rotorR = tCat.rotorDiameterM ? (tCat.rotorDiameterM / 2.0) : 4.0;
+    var isVawt = (tCat.type === 'VAWT' || tCat.type === 'vawt');
+    var bladeSolidity = isVawt ? 0.22 : 0.18; // Fracción óptica media interceptada por las palas en giro
+    var rotorAreaM2 = isVawt
+      ? (2.0 * rotorR * (Number(tCat.bladeHeightM || tCat.bladeLength) || (rotorR * 2.8)))
+      : (Math.PI * rotorR * rotorR);
+
+    var fieldAreaM2 = (solarFieldBounds && Number(solarFieldBounds.fieldAreaM2) > 0)
+      ? Number(solarFieldBounds.fieldAreaM2)
+      : (Array.isArray(global.allRenderedPanels) && global.allRenderedPanels.length > 0
+        ? Math.max(10.0, global.allRenderedPanels.filter(function (p) { return p && !p.deleted && !p.disabled; }).length * 2.0)
+        : Math.max(rotorAreaM2, 60.0));
+    var spatialCover = Math.min(1.0, rotorAreaM2 / Math.max(rotorAreaM2 * 0.5, fieldAreaM2));
+    var hasMlpe = Boolean(
+      (solarFieldBounds && solarFieldBounds.hasMlpe) ||
+      (global.solarProjectConfig && (global.solarProjectConfig.selectedTopology === 'microinverter' || global.solarProjectConfig.selectedTopology === 'optimizer'))
+    );
+    var elecPenalty = hasMlpe ? 1.0 : 1.35; // Penalización de string sin MLPE frente a optimizadores/microinversores
+    var beamFraction = 0.75; // Fracción directa del POA afectada por sombra dinámica de palas
+    var irradHitFrac = totalDaylightIrradWeight > 0 ? (solarFieldHitIrradWeight / totalDaylightIrradWeight) : 0;
+    var solarYieldLossPctEstimate = solarFieldShadowHours > 0
+      ? Number(Math.min(15.0, irradHitFrac * beamFraction * bladeSolidity * spatialCover * elecPenalty * 100.0).toFixed(2))
       : 0;
 
     return {
@@ -307,9 +374,13 @@
       monthlyHours: monthlyHoursMap.map(function (h) { return Number(h.toFixed(1)); }),
       curtailmentRecommended: !complies30h,
       solarFieldShadowHours: solarFieldShadowHours,
-      solarYieldLossPctEstimate: solarFieldShadowHours > 0
-        ? Number(Math.min(solarFieldShadowHours * 0.04, 2.5).toFixed(2))
-        : 0
+      solarYieldLossPctEstimate: solarYieldLossPctEstimate,
+      solarLossModel: {
+        bladeSolidity: bladeSolidity,
+        spatialCover: Number(spatialCover.toFixed(3)),
+        elecPenalty: elecPenalty,
+        irradWeightedHitPct: Number((irradHitFrac * 100.0).toFixed(3))
+      }
     };
   }
 

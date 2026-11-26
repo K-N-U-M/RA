@@ -25,8 +25,19 @@ function getProjectCalcs() {
   if (area3D <= 0) {
     area3D = pa ? pa.area3D : 0;
   }
-  const latDeg = pa ? pa.latDeg : 40.4;
-  const lonDeg = pa ? pa.lonDeg : -3.7;
+  const _scProj = (typeof window !== 'undefined' && window.solarProjectConfig) ? window.solarProjectConfig : null;
+  const _invEq = (typeof window !== 'undefined' && window.inverterEquipmentState) ? window.inverterEquipmentState : null;
+  const _lastRI = (typeof window !== 'undefined' && window.lastRoofInfo) ? window.lastRoofInfo : null;
+  let latDeg = (pa && typeof pa.latDeg === 'number') ? pa.latDeg : null;
+  let lonDeg = (pa && typeof pa.lonDeg === 'number') ? pa.lonDeg : null;
+  if (latDeg === null && _lastRI && typeof _lastRI.latDeg === 'number') latDeg = _lastRI.latDeg;
+  if (lonDeg === null && _lastRI && typeof _lastRI.lonDeg === 'number') lonDeg = _lastRI.lonDeg;
+  if (latDeg === null && _scProj && typeof (_scProj.latitude ?? _scProj.lat) === 'number') latDeg = _scProj.latitude ?? _scProj.lat;
+  if (lonDeg === null && _scProj && typeof (_scProj.longitude ?? _scProj.lon ?? _scProj.lng) === 'number') lonDeg = _scProj.longitude ?? _scProj.lon ?? _scProj.lng;
+  if (latDeg === null && _invEq && _invEq.carto && typeof _invEq.carto.latitude === 'number') latDeg = _invEq.carto.latitude;
+  if (lonDeg === null && _invEq && _invEq.carto && typeof _invEq.carto.longitude === 'number') lonDeg = _invEq.carto.longitude;
+  if (latDeg === null) latDeg = 40.4;
+  if (lonDeg === null) lonDeg = -3.7;
   const usefulArea = area3D * 0.80;
 
   const cfg = Object.assign({}, typeof panelConfig !== 'undefined' ? panelConfig : { potencia: 450, largo: 2.10, ancho: 1.05, voc: 41.5, vmp: 34.5, isc: 13.8, imp: 13.05 });
@@ -58,17 +69,39 @@ function getProjectCalcs() {
     mlpeCount = activeRPanels.filter(p => p.hasMLPE).length;
   }
 
-  let tiltDeg = pa ? pa.tiltDeg : 30;
-  let azimutDeg = pa ? pa.azimuthDeg : 0;
+  let tiltDeg = (pa && typeof pa.tiltDeg === 'number') ? pa.tiltDeg : null;
+  let azimutDeg = (pa && typeof pa.azimuthDeg === 'number') ? pa.azimuthDeg : null;
   if (typeof WP !== 'undefined' && WP && Array.isArray(WP.polylines) && WP.polylines.length > 0) {
     const selIdx = (WP.selectedPolyIdx >= 0 && WP.selectedPolyIdx < WP.polylines.length) ? WP.selectedPolyIdx : 0;
     const selPoly = WP.polylines[selIdx];
     const pInf = selPoly && (selPoly.roofInfo || (typeof computeSinglePolylineRoofInfo === 'function' ? computeSinglePolylineRoofInfo(selPoly.points, selPoly) : null));
     if (pInf) {
       if (typeof pInf.moduleTiltDeg === 'number') tiltDeg = pInf.moduleTiltDeg;
+      else if (tiltDeg === null && typeof pInf.tiltDeg === 'number') tiltDeg = pInf.tiltDeg;
       if (typeof pInf.moduleAzimuthDeg === 'number') azimutDeg = pInf.moduleAzimuthDeg;
+      else if (azimutDeg === null && typeof pInf.azimuthN === 'number') azimutDeg = pInf.azimuthN - 180;
+      else if (azimutDeg === null && typeof pInf.azimuthDeg === 'number') azimutDeg = pInf.azimuthDeg;
+      if (typeof pInf.latDeg === 'number') latDeg = pInf.latDeg;
+      if (typeof pInf.lonDeg === 'number') lonDeg = pInf.lonDeg;
     }
   }
+  if (tiltDeg === null && _lastRI) {
+    if (typeof _lastRI.moduleTiltDeg === 'number') tiltDeg = _lastRI.moduleTiltDeg;
+    else if (typeof _lastRI.tiltDeg === 'number') tiltDeg = _lastRI.tiltDeg;
+  }
+  if (azimutDeg === null && _lastRI) {
+    if (typeof _lastRI.moduleAzimuthDeg === 'number') azimutDeg = _lastRI.moduleAzimuthDeg;
+    else if (typeof _lastRI.azimuthDeg === 'number') azimutDeg = _lastRI.azimuthDeg;
+  }
+  if ((tiltDeg === null || azimutDeg === null) && typeof window !== 'undefined' && Array.isArray(window.allRenderedPanels) && window.allRenderedPanels.length > 0) {
+    const _firstP = window.allRenderedPanels.find(p => p && !p.deleted && !p.disabled);
+    if (_firstP) {
+      if (tiltDeg === null && typeof _firstP.tiltDeg === 'number') tiltDeg = _firstP.tiltDeg;
+      if (azimutDeg === null && typeof _firstP.azimuthDeg === 'number') azimutDeg = _firstP.azimuthDeg;
+    }
+  }
+  if (tiltDeg === null) tiltDeg = 30;
+  if (azimutDeg === null) azimutDeg = 0;
 
   const _mb = (typeof window !== 'undefined' && window.RAModulesBreakdown && typeof window.RAModulesBreakdown.getProjectModulesBreakdown === 'function')
     ? window.RAModulesBreakdown.getProjectModulesBreakdown()
@@ -97,14 +130,51 @@ function getProjectCalcs() {
 
   const SOLAR_RAD  = [2.8, 3.5, 4.8, 5.8, 6.5, 7.2, 7.5, 6.8, 5.4, 3.9, 2.9, 2.5];
   const MONTH_DAYS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  const REP_DOYS   = [17, 47, 75, 105, 135, 162, 198, 228, 258, 288, 318, 344];
   const MES_ES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio',
                   'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
   const latFact = 1.0 + (38.0 - latDeg) * 0.015;
+  const latRadMonthly = latDeg * Math.PI / 180;
   let annualKWh = 0;
 
   const monthly = SOLAR_RAD.map((rad, m) => {
-    const poaEst = (typeof computePOAIrradiance === 'function') ? computePOAIrradiance(rad * 1000 / 4.5, latDeg, tiltDeg, azimutDeg, 50, 0) : { G_poa: rad * 1000 / 4.5 };
-    const poaFactor = (poaEst.G_poa > 0) ? (poaEst.G_poa / 1000) * 4.5 : rad;
+    let poaFactor = rad;
+    if (typeof computePOAIrradiance === 'function') {
+      const doy = REP_DOYS[m];
+      const declDeg = (typeof solarDeclination === 'function')
+        ? solarDeclination(doy)
+        : (23.45 * Math.sin(2 * Math.PI * (284 + doy) / 365));
+      const declRad = declDeg * Math.PI / 180;
+      const samples = [];
+      let sumSin = 0;
+      for (let h = 5; h <= 19; h++) {
+        const haDeg = 15 * (h - 12);
+        const haRad = haDeg * Math.PI / 180;
+        const elevDeg = (typeof solarAltitude === 'function')
+          ? solarAltitude(latDeg, declDeg, haDeg)
+          : (Math.asin(Math.max(-1, Math.min(1, Math.sin(latRadMonthly) * Math.sin(declRad) + Math.cos(latRadMonthly) * Math.cos(declRad) * Math.cos(haRad)))) * 180 / Math.PI);
+        if (elevDeg > 2) {
+          const sinElev = Math.sin(elevDeg * Math.PI / 180);
+          const azNorth = (typeof solarAzimuthAtan2 === 'function')
+            ? solarAzimuthAtan2(latDeg, declDeg, haDeg)
+            : ((((Math.atan2(-Math.sin(haRad) * Math.cos(declRad), Math.sin(declRad) * Math.cos(latRadMonthly) - Math.cos(declRad) * Math.sin(latRadMonthly) * Math.cos(haRad)) * 180 / Math.PI) % 360) + 360) % 360);
+          const sunAzSur = (((azNorth - 180) % 360) + 540) % 360 - 180;
+          samples.push({ elevDeg, sunAzSur, sinElev });
+          sumSin += sinElev;
+        }
+      }
+      if (samples.length > 0 && sumSin > 0) {
+        let poaDailyKwh = 0;
+        const dailyGhiWh = rad * 1000;
+        for (let s = 0; s < samples.length; s++) {
+          const sp = samples[s];
+          const gGhiH = dailyGhiWh * (sp.sinElev / sumSin);
+          const poaH = computePOAIrradiance(gGhiH, latDeg, tiltDeg, azimutDeg, sp.elevDeg, sp.sunAzSur, 0.20, doy);
+          if (poaH && poaH.G_poa > 0) poaDailyKwh += (poaH.G_poa / 1000);
+        }
+        if (poaDailyKwh > 0) poaFactor = poaDailyKwh;
+      }
+    }
     const hspMonth = poaFactor * latFact;
     const kWh = eng.P_dc_kW * hspMonth * MONTH_DAYS[m] * eng.PR;
     annualKWh += kWh;

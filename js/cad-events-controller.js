@@ -4,10 +4,35 @@
 (function (global) {
   global.RACadEvents = {
     _handler: null,
+    _unsubscribers: [],
+    _cancelPendingRafs: null,
+    requestTriadRedraw: null,
     init: function () {
-  if (this._handler) {
+  if (this._handler || (this._unsubscribers && this._unsubscribers.length > 0)) {
     this.destroy();
   }
+  const self = this;
+  self._unsubscribers = [];
+  if (typeof global.installGizmoLabelSuppressionHooks === 'function') {
+    try { global.installGizmoLabelSuppressionHooks(); } catch (_) {}
+  }
+
+  let _triadRedrawRaf = null;
+  function requestTriadRedraw() {
+    if (_triadRedrawRaf !== null) return;
+    _triadRedrawRaf = requestAnimationFrame(() => {
+      _triadRedrawRaf = null;
+      if (typeof global.syncGizmoLabelSuppression === 'function' && typeof getUniversalSelectedTarget === 'function') {
+        try { global.syncGizmoLabelSuppression(getUniversalSelectedTarget()); } catch (_) {}
+      }
+      if (typeof renderTriad2D === 'function') {
+        try { renderTriad2D(); } catch (eHud) {}
+      }
+    });
+  }
+  self.requestTriadRedraw = requestTriadRedraw;
+  global.requestTriadRedraw = requestTriadRedraw;
+
   const handler = new Cesium.ScreenSpaceEventHandler(scene.canvas);
   this._handler = handler;
   // Throttle de pickPosition GPU: máx ~30 picks/s (cada 32ms) para MOUSE_MOVE
@@ -990,7 +1015,9 @@
   // --- DIRTY FLAG / RAF PATTERN PARA GIZMO (60 FPS LOCK) ---
   let _isGizmoDirty = false;
   let _pendingGizmoUpdate = null;
+  let _gizmoRafId = null;
   function flushGizmoUpdate() {
+    _gizmoRafId = null;
     if (!_isGizmoDirty || !_pendingGizmoUpdate) return;
     const p = _pendingGizmoUpdate;
     updateUniversalTargetTransform(p.target, p.newPos, p.newRotDeg, p.deltaDeg, p.rotAxis);
@@ -999,19 +1026,22 @@
     if (window.LiveSolarProbe && window.LiveSolarProbe.enabled) {
       window.LiveSolarProbe.evaluate();
     }
+    requestTriadRedraw();
   }
   function queueGizmoUpdate(target, newPos, newRotDeg, deltaDeg, rotAxis) {
     _pendingGizmoUpdate = { target, newPos, newRotDeg, deltaDeg, rotAxis };
     if (!_isGizmoDirty) {
       _isGizmoDirty = true;
-      requestAnimationFrame(flushGizmoUpdate);
+      _gizmoRafId = requestAnimationFrame(flushGizmoUpdate);
     }
   }
 
   // --- DIRTY FLAG PARA CURSOR CAD Y EDIFICIOS (60 FPS) ---
   let _isCursorDirty = false;
   let _cursorUpdateData = null;
+  let _cursorRafId = null;
   function flushCursorUpdate() {
+    _cursorRafId = null;
     if (!_isCursorDirty || !_cursorUpdateData) return;
     const d = _cursorUpdateData;
     
@@ -1036,6 +1066,8 @@
 
     if (typeof updateTriadAtMouse === 'function') {
       updateTriadAtMouse(d.endPos.x, d.endPos.y, scene.canvas);
+    } else {
+      requestTriadRedraw();
     }
 
     const isDrawingPoly = (typeof WP !== 'undefined' && WP && WP.mode === 'draw-poly');
@@ -1051,9 +1083,19 @@
     _cursorUpdateData = { endPos, isDrawingBuilding };
     if (!_isCursorDirty) {
       _isCursorDirty = true;
-      requestAnimationFrame(flushCursorUpdate);
+      _cursorRafId = requestAnimationFrame(flushCursorUpdate);
     }
   }
+
+  self._cancelPendingRafs = function () {
+    if (_triadRedrawRaf !== null) { cancelAnimationFrame(_triadRedrawRaf); _triadRedrawRaf = null; }
+    if (_gizmoRafId !== null) { cancelAnimationFrame(_gizmoRafId); _gizmoRafId = null; }
+    if (_cursorRafId !== null) { cancelAnimationFrame(_cursorRafId); _cursorRafId = null; }
+    _isGizmoDirty = false;
+    _pendingGizmoUpdate = null;
+    _isCursorDirty = false;
+    _cursorUpdateData = null;
+  };
 
   // 3. MOVIMIENTO DEL RATÓN: Arrastre interactivo de Gizmos, Órbita de Cámara y HUD
   handler.setInputAction(movement => {
@@ -1214,7 +1256,7 @@
           }
         }
       }
-      renderTriad2D();
+      requestTriadRedraw();
       if (scene && typeof scene.requestRender === 'function') {
         scene.requestRender();
       }
@@ -1222,6 +1264,7 @@
     }
 
     // Hover sobre Gizmo Universal
+    const prevHoveredPart = universalGizmoState.hoveredPart;
     const uHit = checkUniversalGizmoHit(movement.endPosition.x, movement.endPosition.y);
     universalGizmoState.hoveredPart = uHit;
     if (uHit) {
@@ -1232,8 +1275,11 @@
       } else {
         scene.canvas.style.cursor = 'move';
       }
-      renderTriad2D();
+      if (prevHoveredPart !== uHit) requestTriadRedraw();
       return;
+    }
+    if (prevHoveredPart !== uHit) {
+      requestTriadRedraw();
     }
 
     // Colocación interactiva de nuevo obstáculo (Ghost preview)
@@ -1262,13 +1308,17 @@
     const isRoutingCable = (typeof window.cableRoutingState !== 'undefined' && window.cableRoutingState && window.cableRoutingState.active);
     if (scene && scene.canvas) {
       if (!isDrawingPoly || scene.canvas.style.cursor !== 'pointer') {
-        scene.canvas.style.cursor = (isDefiningPlane || isDrawingBuilding || isDrawingPoly || isRoutingCable) ? 'crosshair' : 'default';
+        const nextCursor = (isDefiningPlane || isDrawingBuilding || isDrawingPoly || isRoutingCable) ? 'crosshair' : 'default';
+        if (scene.canvas.style.cursor !== nextCursor) {
+          scene.canvas.style.cursor = nextCursor;
+          requestTriadRedraw();
+        }
       }
     }
 
 
     // --- ACTUALIZACIÓN DE CURSOR CAD Y EDIFICIOS (60 FPS THROTTLED) ---
-    if (isDrawingBuilding || typeof updateTriadAtMouse === 'function') {
+    if (isDrawingBuilding || isDrawingPoly || typeof updateTriadAtMouse === 'function') {
       queueCursorUpdate(movement.endPosition, isDrawingBuilding);
     }
 
@@ -1279,11 +1329,13 @@
     }
   }, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
 
-  // Redibujar en cada frame de cámara (postRender consolidado)
-  scene.postRender.addEventListener(() => {
-    if (window.RA && window.RA.perf && window.RA.perf.enabled) window.RA.perf.frameCount++;
-    renderTriad2D();
-  });
+  // Métricas de rendimiento postRender (renderTriad2D desacoplado a camera.changed / requestTriadRedraw)
+  if (scene && scene.postRender && typeof scene.postRender.addEventListener === 'function') {
+    const unsubPostRender = scene.postRender.addEventListener(() => {
+      if (window.RA && window.RA.perf && window.RA.perf.enabled) window.RA.perf.frameCount++;
+    });
+    if (typeof unsubPostRender === 'function') self._unsubscribers.push(unsubPostRender);
+  }
 
   // 4. LEFT_UP: Soltar arrastre y recalcular
   handler.setInputAction(() => {
@@ -1316,7 +1368,10 @@
         scene.screenSpaceCameraController.enableZoom = true;
         scene.screenSpaceCameraController.rotateEventTypes = [ Cesium.CameraEventType.LEFT_DRAG ];
       }
-      renderTriad2D();
+      if (typeof global.syncGizmoLabelSuppression === 'function' && typeof getUniversalSelectedTarget === 'function') {
+        try { global.syncGizmoLabelSuppression(getUniversalSelectedTarget()); } catch (_) {}
+      }
+      requestTriadRedraw();
 
       let _draggedPanelId = null;
       let _affectedPanelIds = [];
@@ -1332,7 +1387,11 @@
           }
           if (typeof polygonPoints !== 'undefined') polygonPoints = movedPoly.points.map(p => Cesium.Cartesian3.clone(p));
         }
+        const hadMovedPolyObs = Array.isArray(universalGizmoState.movePolyObs) && universalGizmoState.movePolyObs.length > 0;
         universalGizmoState.movePolyObs = null;
+        if (hadMovedPolyObs && typeof render3DObstaclesInCesium === 'function') {
+          render3DObstaclesInCesium();
+        }
         if (movedPoly) {
           movedPoly._calcSig = null;
           movedPoly._geometryDirty = false;
@@ -1854,29 +1913,47 @@
     return { x: qx, y: qy, dist: Math.hypot(px - qx, py - qy), t };
   }
 
-  // Desacoplar camera.changed de wpUpdateUI(): mover la cámara solo repinta el overlay 2D por rAF
+  // Desacoplar camera.changed de wpUpdateUI(): mover la cámara solo repinta el overlay 2D por rAF único
   // sin reconstruir el DOM lateral ni regenerar obstáculos 3D en cada frame.
-  let _camChangedRaf = null;
-  camera.changed.addEventListener(() => {
-    if (_camChangedRaf !== null) return;
-    _camChangedRaf = requestAnimationFrame(() => {
-      _camChangedRaf = null;
-      if (typeof renderTriad2D === 'function') {
-        try { renderTriad2D(); } catch (eHud) {}
-      }
+  const camObj = (typeof camera !== 'undefined' && camera) ? camera : (scene && scene.camera ? scene.camera : null);
+  if (camObj && camObj.changed && typeof camObj.changed.addEventListener === 'function') {
+    const unsubCamChanged = camObj.changed.addEventListener(() => {
+      requestTriadRedraw();
     });
-  });
+    if (typeof unsubCamChanged === 'function') self._unsubscribers.push(unsubCamChanged);
+  }
+
+  function registerManagedDomListener(target, ev, fn, opts) {
+    if (!target) return;
+    if (window.RA && typeof window.RA.addListener === 'function') {
+      window.RA.addListener(target, ev, fn, opts);
+    } else if (typeof target.addEventListener === 'function') {
+      target.addEventListener(ev, fn, opts);
+    }
+    self._unsubscribers.push(function () {
+      try {
+        if (typeof target.removeEventListener === 'function') {
+          target.removeEventListener(ev, fn, opts);
+        }
+        if (window.RA && Array.isArray(window.RA._listeners)) {
+          window.RA._listeners = window.RA._listeners.filter(function (l) {
+            return !(l && l.target === target && l.event === ev && l.handler === fn);
+          });
+        }
+      } catch (_) {}
+    });
+  }
 
   // Seguimiento de tecla Shift para bloqueo ortogonal 90° en edición de rutas/gizmos
-  (window.RA && window.RA.addListener ? window.RA.addListener : function(t, ev, fn) { t.addEventListener(ev, fn); })(document, 'keyup', function(e) {
+  registerManagedDomListener(document, 'keyup', function(e) {
     if (typeof window !== 'undefined') window._raShiftKeyDown = Boolean(e.shiftKey);
   });
 
   // Atajos de teclado [RA LISTENER — keydown #2: atajos globales de sesión]
-  (window.RA && window.RA.addListener ? window.RA.addListener : function(t, ev, fn) { t.addEventListener(ev, fn); })(document, 'keydown', function _raKeydown2(e) {
+  registerManagedDomListener(document, 'keydown', function _raKeydown2(e) {
     if (typeof window !== 'undefined') window._raShiftKeyDown = Boolean(e.shiftKey);
     if (isTextInputActive(e.target)) return;
-    if (!e.ctrlKey && !e.metaKey && !e.altKey && (e.key === 'c' || e.key === 'C')) {
+    if (!e.ctrlKey && !e.metaKey && !e.altKey && e.shiftKey && (e.key === 'c' || e.key === 'C')) {
       if (typeof window.wpToggleCableAuditElevation === 'function') {
         e.preventDefault();
         window.wpToggleCableAuditElevation();
@@ -1903,7 +1980,7 @@
             wpUpdateUI();
             updateAllVisuals();
             if (typeof wpFastRenderSimulatedPanels === 'function') wpFastRenderSimulatedPanels();
-            renderTriad2D();
+            requestTriadRedraw();
             if (typeof window.wpInvalidateHeatmap === 'function') window.wpInvalidateHeatmap('Vértice de faldón eliminado');
 
             showStatus('<i data-lucide=\"trash-2\" class=\"icon-sm\"></i> VÉRTICE ELIMINADO (RESTAN: ' + poly.points.length + ' VÉRTICES) · CTRL+Z DESHACE', 2600);
@@ -1961,19 +2038,19 @@
       if (e.key === 'u' || e.key === 'U') {
         vtxGizmoState.axisLock = (vtxGizmoState.axisLock === 'u' ? null : 'u');
         showStatus('<i data-lucide="lock" class="icon-sm"></i> RESTRICCIÓN DE EJE: ' + (vtxGizmoState.axisLock ? 'EJE U (LONGITUDINAL)' : 'LIBRE'), 1500);
-        renderTriad2D();
+        requestTriadRedraw();
         return;
       }
       if (e.key === 'y' || e.key === 'Y' || e.key === 'v' || e.key === 'V') {
         vtxGizmoState.axisLock = (vtxGizmoState.axisLock === 'v' ? null : 'v');
         showStatus('<i data-lucide="lock" class="icon-sm"></i> RESTRICCIÓN DE EJE: ' + (vtxGizmoState.axisLock ? 'EJE V (TRANSVERSAL)' : 'LIBRE'), 1500);
-        renderTriad2D();
+        requestTriadRedraw();
         return;
       }
       if (e.key === 'z' || e.key === 'Z' || e.key === 'n' || e.key === 'N') {
         vtxGizmoState.axisLock = (vtxGizmoState.axisLock === 'z' ? null : 'z');
         showStatus('<i data-lucide="lock" class="icon-sm"></i> RESTRICCIÓN DE EJE: ' + (vtxGizmoState.axisLock ? 'EJE Z (ELEVACIÓN NORMAL)' : 'LIBRE'), 1500);
-        renderTriad2D();
+        requestTriadRedraw();
         return;
       }
     }
@@ -2026,6 +2103,19 @@
         } catch (e) { /* ignore */ }
         this._handler = null;
       }
+      if (Array.isArray(this._unsubscribers)) {
+        while (this._unsubscribers.length > 0) {
+          const unsub = this._unsubscribers.pop();
+          try {
+            if (typeof unsub === 'function') unsub();
+          } catch (e) { /* ignore */ }
+        }
+      }
+      if (typeof this._cancelPendingRafs === 'function') {
+        try { this._cancelPendingRafs(); } catch (e) { /* ignore */ }
+        this._cancelPendingRafs = null;
+      }
+      this.requestTriadRedraw = null;
     }
   };
 })(typeof window !== "undefined" ? window : globalThis);

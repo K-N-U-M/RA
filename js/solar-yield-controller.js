@@ -139,24 +139,29 @@ function recalculateSolarYield(force = false) {
 
   const peakPowerKW = (numPanels * modulePowerW) / 1000.0;
 
-  // <i data-lucide=\"rocket\" class=\"icon-sm\"></i> MODELO TÉRMICO PVSYST / SANDIA NATIONAL LABS (T_cell, NOCT 45°C, Gamma -0.35%/°C)
-  const avgAmbTempC = 18.5; // Temperatura ambiente media anual en España
-  const avgPoaIrradW_m2 = 650.0;
-  const noctC = 45.0;
-  const cellTempC = avgAmbTempC + ((noctC - 20.0) / 800.0) * avgPoaIrradW_m2;
-  const gammaPmp = -0.0035; // -0.35%/°C (Silicio Monocristalino N-Type TOPCon/PERC)
-  const thermalDeratingFactor = Math.max(0.70, 1.0 + gammaPmp * (cellTempC - 25.0));
+  // <i data-lucide="rocket" class="icon-sm"></i> MODELO TÉRMICO Y RADIACIÓN POR ZONA CLIMÁTICA + INTEGRACIÓN HORARIA POA
+  const climaticZone = (typeof getClimaticZone === 'function') ? getClimaticZone(latDeg, lonDeg) : 'interior';
+  const _tAmbTable = (typeof window !== 'undefined' && window.RA && window.RA.Radiation && window.RA.Radiation.T_AMB_MONTHLY_ESP)
+    ? window.RA.Radiation.T_AMB_MONTHLY_ESP
+    : ((typeof T_AMB_MONTHLY_ESP !== 'undefined') ? T_AMB_MONTHLY_ESP : {
+        costal_med: [11.0, 12.0, 14.0, 16.0, 20.0, 25.0, 28.0, 28.5, 24.0, 19.0, 14.0, 11.0],
+        costa_med:  [11.0, 12.0, 14.0, 16.0, 20.0, 25.0, 28.0, 28.5, 24.0, 19.0, 14.0, 11.0],
+        interior:   [5.0,  7.0,  10.0, 12.0, 17.0, 23.0, 27.0, 27.0, 22.0, 15.0,  9.0,  5.0],
+        atlantico:  [9.0,  10.0, 12.0, 13.0, 16.0, 19.0, 21.0, 21.5, 19.0, 15.0, 11.0,  9.0],
+        canarias:   [18.0, 18.5, 19.0, 20.0, 21.5, 23.5, 25.0, 26.0, 25.5, 23.5, 21.0, 19.0]
+      });
+  const zoneMonthlyTamb = _tAmbTable[climaticZone] || _tAmbTable.interior;
+  const noctC = Number(pCfg.noct || pCfg.NOCT) || 45.0;
+  const _rawGammaPmp = Number(pCfg.tempCoeffPmax || pCfg.gammaPmp);
+  const gammaPmp = (Number.isFinite(_rawGammaPmp) && _rawGammaPmp !== 0)
+    ? (Math.abs(_rawGammaPmp) > 0.05 ? _rawGammaPmp / 100.0 : _rawGammaPmp)
+    : ((pCfg.tecnologia && String(pCfg.tecnologia).includes('N-Type')) ? -0.0028 : -0.0035);
 
-  const latFactor = 1.0 + (38.0 - latDeg) * 0.015;
-  const prObj = (typeof window !== 'undefined' && typeof window.raCalculateSystemPR === 'function')
-    ? window.raCalculateSystemPR(thermalDeratingFactor)
-    : { prTotal: 0.82 * thermalDeratingFactor };
-  const pr = prObj.prTotal;
+  const latFactor = Math.max(0.80, Math.min(1.25, 1.0 + (38.0 - latDeg) * 0.015));
 
-  // <i data-lucide=\"sun\" class=\"icon-sm\"></i> FÍSICA SOLAR ESTACIONAL EN PLANO INCLINADO (POA - HAY-DAVIES / LIU & JORDAN)
-  // Declinaciones solares medias mensuales (°), correspondientes a los días representativos del año solar
+  // <i data-lucide="sun" class="icon-sm"></i> FÍSICA SOLAR ESTACIONAL EN PLANO INCLINADO (INTEGRACIÓN HORARIA POA)
   const MONTHLY_DECLINATIONS = [-20.9, -13.0, -2.4, 9.4, 18.8, 23.1, 21.2, 13.5, 2.2, -9.6, -18.9, -23.0];
-  
+  const MONTHLY_MID_DOY = [17, 47, 75, 105, 135, 162, 198, 228, 258, 288, 318, 344];
   const latRad = latDeg * Math.PI / 180.0;
 
   // Desglose por subcampos (faldones) para que al cambiar βm o γ en un faldón responda con precisión exacta
@@ -202,43 +207,117 @@ function recalculateSolarYield(force = false) {
     });
   }
 
-  let monthlyYields = [];
-  let annualYieldKWh = 0;
+  const _radApi = (typeof window !== 'undefined' && window.RA && window.RA.Radiation) ? window.RA.Radiation : null;
+  const monthGrossList = [];
   let annualGrossYield = 0;
   const subArrayAnnualGross = new Map();
+  let poaWeightedTempSum = 0;
+  let poaWeightedIrradSum = 0;
+  let poaWeightTotal = 0;
 
   for (let m = 0; m < 12; m++) {
-    const declRad = MONTHLY_DECLINATIONS[m] * Math.PI / 180.0;
-
-    // Altura solar al mediodía astronómico
-    const sinAlphaMid = Math.sin(latRad) * Math.sin(declRad) + Math.cos(latRad) * Math.cos(declRad);
-    const alphaMid = Math.asin(Math.max(0.02, Math.min(1.0, sinAlphaMid)));
-
-    // Fracción difusa estacional (DHI/GHI) y albedo de suelo
-    const dhiFrac = 0.32 + 0.06 * Math.cos((m - 6) * Math.PI / 6);
-    const dniFrac = Math.max(0.0, 1.0 - dhiFrac);
+    const doy = MONTHLY_MID_DOY[m];
+    const declDeg = (typeof solarDeclination === 'function') ? solarDeclination(doy) : MONTHLY_DECLINATIONS[m];
+    const declRad = declDeg * Math.PI / 180.0;
+    const tAmbMonth = zoneMonthlyTamb[m] !== undefined ? zoneMonthlyTamb[m] : 18.0;
 
     // Recurso solar geolocalizado SSOT (getRobustMonthlyGHI): integra radiación horizontal real del emplazamiento
     const baseGHI_Wh = (typeof getRobustMonthlyGHI === 'function')
-      ? getRobustMonthlyGHI(latDeg, (pa && pa.lonDeg !== undefined ? pa.lonDeg : -3.7), m)
-      : (SOLAR_RAD_MONTHLY_BASE[m] * 1000);
+      ? getRobustMonthlyGHI(latDeg, lonDeg, m)
+      : ((_radApi && typeof _radApi.estimateMonthlyGHI === 'function')
+          ? _radApi.estimateMonthlyGHI(latDeg, m)
+          : ((typeof SOLAR_RAD_MONTHLY_BASE !== 'undefined' ? SOLAR_RAD_MONTHLY_BASE[m] : 4.5) * 1000 * latFactor));
+
+    // Integración horaria diurna (alba a ocaso) para calcular factor POA realista en cualquier orientación (N/S/E/O)
+    const wsArg = Math.max(-1, Math.min(1, -Math.tan(latRad) * Math.tan(declRad)));
+    const wsDeg = Math.acos(wsArg) * 180.0 / Math.PI;
+    const sunriseH = Math.max(4, Math.floor(12 - wsDeg / 15.0));
+    const sunsetH = Math.min(20, Math.ceil(12 + wsDeg / 15.0));
+
+    const hourlySun = [];
+    let sinAltSum = 0;
+    for (let h = sunriseH; h <= sunsetH; h++) {
+      const haDeg = 15.0 * (h - 12);
+      const haRad = haDeg * Math.PI / 180.0;
+      const sinAlt = Math.sin(latRad) * Math.sin(declRad) + Math.cos(latRad) * Math.cos(declRad) * Math.cos(haRad);
+      if (sinAlt <= 0.03) continue;
+      const elevDeg = Math.asin(Math.min(1.0, sinAlt)) * 180.0 / Math.PI;
+      const azN = (typeof solarAzimuthAtan2 === 'function')
+        ? solarAzimuthAtan2(latDeg, declDeg, haDeg)
+        : ((((Math.atan2(
+            -Math.sin(haRad) * Math.cos(declRad),
+            Math.sin(declRad) * Math.cos(latRad) - Math.cos(declRad) * Math.sin(latRad) * Math.cos(haRad)
+          ) * 180.0 / Math.PI) % 360) + 360) % 360);
+      let sunAzSur = azN - 180.0;
+      if (sunAzSur > 180) sunAzSur -= 360;
+      if (sunAzSur <= -180) sunAzSur += 360;
+      sinAltSum += sinAlt;
+      hourlySun.push({ h, sinAlt, elevDeg, sunAzSur });
+    }
+    if (sinAltSum <= 0) sinAltSum = 1;
+
+    // Pre-desagregación Erbs por hora
+    const hourlyRad = hourlySun.map(slot => {
+      const ghiH = Math.max(0, (baseGHI_Wh / sinAltSum) * slot.sinAlt);
+      if (_radApi && typeof _radApi.decomposeErbs === 'function') {
+        const dec = _radApi.decomposeErbs(ghiH, slot.elevDeg, doy);
+        return { h: slot.h, sinAlt: slot.sinAlt, elevDeg: slot.elevDeg, sunAzSur: slot.sunAzSur, ghi: ghiH, dhi: dec.dhi, dni: dec.dni, e0: dec.e0 };
+      }
+      const e0 = 1 + 0.033 * Math.cos(2 * Math.PI * (doy - 1) / 365);
+      const kt = Math.min(1.0, Math.max(0.0, ghiH / (1367 * e0 * slot.sinAlt + 1e-3)));
+      let dhiFrac = 0.165;
+      if (kt < 0.22) dhiFrac = 1.0 - 0.09 * kt;
+      else if (kt < 0.80) dhiFrac = 0.9511 - 0.1604 * kt + 4.388 * kt * kt - 16.638 * kt * kt * kt + 12.336 * kt * kt * kt * kt;
+      const dhi = ghiH * dhiFrac;
+      const dni = Math.max(0, Math.min(1150, (ghiH - dhi) / Math.max(slot.sinAlt, 0.05)));
+      return { h: slot.h, sinAlt: slot.sinAlt, elevDeg: slot.elevDeg, sunAzSur: slot.sunAzSur, ghi: ghiH, dhi, dni, e0 };
+    });
+
+    const evalRawPoaHour = (hr, tiltD, azSurD) => {
+      const tiltR = tiltD * Math.PI / 180.0;
+      if (_radApi && typeof _radApi.transposeComponents === 'function' && typeof _radApi.incidenceCos === 'function') {
+        const cosT = Math.max(0, Math.min(1, _radApi.incidenceCos(tiltD, azSurD, hr.elevDeg, hr.sunAzSur)));
+        const tp = _radApi.transposeComponents({
+          ghi: hr.ghi, dhi: hr.dhi, dni: hr.dni,
+          cosTheta: cosT, tiltRad: tiltR, albedo: 0.20,
+          sunElevDeg: hr.elevDeg, dayOfYear: doy, e0: hr.e0
+        });
+        return (typeof tp.G_poa_raw === 'number') ? tp.G_poa_raw : tp.G_poa;
+      }
+      const elevR = hr.elevDeg * Math.PI / 180.0;
+      const dAzR = (hr.sunAzSur - azSurD) * Math.PI / 180.0;
+      const cosT = Math.max(0, Math.min(1, Math.sin(elevR) * Math.cos(tiltR) + Math.cos(elevR) * Math.sin(tiltR) * Math.cos(dAzR)));
+      const Ai = Math.max(0, Math.min(1.0, hr.dni / (1367 * (hr.e0 || 1))));
+      const G_b = hr.dni * cosT;
+      const G_d = hr.dhi * (Ai * (cosT / Math.max(hr.sinAlt, 0.05)) + (1 - Ai) * ((1 + Math.cos(tiltR)) / 2));
+      const G_r = hr.ghi * 0.20 * ((1 - Math.cos(tiltR)) / 2);
+      return Math.max(0, G_b + G_d + G_r);
+    };
 
     let monthGrossSum = 0;
     for (let s = 0; s < subArrays.length; s++) {
       const sa = subArrays[s];
-      const sTiltRad = sa.tiltDeg * Math.PI / 180.0;
-      const sAzRad = sa.azSurDeg * Math.PI / 180.0;
-      let poaFactor;
-      if (sa.isEastWest) {
-        const cosIncE = Math.sin(alphaMid) * Math.cos(sTiltRad) + Math.cos(alphaMid) * Math.sin(sTiltRad) * Math.cos(sAzRad - Math.PI / 2);
-        const cosIncW = Math.sin(alphaMid) * Math.cos(sTiltRad) + Math.cos(alphaMid) * Math.sin(sTiltRad) * Math.cos(sAzRad + Math.PI / 2);
-        const rbEW = 0.5 * (Math.max(0.05, cosIncE / Math.max(0.08, Math.sin(alphaMid))) + Math.max(0.05, cosIncW / Math.max(0.08, Math.sin(alphaMid))));
-        poaFactor = (dniFrac * rbEW) + (dhiFrac * (1.0 + Math.cos(sTiltRad)) / 2.0) + (0.20 * (1.0 - Math.cos(sTiltRad)) / 2.0);
-      } else {
-        const cosIncMid = Math.sin(alphaMid) * Math.cos(sTiltRad) + Math.cos(alphaMid) * Math.sin(sTiltRad) * Math.cos(sAzRad);
-        const rbMid = Math.max(0.05, cosIncMid / Math.max(0.08, Math.sin(alphaMid)));
-        poaFactor = (dniFrac * rbMid) + (dhiFrac * (1.0 + Math.cos(sTiltRad)) / 2.0) + (0.20 * (1.0 - Math.cos(sTiltRad)) / 2.0);
+      let saDailyPoaWh = 0;
+      for (let hi = 0; hi < hourlyRad.length; hi++) {
+        const hr = hourlyRad[hi];
+        let gPoaRawH = 0;
+        if (sa.isEastWest) {
+          let azE = sa.azSurDeg - 90; while (azE < -180) azE += 360;
+          let azW = sa.azSurDeg + 90; while (azW > 180) azW -= 360;
+          gPoaRawH = 0.5 * (evalRawPoaHour(hr, sa.tiltDeg, azE) + evalRawPoaHour(hr, sa.tiltDeg, azW));
+        } else {
+          gPoaRawH = evalRawPoaHour(hr, sa.tiltDeg, sa.azSurDeg);
+        }
+        saDailyPoaWh += gPoaRawH;
+        if (gPoaRawH > 10) {
+          const w = gPoaRawH * sa.kwp * MONTH_DAYS[m];
+          const tAmbHour = tAmbMonth + 2.5 * Math.sin(Math.max(0, Math.PI * (hr.h - 9) / 12));
+          poaWeightedTempSum += tAmbHour * w;
+          poaWeightedIrradSum += gPoaRawH * w;
+          poaWeightTotal += w;
+        }
       }
+      const poaFactor = baseGHI_Wh > 0 ? (saDailyPoaWh / baseGHI_Wh) : 1.0;
       const dailyPoa = (baseGHI_Wh / 1000.0) * Math.max(0.15, poaFactor);
       const saMonthGross = sa.kwp * dailyPoa * MONTH_DAYS[m];
       monthGrossSum += saMonthGross;
@@ -246,10 +325,25 @@ function recalculateSolarYield(force = false) {
     }
 
     annualGrossYield += monthGrossSum;
-    const monthlyKWh = monthGrossSum * pr;
-    monthlyYields.push(Math.round(monthlyKWh));
-    annualYieldKWh += monthlyKWh;
+    monthGrossList.push(monthGrossSum);
   }
+
+  const avgAmbTempC = poaWeightTotal > 0
+    ? (poaWeightedTempSum / poaWeightTotal)
+    : (zoneMonthlyTamb.reduce((a, b) => a + b, 0) / Math.max(1, zoneMonthlyTamb.length));
+  const avgPoaIrradW_m2 = poaWeightTotal > 0
+    ? (poaWeightedIrradSum / poaWeightTotal)
+    : (650.0 * latFactor);
+  const cellTempC = avgAmbTempC + ((noctC - 20.0) / 800.0) * avgPoaIrradW_m2;
+  const thermalDeratingFactor = Math.max(0.70, Math.min(1.10, 1.0 + gammaPmp * (cellTempC - 25.0)));
+
+  const prObj = (typeof window !== 'undefined' && typeof window.raCalculateSystemPR === 'function')
+    ? window.raCalculateSystemPR(thermalDeratingFactor)
+    : { prTotal: 0.82 * thermalDeratingFactor };
+  const pr = prObj.prTotal;
+
+  let monthlyYields = monthGrossList.map(mg => Math.round(mg * pr));
+  let annualYieldKWh = monthlyYields.reduce((a, b) => a + b, 0);
   
   // Calcular porcentaje de sombra medio de los paneles reales renderizados
   let avgShadowLossPct = 0;
@@ -300,11 +394,18 @@ function recalculateSolarYield(force = false) {
   if (typeof window.allRenderedPanels !== 'undefined' && Array.isArray(window.allRenderedPanels) && window.allRenderedPanels.length > 0) {
     const activeRendered = window.allRenderedPanels.filter(p => p && !p.deleted && !p.disabled && !p.isGhost);
     const nPanels = Math.max(1, activeRendered.length);
-    const prSys = (typeof prObj.prBOS === 'number') ? prObj.prBOS : (pr / (0.925 * (1 - 0.028)));
+    const prBosRaw = (typeof prObj.prBOS === 'number') ? prObj.prBOS : (pr / (0.925 * (1 - 0.028)));
+    // El bucle horario del heatmap/worker ya descuenta bypass por sub-strings: evitar doble descuento de bypass en prBOS.
+    const prSys = (prObj.factors && typeof prObj.factors.bypass === 'number' && prObj.factors.bypass > 0 && prObj.factors.bypass < 1)
+      ? (prBosRaw / (1 - prObj.factors.bypass))
+      : prBosRaw;
 
     const hasSimulatedPanels = activeRendered.some(p =>
-      (typeof p.annualGrossKwh === 'number' && p.annualGrossKwh > 0) ||
-      (typeof p.annualKwh === 'number' && p.annualKwh > 0)
+      !p._isParametricEstimate && (
+        (typeof p.annualTotalPotential === 'number' && p.annualTotalPotential > 0) ||
+        (typeof p.annualGrossKwh === 'number' && p.annualGrossKwh > 0) ||
+        (typeof p.annualKwh === 'number' && p.annualKwh > 0)
+      )
     );
     let simulatedTotalKWh = 0;
     let simulatedGrossKWh = 0;
@@ -320,27 +421,48 @@ function recalculateSolarYield(force = false) {
         basePanelGross = subArrayAnnualGross.get(sa.polyIdx) / sa.nPanels;
       }
 
-      // Base bruta coherente: si la bruta guardada no cuadra con la neta y el PR con que se
-      // generó (bruta obsoleta de un cálculo paramétrico previo), manda la neta simulada.
-      let storedGross = (typeof p.annualGrossKwh === 'number' && p.annualGrossKwh > 0) ? p.annualGrossKwh : 0;
-      if (storedGross > 0 && typeof p.annualKwh === 'number' && p.annualKwh > 0 &&
-          typeof p._lastPrSys === 'number' && p._lastPrSys > 0) {
-        const impliedGross = p.annualKwh / p._lastPrSys;
-        if (Math.abs(storedGross - impliedGross) > Math.max(1, impliedGross * 0.02)) storedGross = impliedGross;
-      }
-      const gross = hasSimulatedPanels
-        ? (storedGross > 0
-            ? storedGross
-            : (typeof p.annualKwh === 'number' && p.annualKwh > 0 ? (p.annualKwh / (p._lastPrSys || prSys || 0.885)) : (basePanelGross * pYieldFactor)))
-        : (basePanelGross * pYieldFactor);
+      const panelHasHourlySim = !p._isParametricEstimate && (
+        (typeof p.annualTotalPotential === 'number' && p.annualTotalPotential > 0) ||
+        (typeof p.annualGrossKwh === 'number' && p.annualGrossKwh > 0) ||
+        (typeof p.annualKwh === 'number' && p.annualKwh > 0)
+      );
 
-      p.annualGrossKwh = gross;
-      p._poaTiltDeg = curTilt;
-      p._poaAzDeg = curAz;
-      p._lastPrSys = prSys;
-      p.annualKwh = Math.round(gross * prSys);
-      simulatedGrossKWh += gross;
-      simulatedTotalKWh += p.annualKwh;
+      if (hasSimulatedPanels && panelHasHourlySim) {
+        // Base bruta coherente: si la bruta guardada no cuadra con la neta y el PR con que se
+        // generó (o ya venía neta sin _lastPrSys), se recupera la bruta real sin volver a descontar prBOS.
+        let storedGross = (typeof p.annualGrossKwh === 'number' && p.annualGrossKwh > 0) ? p.annualGrossKwh : 0;
+        if (storedGross > 0 && typeof p.annualKwh === 'number' && p.annualKwh > 0) {
+          if (typeof p._lastPrSys === 'number' && p._lastPrSys > 0) {
+            const impliedGross = p.annualKwh / p._lastPrSys;
+            if (Math.abs(storedGross - impliedGross) > Math.max(1, impliedGross * 0.02)) storedGross = impliedGross;
+          } else if (Math.abs(storedGross - p.annualKwh) <= 1.0) {
+            storedGross = p.annualKwh / (prSys || 0.90);
+          }
+        }
+        const gross = storedGross > 0
+          ? storedGross
+          : (typeof p.annualKwh === 'number' && p.annualKwh > 0 ? (p.annualKwh / (p._lastPrSys || prSys || 0.90)) : (basePanelGross * pYieldFactor));
+
+        p.annualGrossKwh = gross;
+        p._poaTiltDeg = curTilt;
+        p._poaAzDeg = curAz;
+        p._lastPrSys = prSys;
+        p._isParametricEstimate = false;
+        p.annualKwh = Math.round(gross * prSys);
+        simulatedGrossKWh += gross;
+        simulatedTotalKWh += p.annualKwh;
+      } else {
+        // Panel sin simulación horaria: basePanelGross está antes de IAM/temperatura/BOS, aplicar pr completo
+        const gross = basePanelGross * pYieldFactor;
+        p.annualGrossKwh = gross;
+        p._poaTiltDeg = curTilt;
+        p._poaAzDeg = curAz;
+        p._lastPrSys = pr;
+        p._isParametricEstimate = true;
+        p.annualKwh = Math.round(gross * pr);
+        simulatedGrossKWh += gross;
+        simulatedTotalKWh += p.annualKwh;
+      }
     });
 
     if (simulatedTotalKWh > 0) {
@@ -540,7 +662,7 @@ function recalculateSolarYield(force = false) {
 
   // Persistir en window.RA para consumo por financials.js (histograma PDF)
   window.RA = window.RA || {};
-  const _hasSimPanels = (typeof window !== 'undefined' && Array.isArray(window.allRenderedPanels)) && window.allRenderedPanels.some(p => (typeof p.annualGrossKwh === 'number' && p.annualGrossKwh > 0) || (typeof p.annualKwh === 'number' && p.annualKwh > 0));
+  const _hasSimPanels = (typeof window !== 'undefined' && Array.isArray(window.allRenderedPanels)) && window.allRenderedPanels.some(p => p && !p._isParametricEstimate && ((typeof p.annualTotalPotential === 'number' && p.annualTotalPotential > 0) || (typeof p.annualGrossKwh === 'number' && p.annualGrossKwh > 0) || (typeof p.annualKwh === 'number' && p.annualKwh > 0)));
   window.RA.solarStats = {
     numPanels: numPanels,
     annualYieldKWh: annualYieldKWh,

@@ -629,6 +629,35 @@
   }
 
   /**
+   * Factor multiplicador de corriente bifacial parametrizado (UNE-EN 62548 / IEC TS 60904-1-2):
+   * 1 + bifacialityFactor * rearGain (default 0.75 * 0.20 = +15% conservador).
+   */
+  function raGetBifacialGainFactor(modCfg, rearGainOverride) {
+    if (!modCfg || typeof modCfg !== 'object') return 1.0;
+    const isBifacial = Boolean(
+      modCfg.bifacial ||
+      modCfg.isBifacial ||
+      (typeof modCfg.bifacialityFactor === 'number' && modCfg.bifacialityFactor > 0) ||
+      (modCfg.tecnologia && String(modCfg.tecnologia).toLowerCase().includes('bifacial')) ||
+      (modCfg.tec && String(modCfg.tec).toLowerCase().includes('bifacial')) ||
+      /bifacial/i.test(modCfg.name || modCfg.model || modCfg.modelo || '')
+    );
+    if (!isBifacial) return 1.0;
+    const bf = (typeof modCfg.bifacialityFactor === 'number' && modCfg.bifacialityFactor > 0)
+      ? Math.min(1.0, modCfg.bifacialityFactor)
+      : 0.75;
+    const projCfg = (typeof root !== 'undefined' && root.solarProjectConfig) ? root.solarProjectConfig : null;
+    const rawRearGain = (typeof rearGainOverride === 'number' && Number.isFinite(rearGainOverride) && rearGainOverride >= 0)
+      ? rearGainOverride
+      : ((typeof modCfg.rearGain === 'number' && Number.isFinite(modCfg.rearGain) && modCfg.rearGain >= 0)
+        ? modCfg.rearGain
+        : ((projCfg && typeof projCfg.bifacialRearGain === 'number' && Number.isFinite(projCfg.bifacialRearGain) && projCfg.bifacialRearGain >= 0)
+          ? projCfg.bifacialRearGain
+          : 0.20));
+    return 1.0 + (bf * rawRearGain);
+  }
+
+  /**
    * Cálculo consolidado de protección diferencial AC (REBT ITC-BT-40 / IEC 62109-2).
    * Calibre mínimo 25 A; Clase B si inversor sin transformador sin certificación RCMU <=6mA DC,
    * o en trifásico / potencia > 10 kW; Clase A-SI en microinversor o RCMU certificado monofásico <= 10 kW.
@@ -641,7 +670,7 @@
     const inv = opts.inv || null;
     const rcmuCertified = (opts.rcmuCertified !== undefined)
       ? Boolean(opts.rcmuCertified)
-      : Boolean(inv && (inv.rcmu === true || inv.hasRcmu === true || inv.rcmuCertified === true || inv.rcmuIntegrated !== false));
+      : Boolean(inv && (inv.rcmu === true || inv.hasRcmu === true || inv.rcmuCertified === true || inv.rcmuIntegrated === true));
     const isTransformerIsolatedMicro = (topo === 'microinverter');
     // IEC 62109-2 / REBT ITC-BT-40: Si el inversor integra supervisión RCMU certificada (corte < 6 mA DC)
     // o es microinversor con aislamiento galvánico HF, se admite Clase A-SI; solo se exige Clase B si carece de RCMU o lo fuerza opts.forceClassB.
@@ -2461,7 +2490,8 @@
   const T_cell_max = (typeof computeCellTemperature === 'function')
     ? computeCellTemperature(T_amb_max, 1000, true, 1.0)
     : (T_amb_max + 25);
-  const betaVmp = cfg.betaVmp || gammaPmp || -0.0035;
+  const rawBetaVmp = cfg.betaVmp || cfg.gammaVmp || cfg.tempCoeffVmp || gammaPmp || -0.0035;
+  const betaVmp = -Math.abs(Math.abs(rawBetaVmp) > 0.05 ? rawBetaVmp / 100.0 : rawBetaVmp);
 
   // [P0.1] Desacoplar inversor: usar el inversor seleccionado del catálogo en lugar de 1000/160/850 fijos
   let activeInv = null;
@@ -2481,7 +2511,7 @@
 
   if (typeof window !== 'undefined' && window.RA && window.RA.Electrical && typeof window.RA.Electrical.calculateDynamicMPPTStringLimits === 'function') {
     const limits = window.RA.Electrical.calculateDynamicMPPTStringLimits(
-      { Voc, Vmp, betaVoc, gammaPmp },
+      { Voc, Vmp, betaVoc, betaVmp, gammaPmp },
       { Vmax: V_dc_max, VmpptMin: V_mppt_min, VmpptMax: V_mppt_max },
       { Tmin: T_min, TmaxCell: T_cell_max }
     );
@@ -2498,7 +2528,22 @@
     minModsPerString = N_min_mppt;
   }
 
-  let numStrings = Math.max(1, Math.ceil(numPanels / maxModsPerString));
+  const activeInvKw = (activeInv && (activeInv.kw || activeInv.kw_nominal || activeInv.acKw)) ? (activeInv.kw || activeInv.kw_nominal || activeInv.acKw) : 0;
+  const invCount = Math.max(1, (generator && (generator.invCount || generator.inverterCount))
+    || (cfg && (cfg.inverterCount || (cfg.autoSizing && cfg.autoSizing.inverters && cfg.autoSizing.inverters.count)))
+    || (typeof window !== 'undefined' && window.solarProjectConfig && window.solarProjectConfig.autoSizing && window.solarProjectConfig.autoSizing.inverters && window.solarProjectConfig.autoSizing.inverters.count)
+    || 1);
+  const _cfgAc = (typeof window !== 'undefined' && window.solarProjectConfig) ? window.solarProjectConfig : null;
+  const _selInv = (_cfgAc && _cfgAc.calculatedLimits && _cfgAc.calculatedLimits.inverter) || null;
+  const _resolvedInvForLimits = activeInv || _selInv || null;
+  const isMicroinverter = !!(_cfgAc && _cfgAc.selectedTopology === 'microinverter');
+  const mpptPerInv = Math.max(1, Number((_resolvedInvForLimits && (_resolvedInvForLimits.mppt || _resolvedInvForLimits.mpptCount || _resolvedInvForLimits.mppts)) || 2));
+  const inputsPerMppt = Math.max(1, Number((_resolvedInvForLimits && (_resolvedInvForLimits.inputsPerMppt || _resolvedInvForLimits.stringsPerMppt)) || 1));
+  const totalMpptsInv = mpptPerInv * invCount;
+  const totalDcInputsInv = totalMpptsInv * inputsPerMppt;
+
+  const minStringsForInverters = (!isMicroinverter && numPanels >= invCount * minModsPerString) ? invCount : 1;
+  let numStrings = Math.max(minStringsForInverters, Math.ceil(numPanels / maxModsPerString));
   let modsPerString = Math.ceil(numPanels / numStrings);
 
   if (modsPerString < minModsPerString && numPanels >= minModsPerString) {
@@ -2511,19 +2556,12 @@
   const Vmp_str_hot = modsPerString * Vmp_hot;
   const I_total_dc = numStrings * Isc;
 
-  const activeInvKw = (activeInv && (activeInv.kw || activeInv.kw_nominal || activeInv.acKw)) ? (activeInv.kw || activeInv.kw_nominal || activeInv.acKw) : 0;
-  const invCount = Math.max(1, (generator && (generator.invCount || generator.inverterCount))
-    || (cfg && (cfg.inverterCount || (cfg.autoSizing && cfg.autoSizing.inverters && cfg.autoSizing.inverters.count)))
-    || (typeof window !== 'undefined' && window.solarProjectConfig && window.solarProjectConfig.autoSizing && window.solarProjectConfig.autoSizing.inverters && window.solarProjectConfig.autoSizing.inverters.count)
-    || 1);
   const INV_SIZES = [0.6, 1.0, 1.5, 2.0, 3.0, 3.68, 4.0, 5.0, 6.0, 8.0, 10.0, 12.0, 15.0, 20.0, 25.0, 30.0, 50.0, 100.0];
   const P_ac_unit_target = activeInvKw > 0 ? activeInvKw : ((P_dc_kW / 1.15) / invCount);
   const inv_kW = activeInvKw > 0 ? activeInvKw : (INV_SIZES.find(s => s >= P_ac_unit_target) || Math.ceil(P_ac_unit_target));
   const P_ac_kW = inv_kW;
   const total_P_ac_kW = inv_kW * invCount;
   const total_ac_kW = total_P_ac_kW;
-  const _cfgAc = (typeof window !== 'undefined' && window.solarProjectConfig) ? window.solarProjectConfig : null;
-  const _selInv = (_cfgAc && _cfgAc.calculatedLimits && _cfgAc.calculatedLimits.inverter) || null;
   const _invCountAc = (_cfgAc && _cfgAc.autoSizing && _cfgAc.autoSizing.inverters && Number.isFinite(_cfgAc.autoSizing.inverters.count))
     ? Math.max(1, _cfgAc.autoSizing.inverters.count) : 1;
   const _resolvedInv = activeInv || _selInv || { kw: inv_kW };
@@ -2534,7 +2572,7 @@
   }
   const V_ac = monofasico ? 230 : 400;
   // Factor de potencia de inyección (0.95 en baseline histórico; configurable si el inversor declara cosPhi)
-  const cosPhiAc = (activeInv && typeof activeInv.cosPhi === 'number' && activeInv.cosPhi > 0) ? activeInv.cosPhi : 0.95;
+  const cosPhiAc = (activeInv && typeof activeInv.cosPhi === 'number' && activeInv.cosPhi > 0) ? Math.min(1.0, activeInv.cosPhi) : 0.95;
   const I_ac = monofasico ? (total_ac_kW * 1000) / (V_ac * cosPhiAc) : (total_ac_kW * 1000) / (Math.sqrt(3) * V_ac * cosPhiAc);
 
   // [AUD-2026 · F-01] Sin la constante global, usar el valor normativo del proyecto
@@ -2556,9 +2594,8 @@
     ? _sState.L_ac_measured
     : 15;
 
-  // Factor de bifacialidad unificado bajo UNE-EN 62548 / IEC TS 60904-1-2 (+15% conservador aplicado a protecciones y caída DC)
-  const isBifacialMod = !!(cfg && (cfg.bifacial || cfg.isBifacial || (cfg.bifacialityFactor && cfg.bifacialityFactor > 0)));
-  const bifacialGainFactor = isBifacialMod ? 1.15 : 1.0;
+  // Factor de bifacialidad unificado bajo UNE-EN 62548 / IEC TS 60904-1-2 (1 + bifacialityFactor * rearGain)
+  const bifacialGainFactor = raGetBifacialGainFactor(cfg);
   // IEC 62548 Clause 5.2.1: 1.56 × Isc (1.25 × 1.25) alineado con el motor de cableado 3D
   const I_dc_design = 1.56 * (Isc * bifacialGainFactor);
   const I_dc_working = Imp * bifacialGainFactor;
@@ -2595,12 +2632,17 @@
 
   // Troncal DC desde Combiner Box / Nodo Paralelo Y -> Inversor (S_mdc)
   const isParallelTopo = !!(_cfgAc && (_cfgAc.dcTopology === 'parallel' || _cfgAc.dcTopology === 'parallel_y' || _cfgAc.selectedTopology === 'parallel' || _cfgAc.selectedTopology === 'parallel_y'));
+  const hasCombinerTopo = !!((_sState && _sState.combinerBox && _sState.combinerBox.position && _sState.combinerBox.isEnabled)
+    || (_cfgAc && (_cfgAc.dcTopology === 'combiner' || _cfgAc.dcTopology === 'combiner_box' || _cfgAc.selectedTopology === 'combiner' || _cfgAc.selectedTopology === 'combiner_box')));
+  let stringsPerTrunk = 1;
+  if (isParallelTopo && numStrings >= 2) {
+    stringsPerTrunk = Math.max(2, numStrings);
+  } else if (numStrings > 2 || (hasCombinerTopo && numStrings >= 2)) {
+    stringsPerTrunk = Math.max(2, Math.ceil(numStrings / totalMpptsInv));
+  }
+
   let S_mdc_opt = S_str_opt;
-  if (numStrings > 2 || (isParallelTopo && numStrings >= 2)) {
-    const mpptTotalMdc = Math.max(1, ((activeInv && activeInv.mppt) || 2) * invCount);
-    const stringsPerTrunk = isParallelTopo
-      ? Math.max(2, numStrings)
-      : Math.max(2, Math.ceil(numStrings / mpptTotalMdc));
+  if (numStrings > 2 || ((isParallelTopo || hasCombinerTopo) && numStrings >= 2)) {
     const I_mdc_design = stringsPerTrunk * I_dc_design;
     const I_mdc_working = stringsPerTrunk * I_dc_working;
     const L_mdc = L_mdc_meas;
@@ -2622,7 +2664,7 @@
 
   const dV_dc_str = (2 * rho90 * L_dc_string * I_dc_working) / S_str_opt;
   const dV_dc_trk = (_sState && _sState.L_dc_trunk_measured > 0)
-    ? ((2 * rho90 * _sState.L_dc_trunk_measured * (Math.max(1, isParallelTopo ? numStrings : 1) * I_dc_working)) / S_mdc_opt)
+    ? ((2 * rho90 * _sState.L_dc_trunk_measured * (Math.max(1, stringsPerTrunk) * I_dc_working)) / S_mdc_opt)
     : 0;
   const dV_dc = dV_dc_str + dV_dc_trk;
   const dVdc_pct = (dV_dc / Math.max(Vmp_str_hot, 1.0)) * 100;
@@ -2637,7 +2679,7 @@
     const s = SEC_AC_AVAIL[i];
     const imax = IMAX_AC_RVK[i];
     const xMeterAc = 0.08 / 1000.0;
-    const cosPAc = 0.95;
+    const cosPAc = cosPhiAc;
     const sinPAc = Math.sqrt(Math.max(0, 1.0 - cosPAc * cosPAc));
     const factorPhase = monofasico ? 2.0 : Math.sqrt(3);
     const dV = factorPhase * I_ac * L_ac * ((rho90 / s) * cosPAc + xMeterAc * sinPAc);
@@ -2661,7 +2703,7 @@
       const s = SEC_AC_AVAIL[i];
       const imax = IMAX_AC_RVK[i];
       const xMeterAc = 0.08 / 1000.0;
-      const cosPAc = 0.95;
+      const cosPAc = cosPhiAc;
       const sinPAc = Math.sqrt(Math.max(0, 1.0 - cosPAc * cosPAc));
       const factorPhase = monofasico ? 2.0 : Math.sqrt(3);
       const dV = factorPhase * I_ac_unit * L_ac_branch * ((rho90 / s) * cosPAc + xMeterAc * sinPAc);
@@ -2675,7 +2717,7 @@
   }
 
   const xMeterAcOpt = 0.08 / 1000.0;
-  const cosPAcOpt = 0.95;
+  const cosPAcOpt = cosPhiAc;
   const sinPAcOpt = Math.sqrt(Math.max(0, 1.0 - cosPAcOpt * cosPAcOpt));
   const factorPhaseOpt = monofasico ? 2.0 : Math.sqrt(3);
   const dV_ac = factorPhaseOpt * I_ac * L_ac * ((rho90 / S_ac_opt) * cosPAcOpt + xMeterAcOpt * sinPAcOpt);
@@ -2686,7 +2728,6 @@
   const STD_IGA = [16, 20, 25, 32, 40, 50, 63, 80, 100, 125, 160, 200, 250];
   const I_iga = STD_IGA.find(i => i >= I_ac_design) || (I_ac_design > 125 ? Math.ceil(I_ac_design / 10) * 10 : 63);
   const hasExternalLightningRod = !!(_cfgAc && _cfgAc.hasExternalLightningRod);
-  const isMicroinverter = !!(_cfgAc && _cfgAc.selectedTopology === 'microinverter');
   const hasBatCfg = !!(_cfgAc && _cfgAc.selectedBatteryId && _cfgAc.selectedBatteryId !== 'bat_none');
   const includeBackupBox = !!(_cfgAc && _cfgAc.includeBackupBox !== false && hasBatCfg);
   const spdClaseLabel = hasExternalLightningRod ? "Clase I+II (Tipo 1+2 · CTE SUA 8)" : "Clase II (Tipo 2)";
@@ -2719,9 +2760,38 @@
       if (sSet.size > stringsPerMpptMax) stringsPerMpptMax = sSet.size;
     });
   } else {
-    const mpptTotal = Math.max(1, ((activeInv && activeInv.mppt) || 2) * invCount);
-    stringsPerMpptMax = Math.max(1, Math.ceil(numStrings / mpptTotal));
+    stringsPerMpptMax = Math.max(1, Math.ceil(numStrings / totalMpptsInv));
   }
+
+  // Validaciones por inversor (nº unidades, entradas MPPT físicas y corrientes máximas Isc / Ioper)
+  const isInvCountCompliant = isMicroinverter || (invCount <= 1) || (numStrings >= invCount && modsPerString >= minModsPerString);
+  const stringsExceedMpptInputs = !isMicroinverter && (numStrings > totalDcInputsInv);
+  const isMpptInputsCompliant = isMicroinverter || hasCombinerTopo || isParallelTopo || !stringsExceedMpptInputs;
+  const iscPerMppt = stringsPerMpptMax * Isc * bifacialGainFactor * 1.25;
+  const impPerMppt = stringsPerMpptMax * Imp * bifacialGainFactor;
+  const invMaxScA = (_resolvedInvForLimits && (_resolvedInvForLimits.iMaxScA || _resolvedInvForLimits.maxShortCircuitCurrent))
+    ? Number(_resolvedInvForLimits.iMaxScA || _resolvedInvForLimits.maxShortCircuitCurrent)
+    : null;
+  const invMaxOperA = (_resolvedInvForLimits && (_resolvedInvForLimits.iMaxOperA || _resolvedInvForLimits.maxCurrentPerMppt || _resolvedInvForLimits.iMaxMppt))
+    ? Number(_resolvedInvForLimits.iMaxOperA || _resolvedInvForLimits.maxCurrentPerMppt || _resolvedInvForLimits.iMaxMppt)
+    : null;
+  const isInvIscCompliant = isMicroinverter || !invMaxScA || (iscPerMppt <= invMaxScA);
+  const isInvOperCurrentCompliant = isMicroinverter || !invMaxOperA || (impPerMppt <= invMaxOperA);
+  const inverterLimitsWarnings = [];
+  if (!isInvCountCompliant) {
+    inverterLimitsWarnings.push(`Número de strings (${numStrings}) insuficiente para ${invCount} inversores con mínimo ${minModsPerString} módulos/string.`);
+  }
+  if (!isMpptInputsCompliant) {
+    inverterLimitsWarnings.push(`Strings (${numStrings}) superan las entradas MPPT disponibles (${totalDcInputsInv} = ${totalMpptsInv} MPPT × ${inputsPerMppt} entradas) sin Combiner Box.`);
+  }
+  if (!isInvIscCompliant) {
+    inverterLimitsWarnings.push(`Corriente de cortocircuito por MPPT (${iscPerMppt.toFixed(1)} A) supera iMaxScA del inversor (${invMaxScA} A).`);
+  }
+  if (!isInvOperCurrentCompliant) {
+    inverterLimitsWarnings.push(`Corriente operativa por MPPT (${impPerMppt.toFixed(1)} A) supera iMaxOperA del inversor (${invMaxOperA} A, posible recorte de corriente).`);
+  }
+  const inverterLimitsCompliant = isInvCountCompliant && isMpptInputsCompliant && isInvIscCompliant;
+
   const useFuses = !isMicroinverter && (stringsPerMpptMax >= 3);
   const fuseMinA = Math.ceil((Isc * bifacialGainFactor) * 1.56);
   const fuseRatings = [12, 15, 16, 20, 25, 30, 32];
@@ -2767,6 +2837,22 @@
     rcdSensMa,
     numStrings,
     stringsPerMpptMax,
+    stringsPerTrunk,
+    totalMppts: totalMpptsInv,
+    inputsPerMppt,
+    totalDcInputs: totalDcInputsInv,
+    iscPerMppt: Math.round(iscPerMppt * 10) / 10,
+    impPerMppt: Math.round(impPerMppt * 10) / 10,
+    invMaxScA,
+    invMaxOperA,
+    isInvCountCompliant,
+    isMpptInputsCompliant,
+    stringsExceedMpptInputs,
+    isInvIscCompliant,
+    isInvOperCurrentCompliant,
+    hasInvImpClipping: !isInvOperCurrentCompliant,
+    inverterLimitsCompliant,
+    inverterLimitsWarnings,
     useFuses,
     fuse_std,
     modsPerString,
@@ -2837,6 +2923,7 @@
   root.raResolveAcPhases = raResolveAcPhases;
   root.raGetMicroinverterRatio = raGetMicroinverterRatio;
   root.raResolveRcdSpec = raResolveRcdSpec;
+  root.raGetBifacialGainFactor = raGetBifacialGainFactor;
 
   if (!root.RA) root.RA = {};
   root.RA.Electrical = {
@@ -2869,6 +2956,7 @@
     raResolveAcPhases: raResolveAcPhases,
     getMicroinverterRatio: raGetMicroinverterRatio,
     resolveRcdSpec: raResolveRcdSpec,
+    getBifacialGainFactor: raGetBifacialGainFactor,
     updateInverterAssistant: wpUpdateInverterSmartAssistantUI,
     applyRecommendedInverter: wpApplyRecommendedInverter,
     updateMeterPlacementGuide: wpUpdateMeterPlacementGuideUI,

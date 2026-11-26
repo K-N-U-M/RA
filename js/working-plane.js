@@ -261,22 +261,7 @@ function ensureTriadCanvas() {
   }
 }
 
-// ── Helper de Elevación Normalizada sobre la Malla 3D (+15 cm) ────────────
-function wpElevatePointAboveSurface(cartesian, offsetM = 0.15, fallbackNormal = null) {
-  if (!cartesian) return cartesian;
-  try {
-    const radial = Cesium.Cartesian3.normalize(cartesian, new Cesium.Cartesian3());
-    let normal = fallbackNormal || (triadState && triadState.zAxis) || radial;
-    if (Cesium.Cartesian3.dot(normal, radial) < 0) normal = radial;
-    return Cesium.Cartesian3.add(
-      cartesian,
-      Cesium.Cartesian3.multiplyByScalar(normal, offsetM, new Cesium.Cartesian3()),
-      new Cesium.Cartesian3()
-    );
-  } catch(e) {
-    return cartesian;
-  }
-}
+// [PODA FASE 4] wpElevatePointAboveSurface eliminado (0 usos)
 
 // ── Inicialización de Primitivas 3D para el Cursor y Ghost Preview ───────────
 function initTriad3DEntities() {
@@ -570,11 +555,7 @@ function checkVertexGizmoHit(mx, my) {
   return null;
 }
 
-function renderVertexGizmo2D() {
-  // [SSOT §5 AGENTS.md] La manipulación de ejes e interacción en vértices la gestiona exclusivamente renderUniversalGizmo2D
-  if (typeof vtxGizmoState !== 'undefined' && vtxGizmoState) vtxGizmoState.screen = null;
-  return;
-}
+// [PODA FASE 4] renderVertexGizmo2D eliminado (0 usos; SSOT renderUniversalGizmo2D)
 
 let panelGizmoState = (typeof window !== 'undefined' && window.panelGizmoState) ? window.panelGizmoState : {
   active: false,
@@ -615,40 +596,7 @@ function getSelectedPanel() {
 }
 if (typeof window !== 'undefined') window.getSelectedPanel = getSelectedPanel;
 
-function checkPanelGizmoHit(mx, my) {
-  const panel = getSelectedPanel();
-  if (!panel || !panelGizmoState.screen) return null;
-  const s = panelGizmoState.screen;
-  const dx = mx - s.ox;
-  const dy = my - s.oy;
-  const distCenter = Math.sqrt(dx * dx + dy * dy);
-
-  if (distCenter <= 16 * s.scale) return 'center-drag';
-  if (Math.abs(distCenter - s.ringRadius) <= 12 * s.scale) return 'rotate-ring';
-
-  const duX = s.pU.x - s.ox, duY = s.pU.y - s.oy;
-  const lenU = Math.sqrt(duX * duX + duY * duY);
-  if (lenU > 1) {
-    const projU = (dx * duX + dy * duY) / lenU;
-    const perpU = Math.abs(-dx * duY + dy * duX) / lenU;
-    if (projU >= 0 && projU <= lenU + 10 && perpU <= 14 * s.scale) return 'u-axis';
-  }
-
-  const dvX = s.pV.x - s.ox, dvY = s.pV.y - s.oy;
-  const lenV = Math.sqrt(dvX * dvX + dvY * dvY);
-  if (lenV > 1) {
-    const projV = (dx * dvX + dy * dvY) / lenV;
-    const perpV = Math.abs(-dx * dvY + dy * dvX) / lenV;
-    if (projV >= 0 && projV <= lenV + 10 && perpV <= 14 * s.scale) return 'v-axis';
-  }
-  return null;
-}
-
-function renderPanelGizmo2D() {
-  // [SSOT §5 AGENTS.md] La manipulación e interacción de paneles la gestiona exclusivamente renderUniversalGizmo2D
-  if (typeof panelGizmoState !== 'undefined' && panelGizmoState) panelGizmoState.screen = null;
-  return;
-}
+// [PODA FASE 4] checkPanelGizmoHit y renderPanelGizmo2D eliminados (0 usos; SSOT renderUniversalGizmo2D)
 
 function deleteSelectedPanel() {
   const indicesToDelete = (typeof window !== 'undefined' && Array.isArray(window.selectedPanelIndices) && window.selectedPanelIndices.length > 0)
@@ -828,6 +776,22 @@ function _updateLabelHoverAlpha(key, isHovered, now) {
   return state;
 }
 
+let _triadScratch = null;
+function _getTriadScratch() {
+  if (!_triadScratch && typeof Cesium !== 'undefined' && Cesium.Cartesian3) {
+    _triadScratch = {
+      diff: new Cesium.Cartesian3(),
+      scaled: new Cesium.Cartesian3(),
+      tipX: new Cesium.Cartesian3(),
+      tipY: new Cesium.Cartesian3(),
+      tipZ: new Cesium.Cartesian3(),
+      center: new Cesium.Cartesian3(),
+      toCam: new Cesium.Cartesian3()
+    };
+  }
+  return _triadScratch;
+}
+
 function renderTriad2D() {
   if (typeof window !== 'undefined' && window.RACapture && window.RACapture.enabled) return; // [CAPTURA] overlay CAD oculto
   try {
@@ -835,6 +799,7 @@ function renderTriad2D() {
     const scene = typeof viewer !== 'undefined' && viewer ? viewer.scene : (window.viewer ? window.viewer.scene : null);
     if (!triadCtx || !triadCanvas || !scene) return;
     const camera = scene ? scene.camera : (typeof viewer !== 'undefined' && viewer ? viewer.camera : (window.viewer ? window.viewer.camera : null));
+    const _sc = _getTriadScratch();
     triadCtx.clearRect(0, 0, triadCanvas.width, triadCanvas.height);
 
     _hasHoverFadeTransitions = false;
@@ -849,7 +814,7 @@ function renderTriad2D() {
         const p1Screen = toScreen(WP.planePts[0]);
         const camPosWC = (camera && camera.positionWC) ? camera.positionWC : ((camera && camera.position) ? camera.position : null);
         const camDirWC = (camera && camera.directionWC) ? camera.directionWC : ((camera && camera.direction) ? camera.direction : null);
-        const isP1Front = p1Screen && camPosWC && camDirWC && Cesium.Cartesian3.dot(Cesium.Cartesian3.subtract(WP.planePts[0], camPosWC, new Cesium.Cartesian3()), camDirWC) > 0;
+        const isP1Front = p1Screen && camPosWC && camDirWC && Cesium.Cartesian3.dot(Cesium.Cartesian3.subtract(WP.planePts[0], camPosWC, _sc ? _sc.diff : new Cesium.Cartesian3()), camDirWC) > 0;
 
         const curMouseX = (typeof _triadMouseX === 'number') ? _triadMouseX : (triadState.x || (window.innerWidth / 2));
         const curMouseY = (typeof _triadMouseY === 'number') ? _triadMouseY : (triadState.y || (window.innerHeight / 2));
@@ -890,7 +855,7 @@ function renderTriad2D() {
           triadCtx.restore();
         } else if (pCount === 2 && isP1Front) {
           const p2Screen = toScreen(WP.planePts[1]);
-          const isP2Front = p2Screen && camPosWC && camDirWC && Cesium.Cartesian3.dot(Cesium.Cartesian3.subtract(WP.planePts[1], camPosWC, new Cesium.Cartesian3()), camDirWC) > 0;
+          const isP2Front = p2Screen && camPosWC && camDirWC && Cesium.Cartesian3.dot(Cesium.Cartesian3.subtract(WP.planePts[1], camPosWC, _sc ? _sc.diff : new Cesium.Cartesian3()), camDirWC) > 0;
 
           if (isP2Front) {
             // Triángulo elástico cerrado P1 -> P2 -> Cursor -> P1
@@ -958,7 +923,7 @@ function renderTriad2D() {
         const pLastScreen = toScreen(pLast);
         const camPosWC = (camera && camera.positionWC) ? camera.positionWC : ((camera && camera.position) ? camera.position : null);
         const camDirWC = (camera && camera.directionWC) ? camera.directionWC : ((camera && camera.direction) ? camera.direction : null);
-        const isLastFront = pLastScreen && camPosWC && camDirWC && Cesium.Cartesian3.dot(Cesium.Cartesian3.subtract(pLast, camPosWC, new Cesium.Cartesian3()), camDirWC) > 0;
+        const isLastFront = pLastScreen && camPosWC && camDirWC && Cesium.Cartesian3.dot(Cesium.Cartesian3.subtract(pLast, camPosWC, _sc ? _sc.diff : new Cesium.Cartesian3()), camDirWC) > 0;
 
         const curMouseX = (typeof _triadMouseX === 'number') ? _triadMouseX : (triadState.x || (window.innerWidth / 2));
         const curMouseY = (typeof _triadMouseY === 'number') ? _triadMouseY : (triadState.y || (window.innerHeight / 2));
@@ -971,7 +936,7 @@ function renderTriad2D() {
         if (polyCount >= 3) {
           const p0 = WP.activePolyPts[0];
           p0Screen = toScreen(p0);
-          const isP0Front = p0Screen && camPosWC && camDirWC && Cesium.Cartesian3.dot(Cesium.Cartesian3.subtract(p0, camPosWC, new Cesium.Cartesian3()), camDirWC) > 0;
+          const isP0Front = p0Screen && camPosWC && camDirWC && Cesium.Cartesian3.dot(Cesium.Cartesian3.subtract(p0, camPosWC, _sc ? _sc.diff : new Cesium.Cartesian3()), camDirWC) > 0;
           if (isP0Front && p0Screen) {
             const distToP0 = Math.hypot(curMouseX - p0Screen.x, curMouseY - p0Screen.y);
             if (distToP0 <= 30) {
@@ -1139,10 +1104,10 @@ function renderTriad2D() {
       const yAxis = triadState.yAxis || Cesium.Cartesian3.UNIT_Y;
       const zAxis = triadState.zAxis || Cesium.Cartesian3.UNIT_Z;
 
-      // Extremos 3D reales
-      const tipX3D = Cesium.Cartesian3.add(origin3D, Cesium.Cartesian3.multiplyByScalar(xAxis, armLenMeters, new Cesium.Cartesian3()), new Cesium.Cartesian3());
-      const tipY3D = Cesium.Cartesian3.add(origin3D, Cesium.Cartesian3.multiplyByScalar(yAxis, armLenMeters, new Cesium.Cartesian3()), new Cesium.Cartesian3());
-      const tipZ3D = Cesium.Cartesian3.add(origin3D, Cesium.Cartesian3.multiplyByScalar(zAxis, armLenMeters, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+      // Extremos 3D reales (usando scratch prealocado)
+      const tipX3D = Cesium.Cartesian3.add(origin3D, Cesium.Cartesian3.multiplyByScalar(xAxis, armLenMeters, _sc ? _sc.scaled : new Cesium.Cartesian3()), _sc ? _sc.tipX : new Cesium.Cartesian3());
+      const tipY3D = Cesium.Cartesian3.add(origin3D, Cesium.Cartesian3.multiplyByScalar(yAxis, armLenMeters, _sc ? _sc.scaled : new Cesium.Cartesian3()), _sc ? _sc.tipY : new Cesium.Cartesian3());
+      const tipZ3D = Cesium.Cartesian3.add(origin3D, Cesium.Cartesian3.multiplyByScalar(zAxis, armLenMeters, _sc ? _sc.scaled : new Cesium.Cartesian3()), _sc ? _sc.tipZ : new Cesium.Cartesian3());
 
       // Proyecciones 2D en pantalla
       let pX = toScreen(tipX3D);
@@ -1243,17 +1208,16 @@ function renderTriad2D() {
           if (!pl || !pl.pts3D || pl.pts3D.length < 3) return;
           const isActive = (idx === WP.activePlaneIdx);
           
-          // Calcular baricentro geométrico (P1+P2+P3)/3
+          // Calcular baricentro geométrico (P1+P2+P3)/3 usando vector scratch
           const p1 = pl.pts3D[0], p2 = pl.pts3D[1], p3 = pl.pts3D[2];
-          const center3D = new Cesium.Cartesian3(
-            (p1.x + p2.x + p3.x) / 3.0,
-            (p1.y + p2.y + p3.y) / 3.0,
-            (p1.z + p2.z + p3.z) / 3.0
-          );
+          const center3D = _sc ? _sc.center : new Cesium.Cartesian3();
+          center3D.x = (p1.x + p2.x + p3.x) / 3.0;
+          center3D.y = (p1.y + p2.y + p3.y) / 3.0;
+          center3D.z = (p1.z + p2.z + p3.z) / 3.0;
 
           // Comprobar si el punto está frente a la cámara
           if (camPos && pl.normal) {
-            const toCam = Cesium.Cartesian3.subtract(camPos, center3D, new Cesium.Cartesian3());
+            const toCam = Cesium.Cartesian3.subtract(camPos, center3D, _sc ? _sc.toCam : new Cesium.Cartesian3());
             // Si el faldón mira en dirección contraria a la cámara (> 90°), no dibujar para no saturar
             if (Cesium.Cartesian3.dot(pl.normal, toCam) < -0.1) return;
           }
@@ -1586,16 +1550,17 @@ function cursorGizmoSurfaceNormal(winPos, anchor) {
   const w = currentScene.canvas.clientWidth;
   const h = currentScene.canvas.clientHeight;
 
-  const pCenter = anchor || get3DPosition(winPos);
+  const _pickOpts = { bypassThrottle: true, raw: true };
+  const pCenter = anchor || get3DPosition(winPos, _pickOpts);
   if (!Cesium.defined(pCenter)) return null;
 
   // 1. Muestreo rapido por diferencias finitas en cruz (±6px)
   try {
     const delta = 6;
-    const pR = get3DPosition({ x: Math.min(w - 1, winPos.x + delta), y: winPos.y });
-    const pL = get3DPosition({ x: Math.max(0, winPos.x - delta), y: winPos.y });
-    const pD = get3DPosition({ x: winPos.x, y: Math.min(h - 1, winPos.y + delta) });
-    const pU = get3DPosition({ x: winPos.x, y: Math.max(0, winPos.y - delta) });
+    const pR = get3DPosition({ x: Math.min(w - 1, winPos.x + delta), y: winPos.y }, _pickOpts);
+    const pL = get3DPosition({ x: Math.max(0, winPos.x - delta), y: winPos.y }, _pickOpts);
+    const pD = get3DPosition({ x: winPos.x, y: Math.min(h - 1, winPos.y + delta) }, _pickOpts);
+    const pU = get3DPosition({ x: winPos.x, y: Math.max(0, winPos.y - delta) }, _pickOpts);
 
     let vH = null;
     if (Cesium.defined(pR) && Cesium.defined(pL)) {
@@ -3625,29 +3590,14 @@ function wpStartStampPolyline(sourcePolyIdx, isMoveMode) {
 
   // 6. Crear primitivas/entidades de vista previa si Cesium está activo
   if (typeof viewer !== 'undefined' && viewer && viewer.entities) {
-    const previewHierarchy = new Cesium.CallbackProperty(() => {
-      if (!WP.stampState || !WP.stampState.curTargetPos) return new Cesium.PolygonHierarchy([]);
-      const cur = WP.stampState.curTargetPos;
-      const calcPts = WP.stampState.relPoints.map(rel => Cesium.Cartesian3.add(cur, rel, new Cesium.Cartesian3()));
-      return new Cesium.PolygonHierarchy(calcPts);
-    }, false);
-
-    const previewOutline = new Cesium.CallbackProperty(() => {
-      if (!WP.stampState || !WP.stampState.curTargetPos) return [];
-      const cur = WP.stampState.curTargetPos;
-      const calcPts = WP.stampState.relPoints.map(rel => Cesium.Cartesian3.add(cur, rel, new Cesium.Cartesian3()));
-      if (calcPts.length > 0) calcPts.push(Cesium.Cartesian3.clone(calcPts[0]));
-      return calcPts;
-    }, false);
-
-    const previewLabelPos = new Cesium.CallbackProperty(() => {
-      return (WP.stampState && WP.stampState.curTargetPos) ? WP.stampState.curTargetPos : centroid;
-    }, false);
+    const initCur = WP.stampState.curTargetPos || centroid;
+    const initPts = WP.stampState.relPoints.map(rel => Cesium.Cartesian3.add(initCur, rel, new Cesium.Cartesian3()));
+    const initOutline = initPts.length > 0 ? [...initPts, Cesium.Cartesian3.clone(initPts[0])] : [];
 
     const fillEnt = viewer.entities.add({
       name: 'stamp_preview_fill',
       polygon: {
-        hierarchy: previewHierarchy,
+        hierarchy: new Cesium.ConstantProperty(new Cesium.PolygonHierarchy(initPts)),
         material: Cesium.Color.fromCssColorString('#10B981').withAlpha(0.28),
         perPositionHeight: true
       }
@@ -3656,7 +3606,7 @@ function wpStartStampPolyline(sourcePolyIdx, isMoveMode) {
     const outlineEnt = viewer.entities.add({
       name: 'stamp_preview_outline',
       polyline: {
-        positions: previewOutline,
+        positions: new Cesium.ConstantProperty(initOutline),
         width: 3.0,
         material: new Cesium.ColorMaterialProperty(Cesium.Color.fromCssColorString('#34D399')),
         arcType: Cesium.ArcType.NONE
@@ -3673,7 +3623,7 @@ function wpStartStampPolyline(sourcePolyIdx, isMoveMode) {
 
     const labelEnt = viewer.entities.add({
       name: 'stamp_preview_label',
-      position: previewLabelPos,
+      position: new Cesium.ConstantPositionProperty(Cesium.Cartesian3.clone(initCur)),
       label: {
         text: labelInfo,
         font: 'bold 12px "Segoe UI", sans-serif',
@@ -3687,6 +3637,9 @@ function wpStartStampPolyline(sourcePolyIdx, isMoveMode) {
       }
     });
 
+    WP.stampState.fillEnt = fillEnt;
+    WP.stampState.outlineEnt = outlineEnt;
+    WP.stampState.labelEnt = labelEnt;
     WP.stampState.previewEntities.push(fillEnt, outlineEnt, labelEnt);
 
     if (viewer.scene && viewer.scene.canvas) {
@@ -3722,7 +3675,37 @@ function wpProjectStampToSourcePlane(pos3D, srcPoly) {
 
 function wpUpdateStampPolylinePreview(cursor3D) {
   if (!WP.stampState || WP.mode !== 'stamp-poly' || !cursor3D) return;
-  WP.stampState.curTargetPos = wpProjectStampToSourcePlane(cursor3D, WP.stampState.sourcePoly);
+  const cur = wpProjectStampToSourcePlane(cursor3D, WP.stampState.sourcePoly);
+  WP.stampState.curTargetPos = cur;
+  if (cur && Array.isArray(WP.stampState.relPoints)) {
+    const calcPts = WP.stampState.relPoints.map(rel => Cesium.Cartesian3.add(cur, rel, new Cesium.Cartesian3()));
+    const outlinePts = calcPts.length > 0 ? [...calcPts, Cesium.Cartesian3.clone(calcPts[0])] : [];
+    const fillEnt = WP.stampState.fillEnt;
+    if (fillEnt && fillEnt.polygon) {
+      const nextH = new Cesium.PolygonHierarchy(calcPts);
+      if (fillEnt.polygon.hierarchy && typeof fillEnt.polygon.hierarchy.setValue === 'function') {
+        fillEnt.polygon.hierarchy.setValue(nextH);
+      } else {
+        fillEnt.polygon.hierarchy = new Cesium.ConstantProperty(nextH);
+      }
+    }
+    const outlineEnt = WP.stampState.outlineEnt;
+    if (outlineEnt && outlineEnt.polyline) {
+      if (outlineEnt.polyline.positions && typeof outlineEnt.polyline.positions.setValue === 'function') {
+        outlineEnt.polyline.positions.setValue(outlinePts);
+      } else {
+        outlineEnt.polyline.positions = new Cesium.ConstantProperty(outlinePts);
+      }
+    }
+    const labelEnt = WP.stampState.labelEnt;
+    if (labelEnt) {
+      if (labelEnt.position && typeof labelEnt.position.setValue === 'function') {
+        labelEnt.position.setValue(cur);
+      } else {
+        labelEnt.position = new Cesium.ConstantPositionProperty(cur);
+      }
+    }
+  }
   if (typeof viewer !== 'undefined' && viewer && viewer.scene) {
     viewer.scene.requestRender();
   }
@@ -7604,16 +7587,29 @@ function wpOpenSmartInverterMatchingModal() {
     totalKwp = (totalPanels * (selectedMod.wp || selectedMod.potencia || 450)) / 1000.0;
   }
 
-  // Analizar orientaciones distintas de faldones
+  // Analizar orientaciones distintas de faldones (normalizadas a convención única Norte=0° / Sur=180°)
   let distinctOrientations = 1;
   const orientations = [];
+  const _normAz360 = (deg) => (((Number(deg) || 0) % 360) + 360) % 360;
   if (typeof WP !== 'undefined' && Array.isArray(WP.polylines) && WP.polylines.length > 0) {
     WP.polylines.forEach(poly => {
       if (poly && poly.points && poly.points.length >= 3) {
         const pInfo = poly.roofInfo || (typeof computeSinglePolylineRoofInfo === 'function' ? computeSinglePolylineRoofInfo(poly.points, poly) : null);
-        const az = pInfo ? (pInfo.moduleAzimuthDeg ?? pInfo.azimuthDeg ?? 0) : 0;
+        let az = 180;
+        if (pInfo) {
+          if (typeof pInfo.moduleAzimuthDeg === 'number' && Number.isFinite(pInfo.moduleAzimuthDeg)) {
+            az = _normAz360(pInfo.moduleAzimuthDeg + 180);
+          } else if (typeof pInfo.azimuthN === 'number' && Number.isFinite(pInfo.azimuthN)) {
+            az = _normAz360(pInfo.azimuthN);
+          } else if (typeof pInfo.azimuthDeg === 'number' && Number.isFinite(pInfo.azimuthDeg)) {
+            az = _normAz360(pInfo.azimuthDeg);
+          }
+        }
         const tilt = pInfo ? (pInfo.moduleTiltDeg ?? pInfo.tiltDeg ?? 30) : 30;
-        const isDupe = orientations.some(o => Math.abs(o.az - az) < 10 && Math.abs(o.tilt - tilt) < 5);
+        const isDupe = orientations.some(o => {
+          const azDiff = Math.abs((((o.az - az) % 360) + 540) % 360 - 180);
+          return azDiff < 10 && Math.abs(o.tilt - tilt) < 5;
+        });
         if (!isDupe) orientations.push({ az, tilt });
       }
     });

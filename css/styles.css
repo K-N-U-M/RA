@@ -48,12 +48,33 @@
       --text-slate-400: #94A3B8;
       --text-slate-500: #64748B;
 
+      /* Paleta Extendida (Tokens Faltantes) */
+      --sky-300: #7DD3FC;
+      --sky-400: #38BDF8;
+      --sky-500: #0EA5E9;
+      --cyan-400: #22D3EE;
+      --emerald-400: #34D399;
+      --blue-400: #60A5FA;
+      --rose-400: #FB7185;
+      --amber-300: #FCD34D;
+      --text-slate-200: #E2E8F0;
+
       /* Capas Z-Index */
       --z-hud: 1000;
       --z-sidebar: 1100;
       --z-floating-panel: 1200;
       --z-modal: 1300;
       --z-toast: 1400;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
     }
 
     *, *::before, *::after {
@@ -205,7 +226,6 @@
     .wp-step-btn.disabled {
       opacity: 0.28 !important;
       cursor: not-allowed !important;
-      pointer-events: none !important;
       filter: grayscale(0.85);
     }
     .hud-btn-disabled {
@@ -398,7 +418,7 @@
       bottom: 0;
       height: 100vh;
       width: 400px;
-      background: linear-gradient(135deg, #0A192F 0%, #162E4F 35%, #566D85 70%, rgb(200, 200, 200) 100%) !important;
+      background: rgba(11, 17, 32, 0.95) !important;
       backdrop-filter: blur(28px);
       -webkit-backdrop-filter: blur(28px);
       border-right: 1px solid rgba(255, 255, 255, 0.09);
@@ -407,7 +427,7 @@
       border-bottom: none;
       border-radius: 0;
       box-shadow: 20px 0 50px rgba(0, 0, 0, 0.75);
-      z-index: 1000;
+      z-index: var(--z-sidebar);
       display: flex;
       flex-direction: column;
       overflow: visible;
@@ -2372,7 +2392,8 @@
        ♿ ESTÁNDAR DE ACCESIBILIDAD UNIVERSAL WCAG 2.2 AAA & ERGONOMÍA UI/UX
        ═══════════════════════════════════════════════════════════════════════ */
     button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible, [tabindex]:focus-visible {
-      outline: none !important;
+      outline: 2px solid var(--sky-400);
+      outline-offset: 2px;
     }
 
     @media (prefers-reduced-motion: reduce) {
@@ -3360,4 +3381,45 @@ body.ra-capture-mode-active .ra-status-hud {
 .cat-badge-amber { background: rgba(245, 158, 11, 0.15); color: #FBBF24; border: 1px solid rgba(245, 158, 11, 0.3); }
 .cat-badge-purple { background: rgba(168, 85, 247, 0.15); color: #C084FC; border: 1px solid rgba(168, 85, 247, 0.3); }
 .cat-badge-blue { background: rgba(59, 130, 246, 0.15); color: #60A5FA; border: 1px solid rgba(59, 130, 246, 0.3); }
+
+/* ==========================================================================
+   FASE 5: RESPONSIVE MÓVIL & CAPAS Z-INDEX (MODALES SOBRE DRAWER)
+   ========================================================================== */
+#ra-cost-breakdown-modal,
+#ra-pricing-review-modal,
+.ra-modal,
+[id$="-modal"] {
+  z-index: var(--z-modal) !important;
+}
+
+@media (max-width: 768px) {
+  #ra-floating-tools-container {
+    max-width: calc(100vw - 16px);
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    gap: 4px;
+    padding: 4px 6px;
+    scrollbar-width: none;
+  }
+  #ra-floating-tools-container::-webkit-scrollbar {
+    display: none;
+  }
+  #ra-floating-tools-container > button,
+  #ra-floating-tools-container > .ra-tool-btn {
+    flex: 0 0 auto;
+    padding: 6px 8px;
+    font-size: 11px;
+  }
+
+  body.sb-open #ra-btn-compare-scenarios,
+  body.sb-open #ra-cad-status-bar {
+    display: none !important;
+  }
+
+  #ra-cost-breakdown-modal [style*="grid-template-columns"],
+  #ra-pricing-review-modal [style*="grid-template-columns"] {
+    grid-template-columns: 1fr !important;
+  }
+}
+
 

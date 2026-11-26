@@ -37,6 +37,219 @@ window.checkUniversalGizmoHit = checkUniversalGizmoHit;
 window.deleteUniversalSelectedObject = deleteUniversalSelectedObject;
 window.getUniversalSelectedTarget = getUniversalSelectedTarget;
 
+// Pool prealocado de vectores scratch para renderUniversalGizmo2D (Zero-Allocation por frame)
+let _gizmoScratch = null;
+function _getGizmoScratch() {
+  if (!_gizmoScratch && typeof Cesium !== 'undefined' && Cesium.Cartesian3) {
+    _gizmoScratch = {
+      uVec: new Cesium.Cartesian3(),
+      vVec: new Cesium.Cartesian3(),
+      zVec: new Cesium.Cartesian3(),
+      rawEast: new Cesium.Cartesian3(),
+      rawNorth: new Cesium.Cartesian3(),
+      tmpA: new Cesium.Cartesian3(),
+      tmpB: new Cesium.Cartesian3(),
+      tipU3D: new Cesium.Cartesian3(),
+      tipV3D: new Cesium.Cartesian3(),
+      tipZ3D: new Cesium.Cartesian3(),
+      ringTerm1: new Cesium.Cartesian3(),
+      ringTerm2: new Cesium.Cartesian3(),
+      ringSum: new Cesium.Cartesian3(),
+      ringPt3D: new Cesium.Cartesian3(),
+      screenU: new Cesium.Cartesian3(),
+      screenV: new Cesium.Cartesian3(),
+      screenZ: new Cesium.Cartesian3(),
+      enuMat: (typeof Cesium.Matrix4 === 'function') ? new Cesium.Matrix4() : null
+    };
+  }
+  return _gizmoScratch;
+}
+
+// Supresión temporal de etiquetas 3D/2D de fondo durante selección activa con el Gizmo (AGENTS.md §5)
+const _gizmoLabelSuppressState = {
+  suppressed: false,
+  savedPanelLabelsShow: null,
+  savedHeatmapLabelsShow: null,
+  savedObsLabelsShow: null,
+  savedRegistryShows: null,
+  savedEntityLabelShows: null
+};
+
+function syncGizmoLabelSuppression(target) {
+  if (typeof window === 'undefined') return;
+  if (window.RACapture && window.RACapture.enabled) return;
+
+  const isExplicitSelection = Boolean(
+    target && (
+      universalGizmoState.active ||
+      target.type !== 'workplane'
+    )
+  );
+
+  let changed = false;
+
+  if (isExplicitSelection && !_gizmoLabelSuppressState.suppressed) {
+    _gizmoLabelSuppressState.suppressed = true;
+
+    if (window._panelNumberLabelCollection && (typeof window._panelNumberLabelCollection.isDestroyed !== 'function' || !window._panelNumberLabelCollection.isDestroyed())) {
+      _gizmoLabelSuppressState.savedPanelLabelsShow = window._panelNumberLabelCollection.show;
+      if (window._panelNumberLabelCollection.show !== false) {
+        window._panelNumberLabelCollection.show = false;
+        changed = true;
+      }
+    }
+
+    if (window._solarHeatmapLabelCollection && (typeof window._solarHeatmapLabelCollection.isDestroyed !== 'function' || !window._solarHeatmapLabelCollection.isDestroyed())) {
+      _gizmoLabelSuppressState.savedHeatmapLabelsShow = window._solarHeatmapLabelCollection.show;
+      if (window._solarHeatmapLabelCollection.show !== false) {
+        window._solarHeatmapLabelCollection.show = false;
+        changed = true;
+      }
+    }
+
+    if (window._obsLabelCollection && (typeof window._obsLabelCollection.isDestroyed !== 'function' || !window._obsLabelCollection.isDestroyed())) {
+      _gizmoLabelSuppressState.savedObsLabelsShow = window._obsLabelCollection.show;
+      if (window._obsLabelCollection.show !== false) {
+        window._obsLabelCollection.show = false;
+        changed = true;
+      }
+    }
+
+    const regMap = new Map();
+    if (Array.isArray(window.labels2DRegistry)) {
+      for (let i = 0; i < window.labels2DRegistry.length; i++) {
+        const item = window.labels2DRegistry[i];
+        if (!item) continue;
+        regMap.set(item, item.show);
+        if (item.show !== false) {
+          item.show = false;
+          changed = true;
+        }
+      }
+    }
+    _gizmoLabelSuppressState.savedRegistryShows = regMap;
+
+    const entMap = new Map();
+    const curViewer = (typeof viewer !== 'undefined' && viewer) ? viewer : window.viewer;
+    if (curViewer && curViewer.entities && Array.isArray(curViewer.entities.values)) {
+      const vals = curViewer.entities.values;
+      for (let i = 0; i < vals.length; i++) {
+        const ent = vals[i];
+        if (!ent || !ent.label) continue;
+        if (typeof ent.id === 'string' && ent.id.startsWith('ra_measure_')) continue;
+        entMap.set(ent, ent.label.show);
+        if (ent.label.show !== false) {
+          ent.label.show = false;
+          changed = true;
+        }
+      }
+    }
+    _gizmoLabelSuppressState.savedEntityLabelShows = entMap;
+  } else if (!isExplicitSelection && _gizmoLabelSuppressState.suppressed) {
+    _gizmoLabelSuppressState.suppressed = false;
+    const labelsEnabled = (window.areLabelsVisible !== false);
+
+    if (_gizmoLabelSuppressState.savedPanelLabelsShow !== null && window._panelNumberLabelCollection && (typeof window._panelNumberLabelCollection.isDestroyed !== 'function' || !window._panelNumberLabelCollection.isDestroyed())) {
+      const nextPanelShow = labelsEnabled && (_gizmoLabelSuppressState.savedPanelLabelsShow !== false);
+      if (window._panelNumberLabelCollection.show !== nextPanelShow) {
+        window._panelNumberLabelCollection.show = nextPanelShow;
+        changed = true;
+      }
+    }
+    _gizmoLabelSuppressState.savedPanelLabelsShow = null;
+
+    if (_gizmoLabelSuppressState.savedHeatmapLabelsShow !== null && window._solarHeatmapLabelCollection && (typeof window._solarHeatmapLabelCollection.isDestroyed !== 'function' || !window._solarHeatmapLabelCollection.isDestroyed())) {
+      const nextHeatShow = labelsEnabled && (_gizmoLabelSuppressState.savedHeatmapLabelsShow !== false);
+      if (window._solarHeatmapLabelCollection.show !== nextHeatShow) {
+        window._solarHeatmapLabelCollection.show = nextHeatShow;
+        changed = true;
+      }
+    }
+    _gizmoLabelSuppressState.savedHeatmapLabelsShow = null;
+
+    if (_gizmoLabelSuppressState.savedObsLabelsShow !== null && window._obsLabelCollection && (typeof window._obsLabelCollection.isDestroyed !== 'function' || !window._obsLabelCollection.isDestroyed())) {
+      const nextObsShow = labelsEnabled && (_gizmoLabelSuppressState.savedObsLabelsShow !== false);
+      if (window._obsLabelCollection.show !== nextObsShow) {
+        window._obsLabelCollection.show = nextObsShow;
+        changed = true;
+      }
+    }
+    _gizmoLabelSuppressState.savedObsLabelsShow = null;
+
+    if (_gizmoLabelSuppressState.savedRegistryShows instanceof Map) {
+      _gizmoLabelSuppressState.savedRegistryShows.forEach(function (prevShow, item) {
+        if (!item) return;
+        const nextShow = labelsEnabled ? (prevShow !== false) : false;
+        if (item.show !== nextShow) {
+          item.show = nextShow;
+          changed = true;
+        }
+      });
+    }
+    _gizmoLabelSuppressState.savedRegistryShows = null;
+
+    if (_gizmoLabelSuppressState.savedEntityLabelShows instanceof Map) {
+      _gizmoLabelSuppressState.savedEntityLabelShows.forEach(function (prevShow, ent) {
+        if (!ent || !ent.label) return;
+        // Respetar si otro puente (p. ej. selectElectricalObject(null)) ya rehabilitó la etiqueta
+        if (ent.label.show === false) {
+          const nextShow = labelsEnabled ? (prevShow === undefined ? true : prevShow) : false;
+          ent.label.show = nextShow;
+          changed = true;
+        }
+      });
+    }
+    _gizmoLabelSuppressState.savedEntityLabelShows = null;
+  }
+
+  if (changed) {
+    const curViewer = (typeof viewer !== 'undefined' && viewer) ? viewer : window.viewer;
+    if (curViewer && curViewer.scene && typeof curViewer.scene.requestRender === 'function') {
+      try { curViewer.scene.requestRender(); } catch (_) {}
+    }
+  }
+}
+window.syncGizmoLabelSuppression = syncGizmoLabelSuppression;
+
+function installGizmoLabelSuppressionHooks() {
+  if (typeof window === 'undefined') return;
+  if (typeof window.renderTriad2D === 'function' && !window.renderTriad2D._raGizmoLabelHooked) {
+    const origRenderTriad2D = window.renderTriad2D;
+    const wrappedRenderTriad2D = function () {
+      try {
+        syncGizmoLabelSuppression(getUniversalSelectedTarget());
+      } catch (_) {}
+      return origRenderTriad2D.apply(this, arguments);
+    };
+    wrappedRenderTriad2D._raGizmoLabelHooked = true;
+    window.renderTriad2D = wrappedRenderTriad2D;
+  }
+  ['clearAllCADSelection', 'selectObstacle', 'selectPanel', 'selectBuilding', 'selectElectricalObject', 'wpSelectPolyline', 'wpSelectVertex'].forEach(function (fnName) {
+    const origFn = window[fnName];
+    if (typeof origFn === 'function' && !origFn._raGizmoLabelHooked) {
+      const wrapped = function () {
+        const res = origFn.apply(this, arguments);
+        try {
+          syncGizmoLabelSuppression(getUniversalSelectedTarget());
+        } catch (_) {}
+        return res;
+      };
+      wrapped._raGizmoLabelHooked = true;
+      window[fnName] = wrapped;
+    }
+  });
+}
+window.installGizmoLabelSuppressionHooks = installGizmoLabelSuppressionHooks;
+
+if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', installGizmoLabelSuppressionHooks, { once: true });
+  } else {
+    installGizmoLabelSuppressionHooks();
+  }
+}
+
+
 // 1. OBTENER INFORMACIÓN DEL OBJETO SELECCIONADO ACTUALMENTE
 function getUniversalSelectedTarget() {
   // 🌟 PRIORIDAD #0: MODO MOVER FALDÓN COMPLETO CON GIZMO COPLANAR (U/V)
@@ -605,6 +818,7 @@ function getUniversalSelectedTarget() {
 function renderUniversalGizmo2D() {
   if (!triadCtx || !triadCanvas || !scene) return;
   const target = getUniversalSelectedTarget();
+  syncGizmoLabelSuppression(target);
   if (!target || !target.pos) {
     universalGizmoState.screen = null;
     return;
@@ -616,52 +830,53 @@ function renderUniversalGizmo2D() {
     return;
   }
 
+  const sc = _getGizmoScratch();
   const camPos = (camera && camera.positionWC) ? camera.positionWC : ((camera && camera.position) ? camera.position : null);
   const dist = camPos ? Cesium.Cartesian3.distance(camPos, target.pos) : 80;
   const distScale = Math.min(2.5, Math.max(0.75, Math.sqrt(dist / 45.0)));
   const scale = distScale * (triadState.scale || 1.0);
 
-  // Ejes Normalizados ENU (Este, Norte, Arriba) o del Plano Local
+  // Ejes Normalizados ENU (Este, Norte, Arriba) o del Plano Local (reutilizando scratch prealocado)
   let uVec, vVec, zVec;
   if (target.wp && target.wp.uVec && target.wp.vVec && target.wp.normal) {
     const rotRad = Cesium.Math.toRadians(target.rot || 0);
     const cosR = Math.cos(rotRad);
     const sinR = Math.sin(rotRad);
     uVec = Cesium.Cartesian3.add(
-      Cesium.Cartesian3.multiplyByScalar(target.wp.uVec, cosR, new Cesium.Cartesian3()),
-      Cesium.Cartesian3.multiplyByScalar(target.wp.vVec, sinR, new Cesium.Cartesian3()),
-      new Cesium.Cartesian3()
+      Cesium.Cartesian3.multiplyByScalar(target.wp.uVec, cosR, sc.tmpA),
+      Cesium.Cartesian3.multiplyByScalar(target.wp.vVec, sinR, sc.tmpB),
+      sc.uVec
     );
     vVec = Cesium.Cartesian3.add(
-      Cesium.Cartesian3.multiplyByScalar(target.wp.uVec, -sinR, new Cesium.Cartesian3()),
-      Cesium.Cartesian3.multiplyByScalar(target.wp.vVec, cosR, new Cesium.Cartesian3()),
-      new Cesium.Cartesian3()
+      Cesium.Cartesian3.multiplyByScalar(target.wp.uVec, -sinR, sc.tmpA),
+      Cesium.Cartesian3.multiplyByScalar(target.wp.vVec, cosR, sc.tmpB),
+      sc.vVec
     );
-    zVec = target.wp.normal;
+    zVec = Cesium.Cartesian3.clone(target.wp.normal, sc.zVec);
   } else {
-    const enuMat = Cesium.Transforms.eastNorthUpToFixedFrame(target.pos);
+    const enuMat = Cesium.Transforms.eastNorthUpToFixedFrame(target.pos, sc.enuMat);
     const rotRad = Cesium.Math.toRadians(target.rot || 0);
     const cosR = Math.cos(rotRad);
     const sinR = Math.sin(rotRad);
-    const rawEast = new Cesium.Cartesian3(enuMat[0], enuMat[1], enuMat[2]);
-    const rawNorth = new Cesium.Cartesian3(enuMat[4], enuMat[5], enuMat[6]);
+    const rawEast = Cesium.Cartesian3.fromElements(enuMat[0], enuMat[1], enuMat[2], sc.rawEast);
+    const rawNorth = Cesium.Cartesian3.fromElements(enuMat[4], enuMat[5], enuMat[6], sc.rawNorth);
     uVec = Cesium.Cartesian3.add(
-      Cesium.Cartesian3.multiplyByScalar(rawEast, cosR, new Cesium.Cartesian3()),
-      Cesium.Cartesian3.multiplyByScalar(rawNorth, sinR, new Cesium.Cartesian3()),
-      new Cesium.Cartesian3()
+      Cesium.Cartesian3.multiplyByScalar(rawEast, cosR, sc.tmpA),
+      Cesium.Cartesian3.multiplyByScalar(rawNorth, sinR, sc.tmpB),
+      sc.uVec
     );
     vVec = Cesium.Cartesian3.add(
-      Cesium.Cartesian3.multiplyByScalar(rawEast, -sinR, new Cesium.Cartesian3()),
-      Cesium.Cartesian3.multiplyByScalar(rawNorth, cosR, new Cesium.Cartesian3()),
-      new Cesium.Cartesian3()
+      Cesium.Cartesian3.multiplyByScalar(rawEast, -sinR, sc.tmpA),
+      Cesium.Cartesian3.multiplyByScalar(rawNorth, cosR, sc.tmpB),
+      sc.vVec
     );
-    zVec = new Cesium.Cartesian3(enuMat[8], enuMat[9], enuMat[10]);
+    zVec = Cesium.Cartesian3.fromElements(enuMat[8], enuMat[9], enuMat[10], sc.zVec);
   }
 
   const armLen = Math.max(dist * 0.045, 1.8) * scale;
-  const tipU3D = Cesium.Cartesian3.add(target.pos, Cesium.Cartesian3.multiplyByScalar(uVec, armLen, new Cesium.Cartesian3()), new Cesium.Cartesian3());
-  const tipV3D = Cesium.Cartesian3.add(target.pos, Cesium.Cartesian3.multiplyByScalar(vVec, armLen, new Cesium.Cartesian3()), new Cesium.Cartesian3());
-  const tipZ3D = Cesium.Cartesian3.add(target.pos, Cesium.Cartesian3.multiplyByScalar(zVec, armLen * 0.9, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+  const tipU3D = Cesium.Cartesian3.add(target.pos, Cesium.Cartesian3.multiplyByScalar(uVec, armLen, sc.tmpA), sc.tipU3D);
+  const tipV3D = Cesium.Cartesian3.add(target.pos, Cesium.Cartesian3.multiplyByScalar(vVec, armLen, sc.tmpA), sc.tipV3D);
+  const tipZ3D = Cesium.Cartesian3.add(target.pos, Cesium.Cartesian3.multiplyByScalar(zVec, armLen * 0.9, sc.tmpA), sc.tipZ3D);
 
   let pU = Cesium.SceneTransforms.wgs84ToWindowCoordinates(scene, tipU3D);
   let pV = Cesium.SceneTransforms.wgs84ToWindowCoordinates(scene, tipV3D);
@@ -702,9 +917,9 @@ function renderUniversalGizmo2D() {
     pU: pU || { x: ox + 50, y: oy },
     pV: pV || { x: ox, y: oy - 50 },
     pZ: pZ || { x: ox, y: oy - 55 },
-    uVec: Cesium.Cartesian3.clone(uVec),
-    vVec: Cesium.Cartesian3.clone(vVec),
-    zVec: Cesium.Cartesian3.clone(zVec),
+    uVec: Cesium.Cartesian3.clone(uVec, sc.screenU),
+    vVec: Cesium.Cartesian3.clone(vVec, sc.screenV),
+    zVec: Cesium.Cartesian3.clone(zVec, sc.screenZ),
     ringRadius,
     scale,
     armLen,
@@ -732,7 +947,7 @@ function renderUniversalGizmo2D() {
   ctx.lineWidth = (hovered === 'center-drag' || universalGizmoState.active) ? 3.5 : 2.0;
   ctx.stroke();
 
-  // Helper para dibujar anillo 3D proyectado sobre un plano determinado
+  // Helper para dibujar anillo 3D proyectado sobre un plano determinado (Zero-Allocation)
   function drawProjectedRing(vec1, vec2, radius, color, isHovered) {
     const SEGMENTS = 48;
     ctx.beginPath();
@@ -745,11 +960,11 @@ function renderUniversalGizmo2D() {
       const p3D = Cesium.Cartesian3.add(
         target.pos,
         Cesium.Cartesian3.add(
-          Cesium.Cartesian3.multiplyByScalar(vec1, cosT, new Cesium.Cartesian3()),
-          Cesium.Cartesian3.multiplyByScalar(vec2, sinT, new Cesium.Cartesian3()),
-          new Cesium.Cartesian3()
+          Cesium.Cartesian3.multiplyByScalar(vec1, cosT, sc.ringTerm1),
+          Cesium.Cartesian3.multiplyByScalar(vec2, sinT, sc.ringTerm2),
+          sc.ringSum
         ),
-        new Cesium.Cartesian3()
+        sc.ringPt3D
       );
       const scr = Cesium.SceneTransforms.wgs84ToWindowCoordinates(scene, p3D);
       if (scr) {
@@ -1248,11 +1463,27 @@ function updateUniversalTargetTransform(target, newPos, newRotDeg, deltaDeg, rot
               obs.u = Cesium.Cartesian3.dot(relObsPt, plRot.uVec);
               obs.v = Cesium.Cartesian3.dot(relObsPt, plRot.vVec);
             }
+            const fnUpdatePolyObs = (typeof updateObstacleLiveModelMatrix === 'function')
+              ? updateObstacleLiveModelMatrix
+              : (typeof window !== 'undefined' && typeof window.updateObstacleLiveModelMatrix === 'function' ? window.updateObstacleLiveModelMatrix : null);
+            if (typeof fnUpdatePolyObs === 'function') {
+              try { fnUpdatePolyObs(obs); } catch (_) {}
+            }
           });
-          if (typeof render3DObstaclesInCesium === 'function') render3DObstaclesInCesium();
+          if (!universalGizmoState.active && typeof render3DObstaclesInCesium === 'function') render3DObstaclesInCesium();
         }
-        if (typeof wpRenderAllPolylines === 'function') wpRenderAllPolylines();
-        if (typeof wpUpdateUI === 'function') wpUpdateUI();
+        if (poly.lineEnt && poly.lineEnt.polyline) {
+          try {
+            const elevatedPts = (typeof wpElevatePointsForVisuals === 'function')
+              ? wpElevatePointsForVisuals(poly.points, poly.planeIdx, 0.04)
+              : poly.points;
+            poly.lineEnt.polyline.positions = [...elevatedPts, elevatedPts[0]];
+          } catch (_) {}
+        }
+        if (!universalGizmoState.active) {
+          if (typeof wpRenderAllPolylines === 'function') wpRenderAllPolylines();
+          if (typeof wpUpdateUI === 'function') wpUpdateUI();
+        }
       }
     } else if (target.type === 'wind_turbine_entity' && target.rawObj) {
       const wt = target.rawObj;
@@ -1281,47 +1512,6 @@ function updateUniversalTargetTransform(target, newPos, newRotDeg, deltaDeg, rot
       if (panelOutlineEntity && p.corners && p.corners.length === 4) {
         panelOutlineEntity.polyline.positions = [p.corners[0], p.corners[1], p.corners[2], p.corners[3], Cesium.Cartesian3.clone(p.corners[0])];
       }
-    } else if (target.type === 'polyline' && target.rawObj) {
-      const poly = target.rawObj;
-      let delta = Cesium.Cartesian3.subtract(newPos, target.pos, new Cesium.Cartesian3());
-      // Bloqueo coplanar estricto: eliminar cualquier componente perpendicular al plano de trabajo
-      if (target.wp && target.wp.normal) {
-        const perp = Cesium.Cartesian3.dot(delta, target.wp.normal);
-        delta = Cesium.Cartesian3.subtract(
-          delta,
-          Cesium.Cartesian3.multiplyByScalar(target.wp.normal, perp, new Cesium.Cartesian3()),
-          new Cesium.Cartesian3()
-        );
-      }
-      target.pos = Cesium.Cartesian3.add(target.pos, delta, new Cesium.Cartesian3());
-
-      if (Array.isArray(poly.points)) {
-        poly.points = poly.points.map(pt => Cesium.Cartesian3.add(pt, delta, new Cesium.Cartesian3()));
-        poly._geometryDirty = true;
-      }
-      if (Array.isArray(poly.deletedPanels) && poly.deletedPanels.length > 0) {
-        poly.deletedPanels = poly.deletedPanels.map(dp => ({
-          u: dp.u,
-          v: dp.v,
-          center: dp.center ? Cesium.Cartesian3.add(dp.center, delta, new Cesium.Cartesian3()) : null
-        }));
-      }
-      const moveObs = universalGizmoState.movePolyObs;
-      if (Array.isArray(moveObs) && moveObs.length > 0) {
-        const plMove = (typeof poly.planeIdx === 'number' && WP.planes) ? WP.planes[poly.planeIdx] : null;
-        moveObs.forEach(obs => {
-          if (!obs || !obs.cartesian) return;
-          obs.cartesian = Cesium.Cartesian3.add(obs.cartesian, delta, new Cesium.Cartesian3());
-          if (plMove && plMove.origin && plMove.uVec && plMove.vVec) {
-            const relObsPt = Cesium.Cartesian3.subtract(obs.cartesian, plMove.origin, new Cesium.Cartesian3());
-            obs.u = Cesium.Cartesian3.dot(relObsPt, plMove.uVec);
-            obs.v = Cesium.Cartesian3.dot(relObsPt, plMove.vVec);
-          }
-        });
-        if (typeof render3DObstaclesInCesium === 'function') render3DObstaclesInCesium();
-      }
-      if (typeof wpRenderAllPolylines === 'function') wpRenderAllPolylines();
-      if (typeof wpUpdateUI === 'function') wpUpdateUI();
     } else if (target.type === 'workplane' && target.rawObj) {
       const pl = target.rawObj;
       const _rotMode = universalGizmoState.mode;
@@ -1375,11 +1565,21 @@ function updateUniversalTargetTransform(target, newPos, newRotDeg, deltaDeg, rot
                 return Cesium.Cartesian3.add(center, rotRel, new Cesium.Cartesian3());
               });
               poly._geometryDirty = true;
+              if (poly.lineEnt && poly.lineEnt.polyline) {
+                try {
+                  const elevatedPts = (typeof wpElevatePointsForVisuals === 'function')
+                    ? wpElevatePointsForVisuals(poly.points, poly.planeIdx, 0.04)
+                    : poly.points;
+                  poly.lineEnt.polyline.positions = [...elevatedPts, elevatedPts[0]];
+                } catch (_) {}
+              }
             }
           });
         }
-        if (typeof wpRenderActivePlaneGizmo === 'function') wpRenderActivePlaneGizmo();
-        if (typeof wpUpdateUI === 'function') wpUpdateUI();
+        if (!universalGizmoState.active) {
+          if (typeof wpRenderActivePlaneGizmo === 'function') wpRenderActivePlaneGizmo();
+          if (typeof wpUpdateUI === 'function') wpUpdateUI();
+        }
       }
     }
   }
@@ -1419,25 +1619,25 @@ function updateUniversalTargetTransform(target, newPos, newRotDeg, deltaDeg, rot
           if (handleEnt) handleEnt.position = new Cesium.ConstantPositionProperty(visPos);
 
           // Guía ligera de trazado en directo sin reconstruir primitivas GPU hasta soltar el ratón
-          if (!window._raLiveRoutePreviewEnt && rArr.length >= 2) {
-            const guideCol = (target.routeType === 'ac') ? '#38BDF8' : '#F59E0B';
-            window._raLiveRoutePreviewEnt = viewer.entities.add({
-              id: 'ra_live_route_preview',
-              polyline: {
-                positions: new Cesium.CallbackProperty(function () {
-                  const arr = (window.inverterEquipmentState && window.inverterEquipmentState.routes && window.inverterEquipmentState.routes[target.routeType]) || [];
-                  const lM = (window.RACableEngine && window.RACableEngine.auditElevationMode) ? (window.RACableEngine.CONFIG.AUDIT_ELEVATION_M || 0.24) : 0;
-                  if (lM <= 0) return arr;
-                  return arr.map(function (pt) {
-                    const uP = Cesium.Ellipsoid.WGS84.geodeticSurfaceNormal(pt, new Cesium.Cartesian3());
-                    return Cesium.Cartesian3.add(pt, Cesium.Cartesian3.multiplyByScalar(uP, lM, new Cesium.Cartesian3()), new Cesium.Cartesian3());
-                  });
-                }, false),
-                width: 4.5,
-                arcType: (typeof Cesium !== 'undefined' && Cesium.ArcType) ? Cesium.ArcType.NONE : undefined,
-                material: new Cesium.PolylineDashMaterialProperty({ color: Cesium.Color.fromCssColorString(guideCol), dashLength: 14 })
-              }
+          if (rArr.length >= 2) {
+            const visArr = (liftM <= 0) ? rArr.map(pt => Cesium.Cartesian3.clone(pt)) : rArr.map(function (pt) {
+              const uP = Cesium.Ellipsoid.WGS84.geodeticSurfaceNormal(pt, new Cesium.Cartesian3());
+              return Cesium.Cartesian3.add(pt, Cesium.Cartesian3.multiplyByScalar(uP, liftM, new Cesium.Cartesian3()), new Cesium.Cartesian3());
             });
+            if (!window._raLiveRoutePreviewEnt) {
+              const guideCol = (target.routeType === 'ac') ? '#38BDF8' : '#F59E0B';
+              window._raLiveRoutePreviewEnt = viewer.entities.add({
+                id: 'ra_live_route_preview',
+                polyline: {
+                  positions: visArr,
+                  width: 4.5,
+                  arcType: (typeof Cesium !== 'undefined' && Cesium.ArcType) ? Cesium.ArcType.NONE : undefined,
+                  material: new Cesium.PolylineDashMaterialProperty({ color: Cesium.Color.fromCssColorString(guideCol), dashLength: 14 })
+                }
+              });
+            } else if (window._raLiveRoutePreviewEnt.polyline) {
+              window._raLiveRoutePreviewEnt.polyline.positions = visArr;
+            }
           }
         }
         let routeLen = 0;
@@ -1733,6 +1933,9 @@ function updateUniversalTargetTransform(target, newPos, newRotDeg, deltaDeg, rot
       const moveObs = universalGizmoState.movePolyObs;
       if (Array.isArray(moveObs) && moveObs.length > 0) {
         const plMove = (typeof poly.planeIdx === 'number' && WP.planes) ? WP.planes[poly.planeIdx] : null;
+        const fnUpdatePolyObsT = (typeof updateObstacleLiveModelMatrix === 'function')
+          ? updateObstacleLiveModelMatrix
+          : (typeof window !== 'undefined' && typeof window.updateObstacleLiveModelMatrix === 'function' ? window.updateObstacleLiveModelMatrix : null);
         moveObs.forEach(obs => {
           if (!obs || !obs.cartesian) return;
           obs.cartesian = Cesium.Cartesian3.add(obs.cartesian, delta, new Cesium.Cartesian3());
@@ -1741,11 +1944,24 @@ function updateUniversalTargetTransform(target, newPos, newRotDeg, deltaDeg, rot
             obs.u = Cesium.Cartesian3.dot(relObsPt, plMove.uVec);
             obs.v = Cesium.Cartesian3.dot(relObsPt, plMove.vVec);
           }
+          if (typeof fnUpdatePolyObsT === 'function') {
+            try { fnUpdatePolyObsT(obs); } catch (_) {}
+          }
         });
-        if (typeof render3DObstaclesInCesium === 'function') render3DObstaclesInCesium();
+        if (!universalGizmoState.active && typeof render3DObstaclesInCesium === 'function') render3DObstaclesInCesium();
       }
-      if (typeof wpRenderAllPolylines === 'function') wpRenderAllPolylines();
-      if (typeof wpUpdateUI === 'function') wpUpdateUI();
+      if (poly.lineEnt && poly.lineEnt.polyline && Array.isArray(poly.points)) {
+        try {
+          const elevatedPts = (typeof wpElevatePointsForVisuals === 'function')
+            ? wpElevatePointsForVisuals(poly.points, poly.planeIdx, 0.04)
+            : poly.points;
+          poly.lineEnt.polyline.positions = [...elevatedPts, elevatedPts[0]];
+        } catch (_) {}
+      }
+      if (!universalGizmoState.active) {
+        if (typeof wpRenderAllPolylines === 'function') wpRenderAllPolylines();
+        if (typeof wpUpdateUI === 'function') wpUpdateUI();
+      }
     } else if (target.type === 'workplane' && target.rawObj) {
       const pl = target.rawObj;
       const delta = Cesium.Cartesian3.subtract(newPos, target.pos, new Cesium.Cartesian3());
@@ -1765,12 +1981,22 @@ function updateUniversalTargetTransform(target, newPos, newRotDeg, deltaDeg, rot
           if (poly && poly.planeIdx === WP.activePlaneIdx && Array.isArray(poly.points)) {
             poly.points = poly.points.map(pt => Cesium.Cartesian3.add(pt, delta, new Cesium.Cartesian3()));
             poly._geometryDirty = true;
+            if (poly.lineEnt && poly.lineEnt.polyline) {
+              try {
+                const elevatedPts = (typeof wpElevatePointsForVisuals === 'function')
+                  ? wpElevatePointsForVisuals(poly.points, poly.planeIdx, 0.04)
+                  : poly.points;
+                poly.lineEnt.polyline.positions = [...elevatedPts, elevatedPts[0]];
+              } catch (_) {}
+            }
           }
         });
       }
-      if (typeof wpRenderActivePlaneGizmo === 'function') wpRenderActivePlaneGizmo();
-      if (typeof wpRenderAllPolylines === 'function') wpRenderAllPolylines();
-      if (typeof wpUpdateUI === 'function') wpUpdateUI();
+      if (!universalGizmoState.active) {
+        if (typeof wpRenderActivePlaneGizmo === 'function') wpRenderActivePlaneGizmo();
+        if (typeof wpRenderAllPolylines === 'function') wpRenderAllPolylines();
+        if (typeof wpUpdateUI === 'function') wpUpdateUI();
+      }
     } else if (target.type === 'workplane_vertex' && target.rawObj) {
       const { plane, vtxIdx } = target.rawObj;
       if (plane && Array.isArray(plane.pts3D) && plane.pts3D[vtxIdx]) {
@@ -1799,8 +2025,10 @@ function updateUniversalTargetTransform(target, newPos, newRotDeg, deltaDeg, rot
             }
           }
         }
-        if (typeof wpRenderActivePlaneGizmo === 'function') wpRenderActivePlaneGizmo();
-        if (typeof wpUpdateUI === 'function') wpUpdateUI();
+        if (!universalGizmoState.active) {
+          if (typeof wpRenderActivePlaneGizmo === 'function') wpRenderActivePlaneGizmo();
+          if (typeof wpUpdateUI === 'function') wpUpdateUI();
+        }
       }
     }
   }

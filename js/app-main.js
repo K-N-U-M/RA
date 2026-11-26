@@ -502,7 +502,7 @@ function wpConfigureShadowMap(sm) {
   sm.cascadesEnabled = true;
   sm.numberOfCascades = 2;
   sm.fadingEnabled = true;
-  if (!viewer._raMovePerfHooked && viewer.camera) {
+  if (!viewer._raMovePerfHooked && viewer.camera && typeof window.RALodManager === 'undefined') {
     viewer._raMovePerfHooked = true;
     let _savedSoft = null;
     let _savedSse = null;
@@ -551,46 +551,7 @@ window.wpConfigureShadowMap = wpConfigureShadowMap;
 //   wpShadowDiagnostics()  → estado actual del shadowMap
 //   wpSetShadowBiasMeters(m) → despegue físico de la sombra en metros (0.1-2.0).
 
-// ── Estructuras paramétricas de montaje (Paso 2 · pérgola / balasto) ──
-function wpOnEstructuraChange(tipo, hVal) {
-  const poly = (typeof WP !== 'undefined' && WP && WP.polylines && WP.selectedPolyIdx >= 0) ? WP.polylines[WP.selectedPolyIdx] : null;
-  if (!poly) { if (typeof showToast === 'function') showToast('SIN FALDÓN', 'Selecciona un faldón para aplicarle la estructura.', 'warning', 3000); return; }
-  const h = Math.max(0.05, Math.min(5, parseFloat(hVal) || (tipo === 'pergola' ? 1.50 : 0.20)));
-  poly.estructura = { tipo: tipo, clearance: h };
-  const box = document.getElementById('p2-estructura-h-box');
-  if (box) box.style.display = (tipo === 'coplanar') ? 'none' : 'flex';
-  const hInput = document.getElementById('cfg-p2-estructura-h');
-  if (hInput) hInput.value = h;
-
-  // Coherencia cinemática: Estructura -> Ángulo de montaje
-  if (tipo === 'coplanar') {
-    if (poly.modTilt !== 'auto') {
-      poly.modTilt = 'auto';
-      poly.arrangementMode = 'coplanar';
-    }
-  } else if (tipo === 'balasto') {
-    // Si estaba coplanar o plano, dotar de inclinación estándar de balasto
-    if (poly.modTilt === 'auto' || parseFloat(poly.modTilt) === 0) {
-      poly.modTilt = 15;
-      poly.arrangementMode = 'custom';
-    }
-  }
-
-  if (typeof roofPanelsCache !== 'undefined' && roofPanelsCache) roofPanelsCache.sig = '';
-  if (typeof computeSinglePolylineRoofInfo === 'function') {
-    poly.roofInfo = computeSinglePolylineRoofInfo(poly.points, poly);
-  }
-  if (typeof window.wpInvalidateHeatmap === 'function') {
-    window.wpInvalidateHeatmap('Estructura de montaje modificada (' + tipo + ')');
-  }
-  if (typeof step5RegenerateLayout === 'function') {
-    step5RegenerateLayout();
-  } else if (typeof wpFastRenderSimulatedPanels === 'function') {
-    wpFastRenderSimulatedPanels();
-  }
-  if (typeof showToast === 'function') showToast('ESTRUCTURA: ' + tipo.toUpperCase(), 'Altura libre ' + h.toFixed(2) + ' m. Configuración sincronizada.', 'info', 2500);
-}
-window.wpOnEstructuraChange = wpOnEstructuraChange;
+// [PODA FASE 4] wpOnEstructuraChange eliminado (0 usos)
 
 // Sincroniza el selector al faldón activo (llamado desde wpUpdateUI)
 function wpSyncEstructuraUI() {
@@ -918,85 +879,10 @@ window.wpEnfoqueDron = function(polyIdx) {
   if (typeof showStatus === 'function') showStatus('<i data-lucide="camera" class="icon-sm"></i> VISTA DRON · ' + (typeof polyIdx === 'number' ? 'FALDÓN #' + (polyIdx + 1) : 'PROYECTO'), 2000);
 };
 
-// ── wpCapturaInforme (presupuesto): imagen dron realista + vista de irradiación ──
-// Captura el canvas WebGL en el mismo tick de render (patrón Cesium), compone una
-// leyenda 2D (escala de pérdida, datos del proyecto) y devuelve dataURLs JPEG.
-window.wpCapturaInforme = async function() {
-  const _conTimeout = (p, ms) => Promise.race([p, new Promise(r => setTimeout(() => r(null), ms))]);
-  let _ratio = 0.63; // proporción real de la composición (alto+leyenda)/ancho
-  if (typeof viewer === 'undefined' || !viewer) return null;
-  const scene = viewer.scene;
-  const capturarCanvas = () => {
-    scene.render(); // render síncrono: el buffer está fresco en este tick
-    return scene.canvas.toDataURL('image/jpeg', 0.92);
-  };
-  const componer = (imgDataUrl, modo, extra) => new Promise(resolve => {
-    const img = new Image();
-    img.onload = () => { try {
-      const W = 1280;
-      const H = Math.round(W * img.height / img.width);
-      const cv = document.createElement('canvas');
-      _ratio = (H + 84) / W;
-      cv.width = W; cv.height = H + 84;
-      const ctx = cv.getContext('2d');
-      ctx.drawImage(img, 0, 0, W, H);
-      // barra de leyenda inferior
-      ctx.fillStyle = 'rgba(10, 15, 30, 0.94)';
-      ctx.fillRect(0, H, W, 84);
-      const d = extra || {}; // d se calcula fuera del onload (antes fallaba en silencio)
-      ctx.fillStyle = '#FFFFFF';
-      ctx.font = 'bold 26px Inter, sans-serif';
-      ctx.fillText('RA · Informe Fotovoltaico — ' + (modo === 'heatmap' ? 'IRRADIACIÓN ANUAL' : 'VISTA DEL PROYECTO'), 24, 34);
-      ctx.font = '20px Inter, sans-serif';
-      ctx.fillStyle = '#94A3B8';
-      const kwp = Number(d.kwp || 0).toFixed(2); // kwp llega como string desde getProjectCalcs
-      ctx.fillText((d.numPanels || 0) + ' módulos · ' + kwp + ' kWp · ' + new Date().toLocaleDateString('es-ES'), 24, 62);
-      if (modo === 'heatmap') {
-        // escala de pérdida anual (verde → ámbar → rojo)
-        const gx = W - 470, gy = H + 44;
-        const grad = ctx.createLinearGradient(gx, 0, gx + 360, 0);
-        grad.addColorStop(0, '#10B981'); grad.addColorStop(0.5, '#F97316'); grad.addColorStop(1, '#EF4444');
-        ctx.fillStyle = grad; ctx.fillRect(gx, gy, 360, 16);
-        ctx.fillStyle = '#CBD5E1'; ctx.font = '16px Inter, sans-serif';
-        ctx.fillText('0%', gx - 8, gy - 6); ctx.fillText('8%', gx + 165, gy - 6); ctx.fillText('≥25% pérdida anual', gx + 330, gy - 6);
-      } else {
-        ctx.fillStyle = '#CBD5E1'; ctx.font = '16px Inter, sans-serif';
-        ctx.fillText('Google 3D Tiles · captura del visor RA', W - 400, H + 52);
-      }
-      resolve(cv.toDataURL('image/jpeg', 0.9));
-      } catch (eComp) { window.__eComp = (eComp && eComp.message) || String(eComp); resolve(null); }
-    };
-    img.onerror = () => resolve(null);
-    img.src = imgDataUrl;
-  });
-
-  const modoPrevio = (typeof solarSimState !== 'undefined' && solarSimState) ? solarSimState.viewMode : 'sol';
-  const camPrevia = viewer.camera.positionCartographic.clone();
-  const oriPrev = { heading: viewer.camera.heading, pitch: viewer.camera.pitch, roll: viewer.camera.roll };
-
-  // 1. vista realista con encuadre dron
-  if (typeof wpEnfoqueDron === 'function') wpEnfoqueDron();
-  if (typeof wpSetShadowViewMode === 'function') { try { await _conTimeout(wpSetShadowViewMode('sol'), 4000); } catch (e) {} }
-  const realistaBase = capturarCanvas();
-
-  // 2. vista de irradiación (heatmap)
-  if (typeof wpSetShadowViewMode === 'function') { try { await _conTimeout(wpSetShadowViewMode('heatmap'), 4000); } catch (e) {} }
-  const heatBase = capturarCanvas();
-
-  // restaurar
-  if (typeof wpSetShadowViewMode === 'function') { try { await _conTimeout(wpSetShadowViewMode(modoPrevio), 4000); } catch (e) {} }
-  viewer.camera.setView({ destination: Cesium.Cartographic.toCartesian(camPrevia), orientation: oriPrev });
-
-  const dInfo = (typeof getProjectCalcs === 'function') ? (function() { try { return getProjectCalcs(); } catch (e) { return {}; } })() : {};
-  const realista = await componer(realistaBase, 'realista', dInfo);
-  const heatmap = await componer(heatBase, 'heatmap', dInfo);
-  const ratio = _ratio;
-  window.raCapturasInforme = { realista: realista, heatmap: heatmap, ratio: ratio, fecha: new Date().toISOString() };
-  return window.raCapturasInforme;
-};
+// [PODA FASE 4] wpCapturaInforme eliminado (0 usos)
 
 // ── Estabilización de render tras movimiento de cámara en requestRenderMode ──
-if (camera && camera.moveEnd) {
+if (camera && camera.moveEnd && typeof window.RALodManager === 'undefined') {
   camera.moveEnd.addEventListener(() => {
     if (typeof window !== 'undefined' && window.ShadowSettings && typeof window.ShadowSettings.requestSettleFrames === 'function') {
       window.ShadowSettings.requestSettleFrames(scene);
@@ -1038,7 +924,7 @@ if (sscc) {
 })();
 
 // ── Configuración Visual & Antialiasing ──────────────────────────────────
-window._currentAntialiasingMode = 'off';
+window._currentAntialiasingMode = 'fxaa';
 
 function setAntialiasingMode(mode) {
   if (typeof viewer === 'undefined' || !viewer || !viewer.scene) return;
@@ -1190,7 +1076,7 @@ globe.showWaterEffect = true;
 globe.depthTestAgainstTerrain = true;
 // Sombra: desactivada completamente para máximo rendimiento GPU
 globe.shadows = (window.ShadowSettings && !window.ShadowSettings.getSettings().terrainShadows) ? Cesium.ShadowMode.RECEIVE_ONLY : Cesium.ShadowMode.ENABLED;
-scene.pickTranslucentDepth = true;
+scene.pickTranslucentDepth = false;
 globe.baseColor = Cesium.Color.fromCssColorString('#14213d');
 scene.fog.enabled = true;
 scene.fog.density = 0.0003;  // Factor aumento para descarte de teselas lejanas
@@ -1261,14 +1147,36 @@ const SOLAR_SEASONS = [
 // El motor de simulación solar se encuentra unificado en la sección de análisis solar
 
 // ── Iniciar Aplicación y Monitor de Vuelo ───────────────────────────────────
-window._isCameraMoving = false;
-camera.moveStart.addEventListener(() => {
-  window._isCameraMoving = true;
-});
-
-camera.moveEnd.addEventListener(() => {
+if (typeof window.RALodManager !== 'undefined' && typeof window.RALodManager.isMotionBoostActive === 'function') {
+  let _raForceStopMoving = false;
+  Object.defineProperty(window, '_isCameraMoving', {
+    configurable: true,
+    get: function() {
+      if (_raForceStopMoving) return false;
+      return !!window.RALodManager.isMotionBoostActive();
+    },
+    set: function(v) {
+      if (!v) {
+        _raForceStopMoving = true;
+        setTimeout(() => { _raForceStopMoving = false; }, 200);
+      } else {
+        _raForceStopMoving = false;
+      }
+    }
+  });
+} else {
   window._isCameraMoving = false;
-});
+  if (camera && camera.moveStart) {
+    camera.moveStart.addEventListener(() => {
+      window._isCameraMoving = true;
+    });
+  }
+  if (camera && camera.moveEnd) {
+    camera.moveEnd.addEventListener(() => {
+      window._isCameraMoving = false;
+    });
+  }
+}
 
 (async () => {
   setLoad(35, 'Iniciando conexión satelital...');
@@ -1495,45 +1403,7 @@ function updateBatteryCost() {
 }
 
 
-// ── GESTIÓN Y SINCRONIZACIÓN DE CONSUMO / FACTURA DEL CLIENTE ──
-function toggleConsumptionInputMode() {
-  const modeEl = document.getElementById('fin-input-mode');
-  const mode = modeEl ? modeEl.value : 'factura';
-  const rowFact = document.getElementById('row-input-factura');
-  const rowKwh = document.getElementById('row-input-kwh');
-  if (rowFact && rowKwh) {
-    if (mode === 'factura') {
-      rowFact.style.opacity = '1';
-      rowKwh.style.opacity = '0.7';
-    } else {
-      rowFact.style.opacity = '0.7';
-      rowKwh.style.opacity = '1';
-    }
-  }
-}
-
-function syncConsumptionFromBill() {
-  const factInput = document.getElementById('cfg-pres-factura-mes');
-  const factMes = parseFloat(factInput ? factInput.value : '125') || 125;
-  const factEnergiaAnual = Math.max(100, (factMes - 22) * 12 / 1.26);
-  const consumoKWh = Math.round(factEnergiaAnual / 0.18);
-
-  const kwhInput = document.getElementById('cfg-pres-consumo-anual');
-  if (kwhInput && document.activeElement !== kwhInput) {
-    kwhInput.value = consumoKWh;
-  }
-}
-
-function syncBillFromConsumption() {
-  const kwhInput = document.getElementById('cfg-pres-consumo-anual');
-  const consumoKWh = parseFloat(kwhInput ? kwhInput.value : '5450') || 5450;
-  const factEst = Math.round(((consumoKWh * 0.18 / 12) * 1.26 + 22));
-
-  const factInput = document.getElementById('cfg-pres-factura-mes');
-  if (factInput && document.activeElement !== factInput) {
-    factInput.value = factEst;
-  }
-}
+// [PODA FASE 4] toggleConsumptionInputMode, syncConsumptionFromBill y syncBillFromConsumption eliminados (0 usos)
 
 // [ARQUITECTURA AAA] calculateFinancialModel delegada al módulo js/financials.js
 
@@ -1882,23 +1752,84 @@ if (typeof viewer !== 'undefined' && viewer && viewer.entities && !viewer.entiti
 
 
 
+function _isPointInClosedPlaneUV(hit, pl, pts3D) {
+  if (!hit || !pl || !pl.origin || !pl.uVec || !pl.vVec || !Array.isArray(pts3D) || pts3D.length < 3) return false;
+  const sc = (window.RA && window.RA._scratch) ? window.RA._scratch : null;
+  const diff = sc ? sc.c3_0 : new Cesium.Cartesian3();
+  Cesium.Cartesian3.subtract(hit, pl.origin, diff);
+  const hu = Cesium.Cartesian3.dot(diff, pl.uVec);
+  const hv = Cesium.Cartesian3.dot(diff, pl.vVec);
+
+  let inside = false;
+  for (let i = 0, j = pts3D.length - 1; i < pts3D.length; j = i++) {
+    Cesium.Cartesian3.subtract(pts3D[i], pl.origin, diff);
+    const ui = Cesium.Cartesian3.dot(diff, pl.uVec);
+    const vi = Cesium.Cartesian3.dot(diff, pl.vVec);
+    Cesium.Cartesian3.subtract(pts3D[j], pl.origin, diff);
+    const uj = Cesium.Cartesian3.dot(diff, pl.uVec);
+    const vj = Cesium.Cartesian3.dot(diff, pl.vVec);
+    if (((vi > hv) !== (vj > hv)) && (hu < (uj - ui) * (hv - vi) / (vj - vi) + ui)) {
+      inside = !inside;
+    }
+  }
+  return inside;
+}
+
 function getRaw3DPosition(windowPosition) {
   if (!windowPosition || !scene) return null;
 
-  // 0. PRIORITARIO: scene.pick() para identificar objeto + pickPosition sobre él
-  try {
-    const picked = scene.pick(windowPosition);
-    if (Cesium.defined(picked)) {
-      if (scene.pickPositionSupported) {
-        const pos = scene.pickPosition(windowPosition);
-        if (Cesium.defined(pos) && isFinite(pos.x) && isFinite(pos.y) && isFinite(pos.z)) {
-          return pos;
+  const ray = (camera && camera.getPickRay) ? camera.getPickRay(windowPosition) : null;
+
+  // 0. Fast-Path Analítico en hover/edición sobre planos/faldones cerrados (WP.planes / WP.polylines)
+  const measureActive = (typeof window.RAMeasureTool !== 'undefined' && window.RAMeasureTool && typeof window.RAMeasureTool.isActive === 'function' && window.RAMeasureTool.isActive());
+  if (ray && !measureActive && typeof wpRayPlane === 'function' && typeof WP !== 'undefined' && WP &&
+      WP.mode !== 'define-plane' && WP.mode !== 'draw-building' && WP.mode !== 'draw-building-rect') {
+    let bestHit = null;
+    let bestDistSq = Infinity;
+    const planes = Array.isArray(WP.planes) ? WP.planes : [];
+    const polys = Array.isArray(WP.polylines) ? WP.polylines : [];
+
+    for (let i = 0; i < polys.length; i++) {
+      const poly = polys[i];
+      if (!poly || poly.visible === false || !Array.isArray(poly.points) || poly.points.length < 3) continue;
+      let pl = null;
+      if (poly.planeId && planes.length > 0) {
+        pl = planes.find(p => p && p.id === poly.planeId) || null;
+      }
+      if (!pl && typeof poly.planeIdx === 'number' && poly.planeIdx >= 0 && poly.planeIdx < planes.length) {
+        pl = planes[poly.planeIdx];
+      }
+      if (!pl || pl.visible === false || !pl.origin || !pl.normal || !pl.uVec || !pl.vVec) continue;
+      const hit = wpRayPlane(ray, pl);
+      if (hit && isFinite(hit.x) && _isPointInClosedPlaneUV(hit, pl, poly.points)) {
+        const dSq = Cesium.Cartesian3.distanceSquared(ray.origin, hit);
+        if (dSq < bestDistSq) {
+          bestDistSq = dSq;
+          bestHit = hit;
         }
       }
     }
-  } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
 
-  // 1. Deteccion fisica directa sobre la cara del 3D Tileset
+    if (!bestHit && planes.length > 0) {
+      for (let i = 0; i < planes.length; i++) {
+        const pl = planes[i];
+        if (!pl || pl.visible === false || !pl.origin || !pl.normal || !pl.uVec || !pl.vVec) continue;
+        if (!Array.isArray(pl.pts3D) || pl.pts3D.length < 3) continue;
+        const hit = wpRayPlane(ray, pl);
+        if (hit && isFinite(hit.x) && _isPointInClosedPlaneUV(hit, pl, pl.pts3D)) {
+          const dSq = Cesium.Cartesian3.distanceSquared(ray.origin, hit);
+          if (dSq < bestDistSq) {
+            bestDistSq = dSq;
+            bestHit = hit;
+          }
+        }
+      }
+    }
+
+    if (bestHit) return bestHit;
+  }
+
+  // 1. Detección física directa sobre la malla 3D (única llamada a scene.pickPosition)
   if (scene.pickPositionSupported) {
     try {
       const pos = scene.pickPosition(windowPosition);
@@ -1906,8 +1837,7 @@ function getRaw3DPosition(windowPosition) {
     } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
   }
 
-  // 2. Raycast matematico contra geometria 3D especifica
-  const ray = (camera && camera.getPickRay) ? camera.getPickRay(windowPosition) : null;
+  // 2. Raycast matemático contra geometría 3D específica
   if (ray) {
     try {
       if (typeof scene.pickFromRay === "function") {
@@ -1928,7 +1858,7 @@ function getRaw3DPosition(windowPosition) {
     } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
   }
 
-  // 4. Fallback: proyeccion sobre el elipsoide WGS84
+  // 4. Fallback: proyección sobre el elipsoide WGS84
   try {
     if (camera && camera.pickEllipsoid) {
       const ellipsoid = (scene.globe && scene.globe.ellipsoid) ? scene.globe.ellipsoid : (Cesium && Cesium.Ellipsoid ? Cesium.Ellipsoid.WGS84 : undefined);
@@ -1958,10 +1888,13 @@ window.reset3DPositionCache = reset3DPositionCache;
 
 function get3DPosition(windowPosition, options = {}) {
   if (!windowPosition || !scene) return null;
+  const opts = (options && typeof options === 'object') ? options : {};
+  const isRaw = Boolean(opts.raw);
+  const bypassThrottle = Boolean(opts.bypassThrottle || isRaw);
 
   // 1. Fast-Path Analítico si estamos dibujando sobre un Plano de Trabajo Activo existente
   // Cero stalls de GPU (gl.readPixels), cálculo puramente algebraico CPU a 60 FPS
-  if (typeof WP !== "undefined" && WP && WP.mode !== "define-plane" && WP.mode !== "draw-building" && WP.mode !== "idle" && (WP.mode === "draw-poly" || WP.mode === "draw-rect" || WP.mode === "place-obs")) {
+  if (!isRaw && typeof WP !== "undefined" && WP && WP.mode !== "define-plane" && WP.mode !== "draw-building" && WP.mode !== "idle" && (WP.mode === "draw-poly" || WP.mode === "draw-rect" || WP.mode === "place-obs")) {
     const activePl = (typeof wpGetActivePlane === "function") ? wpGetActivePlane() : null;
     if (activePl && activePl.normal && activePl.origin && typeof camera !== "undefined" && camera && camera.getPickRay) {
       try {
@@ -1982,20 +1915,19 @@ function get3DPosition(windowPosition, options = {}) {
 
   // Throttle: limitar únicamente picks físicos directos de GPU (gl.readPixels)
   const now = performance.now();
-  const throttle = window.RA._pickPositionThrottle;
-  const isDirectAction = options && (options.raw || options.bypassThrottle);
-  if (!isDirectAction && (now - throttle.lastTime < throttle.minDelta)) {
+  const throttle = (window.RA && window.RA._pickPositionThrottle) ? window.RA._pickPositionThrottle : null;
+  if (!bypassThrottle && throttle && (now - throttle.lastTime < throttle.minDelta)) {
     if (_lastSmooth3DPos) return _lastSmooth3DPos;
     return null;
   }
-  if (!isDirectAction) throttle.lastTime = now;
+  if (!bypassThrottle && throttle) throttle.lastTime = now;
 
   // 2. Muestreo Físico Directo Rápido (1 Muestra con scene.pickPosition)
   const rawPos = getRaw3DPosition(windowPosition);
   if (!rawPos || !Cesium.defined(rawPos) || !isFinite(rawPos.x)) return null;
   
-  throttle.lastPos = Cesium.Cartesian3.clone(rawPos);
-  if (options && options.raw) return rawPos;
+  if (throttle && !isRaw) throttle.lastPos = Cesium.Cartesian3.clone(rawPos);
+  if (isRaw) return rawPos;
 
   // 3. Filtro Temporal Exponencial Antijitter (EMA - Suavidad Total)
   if (!_lastSmooth3DPos || Cesium.Cartesian3.distance(_lastSmooth3DPos, rawPos) > 5.0) {
@@ -2013,6 +1945,20 @@ function get3DPosition(windowPosition, options = {}) {
 }
 
 // ── Sincronización Visual ──────────────────────────────────────────────────
+function _buildActiveShapePositions() {
+  const isDrawingMode = appMode === 'draw' || (typeof WP !== 'undefined' && WP && WP.mode === 'draw-poly');
+  if (!Array.isArray(polygonPoints) || polygonPoints.length < 2) return [];
+  const pts = polygonPoints.slice();
+  if (isDrawingMode && floatingPoint && polygonPoints.length > 0) {
+    pts.push(floatingPoint);
+  } else if (polygonPoints.length >= 3) {
+    pts.push(polygonPoints[0]);
+  }
+  return pts;
+}
+
+// [PODA FASE 4] syncActiveShapePositions eliminado (0 usos)
+
 function updateAllVisuals() {
   if (activeShapeEntity) {
     viewer.entities.remove(activeShapeEntity);
@@ -2023,42 +1969,19 @@ function updateAllVisuals() {
 
   if (!wpManaged && polygonPoints.length >= 2) {
     const isClosed = polygonPoints.length >= 3;
-    const pts = [];
+    const pts = _buildActiveShapePositions();
 
     activeShapeEntity = viewer.entities.add({
       id: 'ra_active_shape',
       polyline: {
-        positions: new Cesium.CallbackProperty(() => {
-          const isDrawingMode = appMode === 'draw' || (typeof WP !== 'undefined' && WP && WP.mode === 'draw-poly');
-          let targetLength = 0;
-          if (isDrawingMode && floatingPoint && polygonPoints.length > 0) {
-            targetLength = polygonPoints.length + 1;
-          } else if (polygonPoints.length >= 3) {
-            targetLength = polygonPoints.length + 1;
-          } else if (polygonPoints.length >= 2) {
-            targetLength = polygonPoints.length;
-          }
-          
-          if (pts.length !== targetLength) pts.length = targetLength;
-          
-          for (let i = 0; i < polygonPoints.length; i++) {
-            pts[i] = polygonPoints[i];
-          }
-          
-          if (isDrawingMode && floatingPoint && polygonPoints.length > 0) {
-            pts[targetLength - 1] = floatingPoint;
-          } else if (polygonPoints.length >= 3) {
-            pts[targetLength - 1] = polygonPoints[0];
-          }
-          return polygonPoints.length >= 2 ? pts : [];
-        }, false),
+        positions: new Cesium.ConstantProperty(pts),
         width: 4,
         material: new Cesium.ColorMaterialProperty(Cesium.Color.fromCssColorString('#F7A520')),
         // depthFailMaterial removed,
         clampToGround: false
       },
       polygon: isClosed ? {
-        hierarchy: new Cesium.PolygonHierarchy(polygonPoints.length >= 3 ? polygonPoints : []),
+        hierarchy: new Cesium.ConstantProperty(new Cesium.PolygonHierarchy(polygonPoints.length >= 3 ? polygonPoints : [])),
         material: Cesium.Color.fromCssColorString('#F7A520').withAlpha(0.25),
         perPositionHeight: true
       } : undefined
@@ -2070,89 +1993,29 @@ function updateAllVisuals() {
 
   if (!wpManaged) {
     polygonPoints.forEach((pt, idx) => {
-    const isSelected = idx === selectedVertexIndex && appMode === 'edit';
-    const isFirst = idx === 0;
+      const isSelected = idx === selectedVertexIndex && appMode === 'edit';
+      const isFirst = idx === 0;
 
-    const marker = addPointEntity(
-      new Cesium.CallbackProperty(() => polygonPoints[idx] || pt, false),
-      isSelected ? UI_C.white : (isFirst ? '#FFD080' : UI_C.amber),
-      isSelected ? 16 : (isFirst ? 13 : 10),
-      UI_C.black,
-      isSelected ? 4 : 2
-    );
-    marker.vertexIndex = idx;
-    vertexEntities.push(marker);
-  });
+      const marker = addPointEntity(
+        new Cesium.ConstantPositionProperty(Cesium.Cartesian3.clone(pt)),
+        isSelected ? UI_C.white : (isFirst ? '#FFD080' : UI_C.amber),
+        isSelected ? 16 : (isFirst ? 13 : 10),
+        UI_C.black,
+        isSelected ? 4 : 2
+      );
+      marker.vertexIndex = idx;
+      vertexEntities.push(marker);
+    });
   }
 
-  update3DGizmo();
-  syncVertexCoordInputs();
   updateMetricsDisplay();
   recalculateSolarYield();
-}
-
-// ── Gizmo de Ejes 3D ───────────────────────────────────────────────────────
-// Tríada compacta de manipulación de vértices: tamaño proporcional a la
-// altitud de cámara (pequeña y manejable en cualquier escala de trabajo),
-// asas grandes a tamaño fijo de pantalla y etiquetas X/Y/Z en las puntas.
-function gizmoAxisLength() {
-  const camH = camera.positionCartographic.height;
-  return Math.max(2.4, Math.min(camH * 0.008, 40.0));
-}
-
-function update3DGizmo() {
-  if (Array.isArray(gizmoEntities)) {
-    gizmoEntities.forEach(e => {
-      try { if (viewer && viewer.entities) viewer.entities.remove(e); } catch(_) {}
-    });
-    gizmoEntities = [];
-  }
-  // [SSOT §5 AGENTS.md] La manipulación de ejes e interacción en vértices la gestiona exclusivamente renderUniversalGizmo2D
-}
-
-function selectVertex(index) {
-  if (index < 0 || index >= polygonPoints.length) return;
-  selectedVertexIndex = index;
-  setElemText('edit-selected-vertex-lbl', `#${index + 1} de ${polygonPoints.length}`);
-  updateAllVisuals();
-}
-
-
-
-
-
-// ── Coordenadas globales X/Y/Z del vértice seleccionado ─────────────────
-function syncVertexCoordInputs() {
-  const xEl = document.getElementById('vtx-coord-x');
-  const yEl = document.getElementById('vtx-coord-y');
-  const zEl = document.getElementById('vtx-coord-z');
-  if (!xEl || !yEl || !zEl) return;
-  const has = selectedVertexIndex >= 0 && selectedVertexIndex < polygonPoints.length;
-  [xEl, yEl, zEl].forEach(el => { el.disabled = !has; });
-  if (has) {
-    const p = polygonPoints[selectedVertexIndex];
-    xEl.value = p.x.toFixed(3);
-    yEl.value = p.y.toFixed(3);
-    zEl.value = p.z.toFixed(3);
-  } else {
-    xEl.value = '';
-    yEl.value = '';
-    zEl.value = '';
+  if (typeof scene !== 'undefined' && scene && typeof scene.requestRender === 'function') {
+    scene.requestRender();
   }
 }
 
-
-
-
-
-function deleteSelectedVertex() {
-  if (selectedVertexIndex < 0 || selectedVertexIndex >= polygonPoints.length) return;
-  polygonPoints.splice(selectedVertexIndex, 1);
-  if (polygonPoints.length === 0) selectedVertexIndex = -1;
-  else selectedVertexIndex = Math.min(selectedVertexIndex, polygonPoints.length - 1);
-  updateAllVisuals();
-  showStatus(`VÉRTICE ELIMINADO (${polygonPoints.length} RESTANTES)`, 2000);
-}
+// [PODA FASE 4] gizmoAxisLength, update3DGizmo, selectVertex, syncVertexCoordInputs y deleteSelectedVertex eliminados (0 usos; SSOT renderUniversalGizmo2D / working-plane.js)
 
 
 
@@ -2238,38 +2101,7 @@ function confirmRoofDesignAndSimulate() {
   startSolarPanelsSimulation();
 }
 
-function triggerSimulationFromButton() {
-  if (typeof WP !== 'undefined' && WP) {
-    if (WP.activePolyline && WP.activePolyline.points && WP.activePolyline.points.length >= 3) {
-      wpCloseActivePolyline();
-    }
-    if (WP.polylines && WP.polylines.length > 0) {
-      const curIdx = (WP.selectedPolyIdx >= 0 && WP.selectedPolyIdx < WP.polylines.length) ? WP.selectedPolyIdx : 0;
-      const poly = WP.polylines[curIdx];
-      if (poly && poly.points && poly.points.length >= 3) {
-        WP.selectedPolyIdx = curIdx;
-        polygonPoints = poly.points.map(p => Cesium.Cartesian3.clone(p));
-        isPolygonDesignConfirmed = true;
-      }
-    }
-  }
-
-  if (roofPanelsCache) roofPanelsCache.sig = "";
-
-  const hasPolys = (typeof WP !== 'undefined' && WP && WP.polylines && WP.polylines.length > 0);
-  const hasPts = (polygonPoints && polygonPoints.length >= 3);
-
-  if (!hasPolys && !hasPts) {
-    showStatus('DIBUJA UN POLÍGONO DE CUBIERTA PRIMERO (MÍNIMO 3 PUNTOS)', 3000);
-    return;
-  }
-
-  if (typeof recalculateLayoutAndObstacles === 'function') recalculateLayoutAndObstacles();
-  if (typeof startSolarPanelsSimulation === 'function') startSolarPanelsSimulation();
-  else if (typeof wpFastRenderSimulatedPanels === 'function') wpFastRenderSimulatedPanels();
-  if (typeof wpSyncStep3Metrics === 'function') wpSyncStep3Metrics();
-  else if (typeof wpUpdateStep3UI === 'function') wpUpdateStep3UI();
-}
+// [PODA FASE 4] triggerSimulationFromButton eliminado (0 usos)
 
 function clearSimulatedPV() {
   if (typeof wpCleanupAllSolarPrimitives === 'function') wpCleanupAllSolarPrimitives();
@@ -3022,26 +2854,11 @@ function startSolarPanelsSimulation() {
     polyPanels.forEach((panelData, pIdx) => {
       const gIdx = globalCounter++;
       const t = setTimeout(() => {
-        const startTime = performance.now();
-        const duration = 180;
-
-        const dynamicHierarchy = new Cesium.CallbackProperty(() => {
-          const elapsed = performance.now() - startTime;
-          const progress = Math.min(elapsed / duration, 1.0);
-          const scale = 1 - Math.pow(1 - progress, 3);
-
-          const scaledCorners = panelData.corners.map(c => {
-            const delta = Cesium.Cartesian3.subtract(c, panelData.center, new Cesium.Cartesian3());
-            const scaledDelta = Cesium.Cartesian3.multiplyByScalar(delta, scale, new Cesium.Cartesian3());
-            return Cesium.Cartesian3.add(panelData.center, scaledDelta, new Cesium.Cartesian3());
-          });
-          return new Cesium.PolygonHierarchy(scaledCorners);
-        }, false);
-
+        if (!viewer || viewer.isDestroyed()) return;
         const panelEntity = viewer.entities.add({
           id: "pv_panel_" + polyIdx + "_" + pIdx + "_" + Math.random().toString(36).substring(2, 7),
           polygon: {
-            hierarchy: dynamicHierarchy,
+            hierarchy: new Cesium.ConstantProperty(new Cesium.PolygonHierarchy(panelData.corners)),
             material: (typeof window.solarPanelTextureCanvas !== 'undefined' && window.solarPanelTextureCanvas)
               ? new Cesium.ImageMaterialProperty({ image: window.solarPanelTextureCanvas, transparent: false })
               : ((typeof solarPanelTextureUrl !== 'undefined' && solarPanelTextureUrl)
@@ -3051,16 +2868,9 @@ function startSolarPanelsSimulation() {
           }
         });
         simulatedPanelEntities.push(panelEntity);
-
-        const tFreeze = setTimeout(() => {
-          try {
-            if (panelEntity && panelEntity.polygon && !viewer.isDestroyed()) {
-              panelEntity.polygon.hierarchy = new Cesium.PolygonHierarchy(panelData.corners);
-              if (viewer.scene && viewer.scene.requestRender) viewer.scene.requestRender();
-            }
-          } catch (_) {}
-        }, duration + 40);
-        simulationTimeouts.push(tFreeze);
+        if (viewer.scene && typeof viewer.scene.requestRender === 'function') {
+          viewer.scene.requestRender();
+        }
 
         const countBadge = document.getElementById("sol-panels-count");
         if (countBadge) countBadge.textContent = (gIdx + 1) + " de " + totalPanelsCount + " uds";
@@ -4597,11 +4407,17 @@ function resetView() {
   });
 }
 
-clock.onTick.addEventListener(() => {
-  updateWindRose();
+if (camera && camera.changed) {
+  camera.changed.addEventListener(() => {
+    if (typeof updateWindRose === 'function') updateWindRose();
+  });
+}
 
+clock.onTick.addEventListener(() => {
   if (autoRotate) {
     scene.camera.rotate(Cesium.Cartesian3.UNIT_Z, -0.0004);
+    if (typeof updateWindRose === 'function') updateWindRose();
+    if (typeof scene.requestRender === 'function') scene.requestRender();
     return;
   }
 
@@ -5103,21 +4919,20 @@ function wpStartGridMeterPlacement() {
 function get3DElectricalClickPosition(screenPos) {
   if (typeof viewer === 'undefined' || !viewer) return null;
   let pos = null;
-  // [FIX-PLACEMENT] Con requestRenderMode activo, scene.pickPosition lee el buffer de pick
-  // del ÚLTIMO frame renderizado. Si la cámara se movió desde entonces (órbita/zoom), el
-  // píxel apunta a OTRO punto del mundo y el cuadro aparece lejos del clic ("otro sitio").
-  // Forzar un frame síncrono garantiza que el buffer corresponde a la cámara actual.
-  if (viewer.scene && viewer.scene.requestRenderMode && typeof viewer.scene.requestRender === 'function') {
-    try { viewer.scene.requestRender(); } catch(eForce) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(eForce, 'pick fresco'); }
+  const sc = viewer.scene;
+  // Con requestRenderMode activo, solo volcar un render() puntual si la escena está dirty;
+  // si no, reutilizar el último depth buffer sin provocar renders redundantes.
+  if (sc && sc.requestRenderMode && sc._renderRequested && typeof sc.render === 'function') {
+    try { sc.render(); } catch(eForce) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(eForce, 'pick fresco'); }
   }
-  if (viewer.scene && typeof viewer.scene.pickPosition === 'function') {
-    try { pos = viewer.scene.pickPosition(screenPos); } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
+  if (sc && typeof sc.pickPosition === 'function') {
+    try { pos = sc.pickPosition(screenPos); } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
   }
   if (!pos && typeof get3DPosition === 'function') {
     try { pos = get3DPosition(screenPos); } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
   }
-  if (!pos && viewer.camera && viewer.scene && viewer.scene.globe) {
-    try { pos = viewer.camera.pickEllipsoid(screenPos, viewer.scene.globe.ellipsoid); } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
+  if (!pos && viewer.camera && sc && sc.globe) {
+    try { pos = viewer.camera.pickEllipsoid(screenPos, sc.globe.ellipsoid); } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
   }
   return pos;
 }
@@ -6793,10 +6608,7 @@ window.solarProjectConfig = window.solarProjectConfig || {};
 // ── window.RA alias (Arquitectura v2) ────────────────────────────────────
 window.RA.projectConfig = window.solarProjectConfig;
 
-function applyProjectGoal(goalKey) {
-  step4ApplyFinancialProfile(goalKey);
-}
-window.applyProjectGoal = applyProjectGoal;
+// [PODA FASE 4] applyProjectGoal eliminado (consolidado en step4ApplyFinancialProfile)
 
 function step5RegenerateLayout() {
   window.RA = window.RA || {};
@@ -6908,374 +6720,7 @@ function getAzimuthCardinalShort(deg) {
   return 'NO (315°)';
 }
 
-function wpApplyStep6Tilt(val, isFinal = false) {
-  const valBadge = document.getElementById('cfg-p2-tilt-val');
-  const slider = document.getElementById('cfg-p2-tilt-slider');
-  const isAuto = (val === 'auto' || val === '' || val === null || val === undefined);
-
-  if (valBadge) {
-    valBadge.textContent = isAuto ? 'Auto (faldón)' : (parseFloat(val).toFixed(0) + '°');
-    valBadge.style.color = isAuto ? 'var(--text-slate-300)' : 'var(--amber-400)';
-  }
-  if (slider && !isAuto) {
-    slider.value = Math.round(parseFloat(val));
-  }
-
-  const cfgTilt = document.getElementById('cfg-mod-tilt');
-  if (cfgTilt) cfgTilt.value = isAuto ? 'auto' : String(Math.round(parseFloat(val)));
-
-  if (typeof WP !== 'undefined' && WP && WP.polylines && WP.polylines.length > 0) {
-    const pIdx = (WP.selectedPolyIdx >= 0 && WP.selectedPolyIdx < WP.polylines.length) ? WP.selectedPolyIdx : 0;
-    const targetTilt = isAuto ? 'auto' : Math.round(parseFloat(val));
-    WP.polylines[pIdx].modTilt = targetTilt;
-    WP.polylines[pIdx].arrangementMode = isAuto ? 'coplanar' : 'custom';
-
-    // Coherencia cinemática: Inclinación -> Estructura de montaje
-    if (!WP.polylines[pIdx].estructura) WP.polylines[pIdx].estructura = { tipo: 'coplanar', clearance: 0 };
-    const structSel = document.getElementById('faldon-structure-select');
-    const curType = WP.polylines[pIdx].structureType;
-    if (curType === 'ballast_blocks') {
-      if (!WP.polylines[pIdx].estructura) {
-        WP.polylines[pIdx].estructura = { tipo: 'balasto_bloques', clearance: 0.10, subtype: 'concrete_blocks', blocksPerPanel: WP.polylines[pIdx].blocksPerPanel || 2 };
-      }
-    } else if (isAuto || targetTilt === 0) {
-      if (WP.polylines[pIdx].estructura.tipo !== 'pergola') {
-        WP.polylines[pIdx].estructura.tipo = 'coplanar';
-        WP.polylines[pIdx].structureType = 'coplanar_teja';
-        if (structSel) structSel.value = 'coplanar_teja';
-      }
-    } else {
-      if (WP.polylines[pIdx].estructura.tipo === 'coplanar') {
-        WP.polylines[pIdx].estructura.tipo = 'balasto';
-        if (!WP.polylines[pIdx].estructura.clearance) WP.polylines[pIdx].estructura.clearance = 0.20;
-      }
-      if (targetTilt === 30) {
-        WP.polylines[pIdx].structureType = 'triangles_30';
-        if (structSel) structSel.value = 'triangles_30';
-      } else if (targetTilt === 15 && WP.polylines[pIdx].modAzimuth === 90) {
-        WP.polylines[pIdx].structureType = 'triangles_15_ew';
-        if (structSel) structSel.value = 'triangles_15_ew';
-      } else {
-        WP.polylines[pIdx].structureType = 'triangles_custom';
-        if (structSel) structSel.value = 'triangles_custom';
-      }
-    }
-    if (typeof wpSyncEstructuraUI === 'function') wpSyncEstructuraUI();
-    WP.selectedPolyIdx = pIdx;
-    if (typeof roofPanelsCache !== 'undefined' && roofPanelsCache) roofPanelsCache.sig = '';
-    if (typeof computeSinglePolylineRoofInfo === 'function') {
-      WP.polylines[pIdx].roofInfo = computeSinglePolylineRoofInfo(WP.polylines[pIdx].points, WP.polylines[pIdx]);
-    }
-    if (typeof window.wpInvalidateHeatmap === 'function') {
-      window.wpInvalidateHeatmap('Inclinación de módulos modificada (' + targetTilt + '°)');
-    }
-  }
-
-  if (typeof step5RegenerateLayout === 'function') {
-    step5RegenerateLayout();
-  } else if (typeof updateConfigAndSimulate === 'function') {
-    updateConfigAndSimulate();
-  }
-  if (isFinal && typeof wpUpdateStep3UI === 'function') wpUpdateStep3UI();
-}
-
-function wpOnStep6TiltSliderInput(val) {
-  wpApplyStep6Tilt(val, false);
-}
-window.wpOnStep6TiltSliderInput = wpOnStep6TiltSliderInput;
-
-function wpOnStep6TiltSliderChange(val) {
-  wpApplyStep6Tilt(val, true);
-}
-window.wpOnStep6TiltSliderChange = wpOnStep6TiltSliderChange;
-
-function wpResetStep6TiltAuto() {
-  if (typeof wpApplyPanelArrangementActive === 'function') {
-    wpApplyPanelArrangementActive('coplanar');
-  } else {
-    wpApplyStep6Tilt('auto', true);
-  }
-}
-window.wpResetStep6TiltAuto = wpResetStep6TiltAuto;
-
-function wpApplyStep6Azimuth(val, isFinal = false) {
-  const valBadge = document.getElementById('cfg-p2-azimuth-val');
-  const slider = document.getElementById('cfg-p2-azimuth-slider');
-  const isAuto = (val === 'auto' || val === '' || val === null || val === undefined);
-
-  if (valBadge) {
-    if (isAuto) {
-      valBadge.textContent = 'Auto (faldón)';
-      valBadge.style.color = 'var(--text-slate-300)';
-    } else {
-      const numDeg = Math.round(parseFloat(val));
-      valBadge.textContent = numDeg + '° · ' + getAzimuthCardinalShort(numDeg);
-      valBadge.style.color = 'var(--cyan-400,#38bdf8)';
-    }
-  }
-  if (slider && !isAuto) {
-    slider.value = Math.round(parseFloat(val));
-  }
-
-  const cfgAz = document.getElementById('cfg-mod-azimuth');
-  if (cfgAz) cfgAz.value = isAuto ? 'auto' : String(Math.round(parseFloat(val)));
-
-  if (typeof WP !== 'undefined' && WP && WP.polylines && WP.polylines.length > 0) {
-    const pIdx = (WP.selectedPolyIdx >= 0 && WP.selectedPolyIdx < WP.polylines.length) ? WP.selectedPolyIdx : 0;
-    WP.polylines[pIdx].modAzimuth = isAuto ? 'auto' : Math.round(parseFloat(val));
-    WP.polylines[pIdx].arrangementMode = isAuto ? 'coplanar' : 'custom';
-    WP.selectedPolyIdx = pIdx;
-    if (typeof roofPanelsCache !== 'undefined' && roofPanelsCache) roofPanelsCache.sig = '';
-    if (typeof computeSinglePolylineRoofInfo === 'function') {
-      WP.polylines[pIdx].roofInfo = computeSinglePolylineRoofInfo(WP.polylines[pIdx].points, WP.polylines[pIdx]);
-    }
-    if (typeof window.wpInvalidateHeatmap === 'function') {
-      window.wpInvalidateHeatmap('Azimut de módulos modificado (' + val + '°)');
-    }
-  }
-
-  if (typeof step5RegenerateLayout === 'function') {
-    step5RegenerateLayout();
-  } else if (typeof updateConfigAndSimulate === 'function') {
-    updateConfigAndSimulate();
-  }
-  if (isFinal && typeof wpUpdateStep3UI === 'function') wpUpdateStep3UI();
-}
-
-function wpOnStep6AzimuthSliderInput(val) {
-  wpApplyStep6Azimuth(val, false);
-}
-window.wpOnStep6AzimuthSliderInput = wpOnStep6AzimuthSliderInput;
-
-function wpOnStep6AzimuthSliderChange(val) {
-  wpApplyStep6Azimuth(val, true);
-}
-window.wpOnStep6AzimuthSliderChange = wpOnStep6AzimuthSliderChange;
-
-function wpResetStep6AzimuthAuto() {
-  if (typeof wpApplyPanelArrangementActive === 'function') {
-    wpApplyPanelArrangementActive('coplanar');
-  } else {
-    wpApplyStep6Azimuth('auto', true);
-  }
-}
-window.wpResetStep6AzimuthAuto = wpResetStep6AzimuthAuto;
-
-function wpApplyPanelArrangementActive(mode) {
-  const activeIdx = (typeof WP !== 'undefined' && WP && WP.selectedPolyIdx >= 0 && WP.polylines && WP.polylines[WP.selectedPolyIdx]) ? WP.selectedPolyIdx : 0;
-  if (typeof wpApplyPanelArrangement === 'function') {
-    wpApplyPanelArrangement(activeIdx, mode);
-  }
-}
-window.wpApplyPanelArrangementActive = wpApplyPanelArrangementActive;
-
-function wpApplyActiveArrangementToAll() {
-  const activeIdx = (typeof WP !== 'undefined' && WP && WP.selectedPolyIdx >= 0 && WP.polylines && WP.polylines[WP.selectedPolyIdx]) ? WP.selectedPolyIdx : 0;
-  if (typeof wpApplyPanelArrangementToAll === 'function') {
-    wpApplyPanelArrangementToAll(activeIdx);
-  }
-}
-window.wpApplyActiveArrangementToAll = wpApplyActiveArrangementToAll;
-
-// ── EXPORTACIÓN DE INFORME TÉCNICO PDF PROFESIONAL (PASO 5) ──
-async function generatePdfReport() {
-  // [CANÓNICO v3.0] Delegación unificada a docs-generator.js
-  if (typeof window.generateMemoria === 'function') {
-    return window.generateMemoria();
-  }
-  if (typeof window.ensureJsPdfLoaded === 'function') {
-    await window.ensureJsPdfLoaded().catch(() => {});
-  }
-  const sConf = (window.solarProjectConfig && window.solarProjectConfig.calculatedLimits) ? window.solarProjectConfig : {
-    calculatedLimits: { inverter: { model: 'Inversor Central FV' }, module: { model: 'Módulo Tier-1 450W', wp: 450 } }
-  };
-  const pCalcs = (typeof getProjectCalcs === 'function') ? getProjectCalcs() : null;
-  const count = (window.allRenderedPanels && window.allRenderedPanels.length > 0) 
-    ? window.allRenderedPanels.length 
-    : ((pCalcs && pCalcs.numPanels) ? pCalcs.numPanels : ((typeof lastRoofInfo !== 'undefined' && lastRoofInfo && lastRoofInfo.panels) ? lastRoofInfo.panels.length : 0));
-  
-  const modWp = (sConf.calculatedLimits.module && sConf.calculatedLimits.module.wp) 
-    ? sConf.calculatedLimits.module.wp 
-    : ((pCalcs && pCalcs.potMod) ? pCalcs.potMod : 450);
-    
-  const kwp = (pCalcs && pCalcs.kwp) ? pCalcs.kwp : (count * modWp / 1000.0).toFixed(2);
-  const annualYield = (pCalcs && pCalcs.annualKWh) ? pCalcs.annualKWh : Math.round(count * modWp * 1.65 * 0.78);
-  const annualSavings = (pCalcs && pCalcs.ahorro_anual) ? pCalcs.ahorro_anual : Math.round(annualYield * 0.16);
-  const co2 = (pCalcs && pCalcs.co2Ton) ? pCalcs.co2Ton : (annualYield * 0.259 / 1000.0).toFixed(2);
-
-  // Intentar generar PDF con jsPDF si está disponible
-  if (typeof window.jspdf !== 'undefined' && window.jspdf.jsPDF) {
-    try {
-      const { jsPDF } = window.jspdf;
-      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-
-      // Cabecera RA
-      doc.setFillColor(15, 23, 42); // Dark Slate #0F172A
-      doc.rect(0, 0, 210, 38, 'F');
-      
-      doc.setTextColor(245, 158, 11); // Solar Amber #F59E0B
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(18);
-      doc.text('RA · RENEWABLE ARCHITECTURE', 14, 16);
-
-      doc.setTextColor(203, 213, 225); // Slate-300
-      doc.setFontSize(9);
-      doc.setFont('helvetica', 'normal');
-      doc.text('MEMORIA TÉCNICA DE DISEÑO FOTOVOLTAICO 3D & DIMENSIONAMIENTO ELÉCTRICO', 14, 24);
-      doc.text('Fecha: ' + new Date().toLocaleDateString('es-ES') + ' | Generado automáticamente con motor CesiumJS 3D AAA', 14, 30);
-
-      // Bloque 1: Resumen de Instalación
-      doc.setTextColor(15, 23, 42);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(13);
-      doc.text('1. Resumen Ejecutivo del Sistema', 14, 50);
-
-      doc.setDrawColor(226, 232, 240);
-      doc.setFillColor(248, 250, 252);
-      doc.roundedRect(14, 54, 182, 38, 3, 3, 'FD');
-
-      doc.setFontSize(10);
-      doc.setTextColor(51, 65, 85);
-      doc.text('Potencia Pico Total:', 20, 64);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(217, 119, 6);
-      doc.text(kwp + ' kWp (' + count + ' módulos solares)', 75, 64);
-
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(51, 65, 85);
-      doc.text('Inversor Seleccionado:', 20, 72);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(15, 23, 42);
-      doc.text((sConf.calculatedLimits.inverter ? sConf.calculatedLimits.inverter.model : 'Huawei SUN2000-5KTL'), 75, 72);
-
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(51, 65, 85);
-      doc.text('Módulo Fotovoltaico:', 20, 80);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(15, 23, 42);
-      doc.text((sConf.calculatedLimits.module ? sConf.calculatedLimits.module.model : 'LONGi Hi-MO 6 450W'), 75, 80);
-
-      // Bloque 2: Producción y Retorno
-      doc.setTextColor(15, 23, 42);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(13);
-      doc.text('2. Estimación Energética y Medioambiental', 14, 104);
-
-      doc.setFillColor(248, 250, 252);
-      doc.roundedRect(14, 108, 182, 38, 3, 3, 'FD');
-
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(51, 65, 85);
-      doc.text('Producción Anual Estimada:', 20, 118);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(16, 185, 129);
-      doc.text(annualYield.toLocaleString('es-ES') + ' kWh/año', 85, 118);
-
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(51, 65, 85);
-      doc.text('Ahorro Económico Estimado:', 20, 126);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(16, 185, 129);
-      doc.text(annualSavings.toLocaleString('es-ES') + ' €/año', 85, 126);
-
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(51, 65, 85);
-      doc.text('Emisiones de CO2 Evitadas:', 20, 134);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(56, 189, 248);
-      doc.text(co2 + ' Toneladas CO2/año', 85, 134);
-
-      // Pie de Página
-      doc.setFontSize(8);
-      doc.setFont('helvetica', 'italic');
-      doc.setTextColor(148, 163, 184);
-      doc.text('Documento técnico oficial emitido por la plataforma RA. Cálculo bajo normativa IEC 62548 y CTE DB-HE5.', 14, 280);
-
-      // ── ANEXO FOTOGRÁFICO: imagen dron realista + irradiación anual ──
-      try {
-        const caps = (window.raCapturasInforme && window.raCapturasInforme.realista) ? window.raCapturasInforme : null;
-        if (caps) {
-          const pagW = 210, margen = 14;
-          const imgW = pagW - margen * 2;
-          const addPaginaImagen = (dataUrl, titulo) => {
-            doc.addPage();
-            doc.setFontSize(13); doc.setTextColor(15, 23, 42);
-            doc.text(titulo, margen, 16);
-            doc.setFontSize(8); doc.setTextColor(100, 116, 139);
-            doc.text('Captura del visor RA (gemelo digital 3D) — ' + new Date().toLocaleDateString('es-ES'), margen, 21);
-            // proporción 1280:(alto+84) de la composición
-            const ratio = caps.ratio || 0.63;
-            doc.addImage(dataUrl, 'JPEG', margen, 26, imgW, imgW * ratio);
-          };
-          addPaginaImagen(caps.realista, 'ANEXO I — IMAGEN DE DRON: PANELES MONTADOS EN CUBIERTA');
-          if (caps.heatmap) addPaginaImagen(caps.heatmap, 'ANEXO II — MAPA DE IRRADIACIÓN ANUAL POR PANEL');
-          doc.setFontSize(9);
-          doc.text('Las pérdidas anuales por sombreado se calculan con ray-tracing 3D sobre la fotogrametría (192 instantes nominales, sol ≥ 10°).', margen, 292);
-        }
-      } catch(eAnexo) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(eAnexo, 'anexo fotografico'); }
-
-      // ── ANEXO COMPARATIVA DE ESCENARIOS ──
-      try {
-        const comp = window.ultimoComparativo;
-        if (comp && comp.escenarios && comp.escenarios.length) {
-          doc.addPage();
-          doc.setFont('helvetica', 'bold'); doc.setFontSize(13); doc.setTextColor(15, 23, 42);
-          doc.text('ANEXO III — COMPARATIVA DE ESCENARIOS', 14, 16);
-          doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(100, 116, 139);
-          doc.text('Producción y rentabilidad por escenario · motores del visor · ' + comp.fecha, 14, 21);
-          let yy = 32;
-          const cols = [
-            { label: 'Escenario', x: 14, align: 'left' },
-            { label: 'kWh/ano', x: 78, align: 'right' },
-            { label: 'CAPEX (EUR)', x: 106, align: 'right' },
-            { label: 'Ahorro/ano', x: 134, align: 'right' },
-            { label: 'Payback', x: 158, align: 'right' },
-            { label: 'VAN 4% (EUR)', x: 182, align: 'right' },
-            { label: 'TIR', x: 203, align: 'right' }
-          ];
-          doc.setFont('helvetica', 'bold'); doc.setFontSize(7.5); doc.setTextColor(30, 41, 59);
-          cols.forEach(c => { if (c.align === 'right') doc.text(c.label, c.x, yy, { align: 'right' }); else doc.text(c.label, c.x, yy); });
-          yy += 3;
-          doc.line(14, yy, 203, yy); yy += 5;
-          const mejor = [...comp.escenarios].sort((a, b) => b.van - a.van)[0];
-          comp.escenarios.forEach(s => {
-            const esMejor = s === mejor;
-            doc.setFont('helvetica', esMejor ? 'bold' : 'normal'); doc.setFontSize(7.5);
-            if (esMejor) doc.setTextColor(5, 122, 85); else doc.setTextColor(30, 41, 59);
-            doc.text(s.nombre, 14, yy);
-            doc.text(s.kwh.toLocaleString('es-ES'), 78, yy, { align: 'right' });
-            doc.text(s.capex.toLocaleString('es-ES'), 106, yy, { align: 'right' });
-            doc.text(s.ahorro.toLocaleString('es-ES'), 134, yy, { align: 'right' });
-            doc.text(s.payback ? s.payback.toFixed(1) : '—', 158, yy, { align: 'right' });
-            doc.text(s.van.toLocaleString('es-ES'), 182, yy, { align: 'right' });
-            doc.text(s.tir != null ? s.tir.toFixed(1) + '%' : 'N/D', 203, yy, { align: 'right' });
-            yy += 6;
-          });
-          doc.setFont('helvetica', 'italic'); doc.setFontSize(7); doc.setTextColor(100, 116, 139);
-          doc.text('Mejor VAN: ' + mejor.nombre + '. CAPEX = equipamiento de catalogo + instalacion fija.', 14, yy + 3);
-          doc.text('VAN al 4% a 25 anos con degradacion de paneles 0,45%/ano. Generada el ' + comp.fecha + '.', 14, yy + 8);
-        }
-      } catch(eCompPdf) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(eCompPdf, 'anexo comparativa'); }
-
-      doc.save('Memoria_Tecnica_Solar_RA_' + new Date().toISOString().substring(0, 10) + '.pdf');
-      if (typeof showToast === 'function') {
-        showToast('INFORME PDF DESCARGADO', 'Se ha generado y descargado la memoria técnica oficial.', 'success', 3500);
-      }
-      return;
-    } catch(ePdf) {
-      window.RA && window.RA.log && window.RA.log.debug('Fallo al generar jsPDF directo, abriendo pestaña de documentación:', ePdf);
-    }
-  }
-
-  // Fallback: Abrir pestaña de documentación
-  if (typeof switchSidebarTab === 'function') {
-    switchSidebarTab('documentacion');
-    if (typeof showToast === 'function') {
-      showToast('GENERADOR DE INFORMES', 'Accediendo al centro de memorias técnicas y propuestas comerciales.', 'info', 3000);
-    }
-  }
-}
+// [PODA FASE 4] Controles legacy Step 6 y generatePdfReport eliminados (delegado a docs-generator.js / working-plane.js)
 
 // [CANÓNICO] wpUpdateStep3UI reside de forma modular en js/working-plane.js
 

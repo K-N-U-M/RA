@@ -25,6 +25,8 @@
 window.RA_App = window.RA_App || {};
     window.CESIUM_BASE_URL = 'https://cesium.com/downloads/cesiumjs/releases/1.118/Build/Cesium/';
   </script>
+  <script defer src="js/ra-bootstrap.js"></script>
+  <script defer src="js/ra-events.js"></script>
   <script defer src="https://cesium.com/downloads/cesiumjs/releases/1.118/Build/Cesium/Cesium.js"></script>
   <script defer src="js/cesium-safety.js?v=20261007a"></script>
   <link href="https://cesium.com/downloads/cesiumjs/releases/1.118/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
@@ -41,13 +43,18 @@ window.RA_App = window.RA_App || {};
   <script defer src="js/l-building-parametric.js?v=20261118_t2"></script>
   <script defer src="js/buildings.js?v=20261118_t2"></script>
     <script defer src="js/radiation-engine.js?v=20261118_t3"></script>
+    <script defer src="js/pv-advanced-models.js"></script>
     <script defer src="js/solar-heatmap.js?v=20261120_shadow_cfg_v2"></script>
     <script defer src="js/solar-live-probe.js?v=20261117_d1"></script>
-    <script defer src="js/ra-env.js"></script>
+    <script type="text/plain" data-ra-optional="true" src="js/ra-env.js"></script>
+    <script>window.RA_ENV = window.RA_ENV || {};</script>
 <script defer src="js/config.js?v=20261028a"></script>
     <script defer src="js/modules-breakdown.js?v=20261020a"></script>
     <!-- Catálogo Canónico de Iconografía e Ilustraciones SVG Monocromáticas (SSOT) -->
   <script defer src="js/svg-catalog.js?v=20261023b"></script>
+  <script defer src="js/ai-client.js"></script>
+  <script defer src="js/doc-popup-runtime.js"></script>
+  <script defer src="js/financial-model.js"></script>
   <script defer src="js/financials.js?v=20261124_pvp_col"></script>
   <script defer src="js/viewer.js?v=20261118_t1b"></script>
   <script defer src="js/solar-engine.js?v=20261118_t3"></script>
@@ -753,7 +760,7 @@ window.RA_App = window.RA_App || {};
                 </div>
 
                 <div class="field-row" style="display:flex;justify-content:space-between;align-items:center;">
-                  <span style="font-size: 10px;color:var(--text-slate-300);">Altura Total ($H$ en m):</span>
+                  <span style="font-size: 10px;color:var(--text-slate-300);">Altura Total (H en m):</span>
                   <input type="number" id="bld-height" min="1" max="150" step="0.5" value="6.0" class="field-input" style="width:75px;font-size: 10px;padding:3px 6px;text-align:right;" onwheel="this.blur()" oninput="updateSelectedBuildingProps()" onchange="updateSelectedBuildingProps()">
                 </div>
 
@@ -1061,7 +1068,7 @@ window.RA_App = window.RA_App || {};
                 </select>
                 <div class="stat-grid-2" style="margin-bottom:4px;">
                   <button class="doc-mini-btn" onclick="wpInsertPointInSelectedPoly()" style="text-align:center;">+ INSERTAR PTO</button>
-                  <button class="doc-mini-btn" onclick="wpStartMovePolyline(WP.selectedPolyIdx)" style="text-align:center;color:#38BDF8;background:rgba(56,189,248,0.12);border-color:rgba(56,189,248,0.3);" title="Mover faldón con su contenido sobre el mismo plano (M)"><i data-lucide="move" class="icon-sm"></i> MOVER</button>
+                  <button class="doc-mini-btn" onclick="wpStartMovePolyline(WP.selectedPolyIdx)" style="text-align:center;color:#38BDF8;background:rgba(56,189,248,0.12);border-color:rgba(56,189,248,0.3);" title="Mover faldón con su contenido sobre el mismo plano"><i data-lucide="move" class="icon-sm"></i> MOVER</button>
                   <button class="doc-mini-btn" onclick="wpStartStampPolyline(WP.selectedPolyIdx)" style="text-align:center;color:var(--emerald-400);background:rgba(16,185,129,0.12);border-color:rgba(16,185,129,0.3);" title="Duplicar faldón con su contenido (Ctrl+D)"><i data-lucide="copy" class="icon-sm"></i> DUPLICAR</button>
                 </div>
                 <button class="doc-mini-btn" onclick="wpDeleteSelectedPolyline()" style="width:100%;text-align:center;color:var(--rose-500);"><i data-lucide="trash-2" class="icon-sm"></i> BORRAR POLILÍNEA</button>
@@ -1304,7 +1311,7 @@ window.RA_App = window.RA_App || {};
                     </div>
                     <div style="display:flex;align-items:center;gap:6px;">
                       <button type="button" id="faldon-reset-mesh-btn" class="doc-mini-btn" style="padding:1px 6px;font-size: 10px;font-weight:bold;color:#38BDF8;border-color:rgba(56,189,248,0.35);background:rgba(56,189,248,0.14);" onclick="wpResetFaldonPanels(WP.selectedPolyIdx)" title="Restaurar malla original de este faldón (recupera placas borradas, movidas o rotadas)"><i data-lucide="rotate-ccw" class="icon-sm"></i> RESET MALLA</button>
-                      <button type="button" class="doc-mini-btn" style="padding:1px 6px;font-size: 10px;font-weight:bold;color:#38BDF8;border-color:rgba(56,189,248,0.35);background:rgba(56,189,248,0.14);" onclick="wpStartMovePolyline(WP.selectedPolyIdx)" title="Mover este faldón con todos sus paneles y obstáculos sobre el mismo plano (M)"><i data-lucide="move" class="icon-sm"></i> MOVER</button>
+                      <button type="button" class="doc-mini-btn" style="padding:1px 6px;font-size: 10px;font-weight:bold;color:#38BDF8;border-color:rgba(56,189,248,0.35);background:rgba(56,189,248,0.14);" onclick="wpStartMovePolyline(WP.selectedPolyIdx)" title="Mover este faldón con todos sus paneles y obstáculos sobre el mismo plano"><i data-lucide="move" class="icon-sm"></i> MOVER</button>
                       <button type="button" class="doc-mini-btn" style="padding:1px 6px;font-size: 10px;font-weight:bold;color:var(--emerald-400);border-color:rgba(16,185,129,0.3);background:rgba(16,185,129,0.15);" onclick="wpStartStampPolyline(WP.selectedPolyIdx)" title="Duplicar este faldón con todos sus paneles y obstáculos (Ctrl+D)"><i data-lucide="copy" class="icon-sm"></i> DUPLICAR</button>
                       <span id="faldon-card-stats" style="font-size: 10px;font-weight:bold;color:var(--emerald-400);">0 mods · 0.00 kWp</span>
                     </div>
@@ -1545,7 +1552,7 @@ window.RA_App = window.RA_App || {};
                           <input id="faldon-lock-row-pitch-chk" type="checkbox" style="accent-color:#10B981;cursor:pointer;margin:0;" onchange="if (typeof wpTogglePolyLockRowPitch === 'function') wpTogglePolyLockRowPitch(WP.selectedPolyIdx, this.checked);" />
                           <span>🔒 Fijar nº placas al inclinar</span>
                         </label>
-                        <select aria-label="Espejo Izq/Der 🧭 EJES DE COORDENADAS: Eje X: --° 🏢 Lados del Edificio 🧭 Brújula (N-S) Muro #1 ◀ 🔄 Cambiar Lado Tipología de Cubierta: Plana (con Peto) A 1 Agua (Monopitch) A 2 Aguas (Cumbrera) A 4 Aguas (Pabellón) En L (Paramétrica & Catálogo) Inclinación Faldones ($ heta$): 25° Orientación Faldón Principal: 180° (S) Sur 180° Este 90° Oeste 270° Norte 0° Peto Altura (m): Peto Ancho / Grosor (m): Alero / Voladizo (m): Grosor de Faldón / Losa (m): Lucernarios / Buhardillas: Ninguno 1 Ventana 2 Ventanas 4 Ventanas (2x2) Fachada / Tejado / Aristas: HUELLA PERIMETRAL 4 VÉRTICES Editar Vértices Redibujar Vértice #1 Eliminar Vértice Arrastra las flechas 3D en el visor para mover la esquina. Doble clic en una arista para añadir un punto. CONVERTIR FALDONES EN PLANOS SOLARES FV BORRAR EDIFICIO 3D 2. Contorno Útil de Cubierta 0 PUNTOS DIBUJAR POLILÍNEA EN PLANO Polilínea #1 Perímetro 0.00 m Área Est. 0 m² CERRAR POLILÍNEA ↶ DESHACER PTO Polilíneas de Cubierta 0 POLILÍNEAS Sin polilíneas + INSERTAR PTO DUPLICAR BORRAR POLILÍNEA VÉRTICE SELECCIONADO NINGUNO Usa el Gizmo 3D interactivo sobre el vértice en el visor (Ejes U/V y Arrastre libre) para ajustar su posición sobre la cubierta. + INSERTAR VTX BORRAR VTX CONTINUAR A OBSTÁCULOS 3D (1.3) Saltar directamente a Campo Solar (Paso 2) → 1.3 OBSTÁCULOS 3D &amp; SOMBRAS LOCALES ▶ Obstáculos 3D &amp; Casetones 0 OBSTÁCULOS + CHIMENEA0.6×0.6×1.2m + CASETON2.5×3.0×2.0m + HVAC1.5×1.0×1.2m + A MEDIDAPersonalizado + ÁRBOL TIPO3.0×3.0×5.0m + EÓLICAAerogenerador COLOCACIÓN ACTIVA: Mueve el ratón sobre el plano y haz clic para fijar. ESC cancela. Obstáculos en Cubierta 0 OBSTÁCULOS Sin obstáculos CHIMENEA #1 ✓ En cubierta Giro: 0° Atraer y Centrar en Cubierta ORIENTACIÓN: A PLOMO COPLANAR Ancho (W) Largo (L) Altura (H) COLOR DEL MATERIAL: #DC2626 Personalizado o acabado: BORRAR ESTE OBSTÁCULO CONTINUAR A CAMPO SOLAR (PASO 2) ☀️ SOLAR (FV) 💨 EÓLICA Paso 2: Campo Solar &amp; Malla Fotovoltaica 3D CAD Selecciona el módulo fotovoltaico y ajusta inclinación, orientación y disposición sobre la cubierta: MÓDULOS 0 POTENCIA DC 0.0 kWp STRINGS MPPT 0 No hay faldones cerrados todavía. Traza una polilínea y ciérrala para crear un faldón. FALDÓN ACTIVO 0 FALDONES Sin faldones Faldón RESET MALLA DUPLICAR 0 mods · 0.00 kWp PANEL FV INDIVIDUAL: PDF IA A TODOS ESTRUCTURA DE MONTAJE: A TODOS Coplanar (Teja / Salvatejas) Coplanar (Chapa / Sándwich) Bloques de Lastre de Hormigón (Cubierta Plana) Triángulos 30º (Cubierta Plana) Estructura 15º Este-Oeste Triángulos Ángulo Adaptable (Personalizado) Pérgola elevada Bloques de lastre por placa: 1 ud 2 uds 3 uds 4 uds Altura libre pérgola: m Tipo de cubierta: Tejadillo continuo (porche) Filas independientes (pasillo) Fabricante: Sunfer Energy K2 Systems Fischer Solar-Fix Personalizado ALINEACIÓN DE REJILLA: 🔒 PLANO CAD (P1→P2) DISPOSICIÓN SOLAR: A TODOS COPLANAR CARA AL SOL MANUAL ⚡ AUTO-OPTIMIZAR CAMPO SOLAR (kWh/año) COMPARADOR DE ORIENTACIÓN: Analizando... VERTICAL -- mods HORIZONTAL -- mods HÍBRIDO (V+H) -- mods PASILLO MANTENIMIENTO: NO (Cobertura total) A TODOS Divide las placas con un pasillo libre de 80 cm para paso y limpieza. SEPARACIÓN ENTRE FILAS: Sin sombras (Invierno) Pasillo libre: -- m Paso total (fila a fila): -- m Ajuste Pasillo Manual: AUTO -- m 0.20 m (Mín) CTE: -- m 6.00 m (Máx) Garantiza 4h libres de sombra en solsticio (10:00 - 14:00 solar) según CTE/IDAE INCLINACIÓN MÓDULO (βm): ° Auto 🎯 PICO AUTO ⟳ AZIMUT / GIRO EN PLANO: Auto AUTO 0° N 90° E 180° S 270° O ⚡ SINTONIZADOR SOLAR EN VIVO EN VIVO Rendimiento específico -- kWh/kWp Cosecha Faldón -- uds -- kWh/año 🔒 Fijar nº placas al inclinar" id="faldon-row-pitch-window-sel" style="font-size:9px;padding:1px 3px;background:#0f172a;color:#CBD5E1;border:1px solid rgba(255,255,255,0.15);border-radius:4px;" title="Ventana horaria libre de sombra entre filas el 21 de diciembre (más horas = más pasillo, menos placas y menos pérdidas)" onchange="if (typeof wpSetPolyRowPitchWindow === 'function') wpSetPolyRowPitchWindow(WP.selectedPolyIdx, parseFloat(this.value));">
+                        <select aria-label="Ventana libre de sombra entre filas" id="faldon-row-pitch-window-sel" style="font-size:9px;padding:1px 3px;background:#0f172a;color:#CBD5E1;border:1px solid rgba(255,255,255,0.15);border-radius:4px;" title="Ventana horaria libre de sombra entre filas el 21 de diciembre (más horas = más pasillo, menos placas y menos pérdidas)" onchange="if (typeof wpSetPolyRowPitchWindow === 'function') wpSetPolyRowPitchWindow(WP.selectedPolyIdx, parseFloat(this.value));">
                           <option value="2">☀️ 10-14 h (CTE)</option>
                           <option value="2.5">☀️ 9:30-14:30 h</option>
                           <option value="3">☀️ 9-15 h</option>
@@ -1601,7 +1608,7 @@ window.RA_App = window.RA_App || {};
                     <!-- Botón Centrar / Restablecer + atajo de teclado explicativo -->
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-top:2px;">
                       <span style="font-size:9px;color:#94A3B8;">⌨ Flechas: ±1cm (Shift: ±10cm)</span>
-                      <button type="button" class="doc-mini-btn" style="padding:1px 7px;font-size:9px;font-weight:700;background:rgba(56,189,248,0.15);color:#38BDF8;border-color:rgba(56,189,248,0.35);margin-right:3px;" onclick="wpResetFaldonPanels(WP.selectedPolyIdx)" title="Recuperar todas las placas borradas, movidas o rotadas en este faldón"><i data-lucide="refresh-cw" class="icon-sm"></i> RESTAURAR MALLA</button><button type="button" class="doc-mini-btn" style="padding:1px 7px;font-size:9px;font-weight:700;background:rgba(239,68,68,0.12);color:#F87171;border-color:rgba(239,68,68,0.3);" onclick="wpResetPolylinePanelsShift(WP.selectedPolyIdx)" title="Restablecer posición por defecto">
+                      <button type="button" class="doc-mini-btn" style="padding:1px 7px;font-size:9px;font-weight:700;background:rgba(239,68,68,0.12);color:#F87171;border-color:rgba(239,68,68,0.3);" onclick="wpResetPolylinePanelsShift(WP.selectedPolyIdx)" title="Restablecer posición por defecto">
                         <i data-lucide="rotate-ccw" class="icon-sm"></i> CENTRAR
                       </button>
                     </div>
@@ -1722,7 +1729,7 @@ window.RA_App = window.RA_App || {};
                 <div id="step3-bill-extra-fields" style="display:none;margin-top:6px;padding-top:6px;border-top:1px dashed rgba(255,255,255,0.08);flex-direction:column;gap:5px;font-size:9.5px;">
                   <div>
                     <label style="font-size:8.5px;color:#94A3B8;display:block;text-transform:uppercase;margin-bottom:2px;">Código CUPS:</label>
-                    <input aria-label="🛡️ Ignorar sombras de malla 3D (Tiles) DESPLAZAMIENTO DE PRECISIÓN: SELECCIONAR TODAS (Ctrl+A) Longitudinal (A): 0 cm -10cm -1cm +1cm +10cm Transversal (B): 0 cm -10cm -1cm +1cm +10cm ⌨ Flechas: ±1cm (Shift: ±10cm) RESTAURAR MALLA CENTRAR VOLVER A EMPLAZ. (1) RECALCULAR CONTINUAR A ANÁLISIS (3) Paso 3: Análisis Solar &amp; Demanda ASTRONÓMICO Audita la demanda del cliente, evalúa el recurso solar de cubierta y simula las pérdidas reales por sombras: Estudio de Sombras Desactualizado Se han modificado tejados, obstáculos o paneles. Las sombras y la producción anual ya no coinciden con la escena 3D. Actualizar Estudio de Sombras y Sol Ahora Factura & Consumo Eléctrico Subir PDF ▾ Más Gasto Mensual Actual: €/mes Consumo Anual Total: kWh Potencia Contratada: kW Precio Red: REE €/kWh Código CUPS" type="text" id="step3-bill-cups" placeholder="ES00210000XXXXXXXXXX" oninput="wpSyncStep3BillParams()" style="width:100%;box-sizing:border-box;background:rgba(0,0,0,0.4);border:1px solid rgba(56,189,248,0.3);border-radius:4px;color:#38BDF8;font-size:9.5px;font-family:monospace;padding:3px 6px;">
+                    <input aria-label="Código CUPS de suministro eléctrico" type="text" id="step3-bill-cups" placeholder="ES00210000XXXXXXXXXX" oninput="wpSyncStep3BillParams()" style="width:100%;box-sizing:border-box;background:rgba(0,0,0,0.4);border:1px solid rgba(56,189,248,0.3);border-radius:4px;color:#38BDF8;font-size:9.5px;font-family:monospace;padding:3px 6px;">
                   </div>
                   <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;">
                     <div>
@@ -2387,7 +2394,7 @@ window.RA_App = window.RA_App || {};
                     <option value="flat_aisle">Cubierta Plana / Lastre (Peines por Pasillo + Bandeja Colectora)</option>
                     <option value="multi_roof_trunk">Industrial Multi-Faldón (Troncal Común entre Cubiertas)</option>
                   </select>
-                  <button type="button" id="btn-toggle-cable-audit-step4" onclick="if(typeof wpToggleCableAuditElevation === 'function') wpToggleCableAuditElevation();" style="width:100%;padding:5px 6px;font-size:10px;background:rgba(15,23,42,0.7);border:1px solid rgba(148,163,184,0.35);color:#CBD5E1;border-radius:5px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;" title="Proyecta visualmente los cables +24 cm por encima de las placas para inspección sin alterar mediciones (Atajo: C)">
+                  <button type="button" id="btn-toggle-cable-audit-step4" onclick="if(typeof wpToggleCableAuditElevation === 'function') wpToggleCableAuditElevation();" style="width:100%;padding:5px 6px;font-size:10px;background:rgba(15,23,42,0.7);border:1px solid rgba(148,163,184,0.35);color:#CBD5E1;border-radius:5px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;" title="Proyecta visualmente los cables +24 cm por encima de las placas para inspección sin alterar mediciones (Atajo: Shift+C)">
                     <span><i data-lucide="eye" class="icon-sm"></i> AUDITAR CABLES (+24 cm)</span>
                   </button>
                 </div>
@@ -2759,7 +2766,7 @@ window.RA_App = window.RA_App || {};
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
             <span style="font-weight:900;font-size:13px;color:#fff;letter-spacing:0.5px;">CATÁLOGO OFICIAL DE EQUIPOS FOTOVOLTAICOS</span>
             <span class="card-tag" style="background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.35);color:#34d399;font-size:9.5px;font-weight:700;padding:2px 7px;border-radius:4px;display:inline-flex;align-items:center;gap:4px;" title="Fecha de último despliegue en producción / rama activa">
-              <i data-lucide="rocket" class="icon-sm" style="width:11px;height:11px;"></i> DEPLOY: 2026-11-24 17:05 (v3.2.0 · #fbfeafa)
+              <i data-lucide="rocket" class="icon-sm" style="width:11px;height:11px;"></i> 
             </span>
           </div>
           <div style="font-size: 10px;color:var(--text-slate-400);">Módulos Tier 1, Inversores, Baterías y Optimizadores / Microinversores</div>
@@ -3009,7 +3016,7 @@ window.RA_App = window.RA_App || {};
           <div id="edit-general-fields" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px;">
             <div class="doc-field">
               <label>Marca / Fabricante:</label>
-              <input aria-label="Curva de Potencia Certificada (v: m/s, P: W, Ct: empuje 0-1): Autocalibrar según Betz Auditoría de curva: Físicamente viable GUARDAR EQUIPO EN CATÁLOGO LOCAL MODIFICAR ESPECIFICACIONES TÉCNICAS MÓDULO Marca / Fabricante" type="text" id="edit-eq-brand">
+              <input aria-label="Fabricante y modelo del equipo" type="text" id="edit-eq-brand">
             </div>
             <div class="doc-field">
               <label for="edit-eq-model">Modelo / Denominación:</label>
@@ -3700,7 +3707,7 @@ window.RA_App = window.RA_App || {};
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
           <div class="doc-field">
             <label style="font-size:10px;color:var(--text-slate-300);font-weight:700;margin-bottom:4px;display:block;">Razón Social / Marca Comercial:</label>
-            <input aria-label="Vivienda uso particular con ≥ 2 años de antigüedad Cargar margen comercial mayoritariamente s/ Mano de Obra e Instalación Peso Materiales s/ Base Imponible: 0.0% (≤ 40%) Mat: 0 € · Serv/MO: 0 € · Tope 40%: 0 € ⚖️ Ajustar Partidas al ≤ 40% (Mantener Total) ✂️ Reducir Materiales al 40% Calificación Suelo / Finca: Urbano / Residencial (IBI Bonificable) Rústico / Finca Aislada (Sin IBI urbano) Cuota Anual IBI Inmueble (€/año): Bonificación IBI (% / Años): Sin bonificación municipal 50% durante 3 años (Estándar) 50% durante 5 años (Madrid/Bcn) 50% durante 10 años (Máx. TRLRHL) 30% durante 3 años 25% durante 5 años CEE / Deducción Estatal IRPF: Sin deducción IRPF (0%) 20% (CEE: Reducción 7% dem. térmica · máx 5.000€) 40% (CEE: Reducción 30% energ. no renov. / Cl. A-B · máx 7.500€) 60% (CEE: Edificio Residencial Completo · máx 15.000€) Libertad Amortización (IS): 25% Escudo Fiscal (Tipo General) 23% Escudo Fiscal (Pymes &lt; 1M€) 15% Escudo Fiscal (Nueva creación) 0% (Sin libertad amortización) Bonificación ICIO: 95% Bonificación ICIO (Máx. Ley) 50% Bonificación ICIO Sin bonificación Ayudas Directas / CAEs (€): ⚠️ PECULIARIDADES AISLADA DE RED (OFF-GRID): • IRPF: Exige CEE previo registrado o justificar sustitución de grupo electrógeno fósil. • IBI: Inmuebles en suelo rústico generalmente no califican para bonificación municipal. DESGLOSE Y FÓRMULAS DE CÁLCULO RD-ley 19/2021 + TRLRHL Calculando desglose... Bonif. EPC (IBI + IRPF) 0 € Ahorro Licencia ICIO 0 € INVERSIÓN NETA TRAS AYUDAS: 0 € 3. Métricas de Rentabilidad y Retorno 25 AÑOS Ahorro Anual (Año 1) 0 €/año Amortización Neta 0 años Valor Actual Neto (VAN) 0 € Tasa Interna Retorno (TIR) 0.0 % Coste LCOE Fotovoltaico 0.035 €/kWh Autoconsumo / Autarquía 50% Estrategia Comercial &amp; Descuento CIERRA-VENTAS Activar Descuento Promocional % Descuento € Directos Partidas Opcionales (Quita y Pon): 4. Condiciones de Financiación Bancaria CRÉDITO A MEDIDA Modalidad de Pago Oferta: Comparativa (Contado vs Financiado) Solo Pago al Contado (Llave en mano) Solo Financiación (Crédito) Entrada Inicial Aportada (€): Resta del capital principal a financiar Plazo del Préstamo: 3 Años (36 cuotas) 5 Años (60 cuotas) 7 Años (84 cuotas) 8 Años (96 cuotas) 10 Años (120 cuotas) 12 Años (144 cuotas) 15 Años (180 cuotas) Tasas Financiación (TIN / TAE): TIN TAE Comisión Apertura (%): Carencia Inicial (Meses): Sin carencia (0 m) 1 mes de carencia 2 meses de carencia 3 meses de carencia Seguro/Mant. en Cuota (€/mes): Gastos Formalización (€): Batería Virtual / Monedero Solar: Compensar excedentes al 100% sin tope de término de energía Capital Financiado Neto: 0 € Cuota Mensual Crédito: 0 €/mes Factura Estimada tras Amortización: ~0 €/mes Ahorro Estimado en Factura: 0 €/mes BALANCE NETO MENSUAL: +0 €/mes Los cambios se sincronizan en tiempo real con el proyecto y los informes técnicos. ACEPTAR Y APLICAR MODAL DE DATOS & LOGOTIPO DE EMPRESA (OPCIÓN B AAA) --> IDENTIDAD CORPORATIVA, LOGO &amp; WHITE-LABEL Personalización de la Memoria Técnica Oficial y Propuesta Comercial PDF Logotipo Oficial de la Empresa / Instaladora CARGAR LOGOTIPO (PNG / JPG / SVG) ELIMINAR Recomendado: imagen horizontal con fondo transparente (PNG), mín. 400x150 px. Datos Fiscales, Emisión y Contacto Razón Social / Marca Comercial" type="text" id="modal-cfg-company-name" class="field-input" style="width:100%;font-size:11px;" oninput="syncModalInputToBranding('cfg-company-name', this.value)">
+            <input aria-label="Nombre de la empresa instaladora" type="text" id="modal-cfg-company-name" class="field-input" style="width:100%;font-size:11px;" oninput="syncModalInputToBranding('cfg-company-name', this.value)">
           </div>
           <div class="doc-field">
             <label for="modal-cfg-company-cif" style="font-size:10px;color:var(--text-slate-300);font-weight:700;margin-bottom:4px;display:block;">CIF / NIF Empresa:</label>
@@ -4018,7 +4025,7 @@ window.RA_App = window.RA_App || {};
       <div style="display:flex;align-items:center;gap:8px;">
         <span style="font-size:12px;font-weight:700;color:#fff;letter-spacing:0.05em;">⚙️ AJUSTES DE RENDERIZADO</span>
         <span class="card-tag" style="background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.35);color:#34d399;font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px;" title="Último deploy activo">
-          DEP: 2026-11-24 17:05
+          
         </span>
       </div>
       <button onclick="toggleSettingsPopover(false)" style="background:none;border:none;color:#94a3b8;cursor:pointer;" aria-label="Cerrar panel de ajustes"><i data-lucide="x" class="icon-sm"></i></button>
@@ -4199,7 +4206,7 @@ window.RA_App = window.RA_App || {};
       <span style="font-weight:700;">LIVE HEATMAP</span>
       <span id="tag-live-heatmap-status" class="card-tag" style="background:rgba(245,158,11,0.2);color:#FBBF24;font-size: 10px;font-weight:900;padding:2px 4px;border-radius:4px;">PROBE</span>
     </button>
-    <button type="button" class="btn-action-secondary" id="btn-toggle-cable-audit" onclick="if(typeof wpToggleCableAuditElevation === 'function') wpToggleCableAuditElevation();" style="padding:0 12px; height:48px; border-radius:24px; font-size:10px; border:1px solid rgba(245,158,11,0.4); display:flex; gap:6px; align-items:center; background:rgba(15,23,42,0.88); backdrop-filter:blur(16px); color:#fff; cursor:pointer; box-shadow:0 4px 16px rgba(0,0,0,0.4); transition:all 0.2s cubic-bezier(0.16,1,0.3,1);" title="Proyecta visualmente los cables +24 cm sobre cubierta para inspección sin alterar longitudes reales (Atajo: C)" aria-label="Alternar vista elevada de auditoría de cables">
+    <button type="button" class="btn-action-secondary" id="btn-toggle-cable-audit" onclick="if(typeof wpToggleCableAuditElevation === 'function') wpToggleCableAuditElevation();" style="padding:0 12px; height:48px; border-radius:24px; font-size:10px; border:1px solid rgba(245,158,11,0.4); display:flex; gap:6px; align-items:center; background:rgba(15,23,42,0.88); backdrop-filter:blur(16px); color:#fff; cursor:pointer; box-shadow:0 4px 16px rgba(0,0,0,0.4); transition:all 0.2s cubic-bezier(0.16,1,0.3,1);" title="Proyecta visualmente los cables +24 cm sobre cubierta para inspección sin alterar longitudes reales (Atajo: Shift+C)" aria-label="Alternar vista elevada de auditoría de cables">
       <i data-lucide="git-commit" class="icon-sm" style="color:#f59e0b;"></i>
       <span style="font-weight:700;">VER CABLES</span>
       <span id="tag-cable-audit-status" class="card-tag" style="background:rgba(100,116,139,0.25);color:#94A3B8;font-size: 10px;font-weight:900;padding:2px 4px;border-radius:4px;">OFF</span>
@@ -4229,6 +4236,7 @@ window.RA_App = window.RA_App || {};
   })();
 </script>
 
+  <div id="ra-mobile-sidebar-backdrop"></div>
 </body>
 </html>
 

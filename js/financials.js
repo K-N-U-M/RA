@@ -7298,14 +7298,18 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
   };
   const tou = TOU_PROFILES[touTarifa] || TOU_PROFILES.plana;
 
+  const _hdRef = (typeof window !== 'undefined' && window.RAWind && window.RAWind.HybridDispatch) ? window.RAWind.HybridDispatch : null;
+
   // Perfil solar horario normalizado (kWh por kWh diario producido)
   const SOLAR_PROFILE = [0.00,0.00,0.00,0.00,0.00,0.00,0.02,0.05,0.08,0.10,0.11,0.11,0.10,0.09,0.08,0.06,0.04,0.02,0.00,0.00,0.00,0.00,0.00,0.00];
 
-  // Curva de consumo horaria normalizada según perfil (empresa diurna vs vivienda doméstica)
-  const rawLoadProfile = (customerProfile === 'empresa')
-    ? [0.015,0.014,0.014,0.014,0.015,0.018,0.028,0.052,0.078,0.088,0.088,0.086,0.082,0.072,0.068,0.072,0.070,0.064,0.052,0.038,0.028,0.022,0.018,0.016]
-    : [0.030,0.025,0.022,0.020,0.020,0.028,0.040,0.050,0.045,0.035,0.032,0.035,0.038,0.032,0.030,0.038,0.050,0.065,0.070,0.062,0.052,0.048,0.042,0.036];
-  const sumRawLoad = rawLoadProfile.reduce((a, b) => a + b, 0);
+  // Curva de consumo horaria normalizada según perfil (SSOT compartido con wind-hybrid-dispatch.js)
+  const rawLoadProfile = (_hdRef && _hdRef.LOAD_PROFILES)
+    ? ((customerProfile === 'empresa') ? _hdRef.LOAD_PROFILES.commercial_industrial : _hdRef.LOAD_PROFILES.residential)
+    : ((customerProfile === 'empresa')
+      ? [0.015,0.014,0.014,0.014,0.015,0.018,0.028,0.052,0.078,0.088,0.088,0.086,0.082,0.072,0.068,0.072,0.070,0.064,0.052,0.038,0.028,0.022,0.018,0.016]
+      : [0.030,0.025,0.022,0.020,0.020,0.028,0.040,0.050,0.045,0.035,0.032,0.035,0.038,0.032,0.030,0.038,0.050,0.065,0.070,0.062,0.052,0.048,0.042,0.036]);
+  const sumRawLoad = rawLoadProfile.reduce((a, b) => a + b, 0) || 1;
   const LOAD_PROFILE = rawLoadProfile.map(v => v / sumRawLoad);
 
   // [P0] Consumo anual y reparto mensual real desde Auditoría de Factura (bill-auditor) cuando exista,
@@ -7320,10 +7324,13 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
 
   // ── FASE 5: Despacho Multi-horario Estacional Bancable (12 meses × 24h = 288 horas) ──
   const MONTH_DAYS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-  const MONTH_LOAD_WEIGHTS = [1.18, 1.12, 1.02, 0.92, 0.84, 0.88, 1.06, 1.02, 0.94, 0.94, 1.02, 1.16]; // Climatización estacional peninsular
+  const MONTH_LOAD_WEIGHTS = (_hdRef && Array.isArray(_hdRef.MONTH_LOAD_WEIGHTS) && _hdRef.MONTH_LOAD_WEIGHTS.length === 12)
+    ? _hdRef.MONTH_LOAD_WEIGHTS
+    : [1.18, 1.12, 1.02, 0.92, 0.84, 0.88, 1.06, 1.02, 0.94, 0.94, 1.02, 1.16]; // Climatización estacional peninsular
+  const _wLoadNorm = MONTH_LOAD_WEIGHTS.reduce((acc, w, idx) => acc + w * MONTH_DAYS[idx], 0) / 365.0 || 1.0;
 
   let monthlyConsSource = 'seasonal_weights';
-  let monthlyConsKwh = MONTH_LOAD_WEIGHTS.map((w, m) => (consumoAnual / 365.0) * w * MONTH_DAYS[m]);
+  let monthlyConsKwh = MONTH_LOAD_WEIGHTS.map((w, m) => (consumoAnual / 365.0) * (w / _wLoadNorm) * MONTH_DAYS[m]);
   const _billMonthlyTrace = (billAud && typeof billAud.getMonthlyConsumptionKWh === 'function')
     ? billAud.getMonthlyConsumptionKWh(consumoAnual)
     : null;
@@ -7367,12 +7374,28 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
     monthlySolarKwh = dArr.map(v => v * scaleD);
   } else {
     monthlySource = 'fallback-weights';
-    const solarWeights = [0.045, 0.058, 0.082, 0.098, 0.118, 0.126, 0.132, 0.120, 0.095, 0.068, 0.046, 0.032];
-    const wSolSum = solarWeights.reduce((a, b) => a + b, 0);
+    const solarWeights = (_hdRef && Array.isArray(_hdRef.MONTHLY_SOLAR_WEIGHTS) && _hdRef.MONTHLY_SOLAR_WEIGHTS.length === 12)
+      ? _hdRef.MONTHLY_SOLAR_WEIGHTS
+      : [0.045, 0.058, 0.082, 0.098, 0.118, 0.126, 0.132, 0.120, 0.095, 0.068, 0.046, 0.032];
+    const wSolSum = solarWeights.reduce((a, b) => a + b, 0) || 1;
     monthlySolarKwh = solarWeights.map(w => (w / wSolSum) * solarYieldKWh);
   }
 
-  // Eólica mensual para despacho híbrido 288h (24h continuas según perfil Weibull estacional)
+  // Eólica mensual y ciclo diurno alineados con wind-resource.js y wind-hybrid-dispatch.js (SSOT)
+  const MONTHLY_WIND_WEIGHTS = (_hdRef && Array.isArray(_hdRef.MONTHLY_WIND_WEIGHTS) && _hdRef.MONTHLY_WIND_WEIGHTS.length === 12)
+    ? _hdRef.MONTHLY_WIND_WEIGHTS
+    : [0.105, 0.098, 0.095, 0.088, 0.078, 0.068, 0.064, 0.064, 0.070, 0.082, 0.090, 0.098];
+  const rawDiurnalWind = (_hdRef && Array.isArray(_hdRef.DIURNAL_WIND_FACTORS) && _hdRef.DIURNAL_WIND_FACTORS.length === 24)
+    ? _hdRef.DIURNAL_WIND_FACTORS
+    : [
+      1.18, 1.20, 1.22, 1.20, 1.15, 1.10,
+      1.00, 0.92, 0.85, 0.82, 0.84, 0.88,
+      0.95, 1.02, 1.08, 1.12, 1.15, 1.14,
+      1.12, 1.10, 1.11, 1.14, 1.16, 1.17
+    ];
+  const sumDiurnalWind = rawDiurnalWind.reduce((a, b) => a + b, 0) || 24;
+  const WIND_HOURLY_PROFILE = rawDiurnalWind.map(v => v / sumDiurnalWind);
+
   let monthlyWindKwh = new Array(12).fill(0);
   if (windYieldKWh > 0) {
     if (wPark && Array.isArray(wPark.monthlyKwh) && wPark.monthlyKwh.length === 12 && wPark.monthlyKwh.some(v => v > 0)) {
@@ -7381,24 +7404,32 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
       const wScale = wRawSum > 0 ? (windYieldKWh / wRawSum) : 1.0;
       monthlyWindKwh = wRaw.map(v => v * wScale);
     } else {
-      const windWeights = [1.15, 1.08, 1.12, 1.00, 0.88, 0.78, 0.72, 0.70, 0.80, 0.92, 1.05, 1.18];
-      const wSum = windWeights.reduce((a, b) => a + b, 0);
-      monthlyWindKwh = windWeights.map(w => (w / wSum) * windYieldKWh);
+      const wSum = MONTHLY_WIND_WEIGHTS.reduce((a, b) => a + b, 0) || 1.0;
+      monthlyWindKwh = MONTHLY_WIND_WEIGHTS.map(w => (w / wSum) * windYieldKWh);
     }
   }
 
-  // Normalización del perfil solar por mes en hora oficial española (~40°N: 9.0h invierno a 14.8h verano)
+  // Normalización del perfil solar por mes en hora oficial española (alineado con wind-hybrid-dispatch.js)
+  const _siteLatFin = (d && d.cfg && typeof d.cfg.lat === 'number' && !isNaN(d.cfg.lat)) ? d.cfg.lat : 40.4;
   const getMonthlySolarProfile = (m) => {
+    if (_hdRef && typeof _hdRef.getMonthlySolarShape24h === 'function') {
+      return _hdRef.getMonthlySolarShape24h(m, _siteLatFin);
+    }
+    const latRad = _siteLatFin * Math.PI / 180;
+    const midDoy = [15, 45, 74, 105, 135, 166, 196, 227, 258, 288, 319, 349][m] || 180;
+    const declRad = (23.44 * Math.PI / 180) * Math.sin((2 * Math.PI / 365) * (midDoy - 81));
+    const cosWs = Math.max(-0.96, Math.min(0.96, -Math.tan(latRad) * Math.tan(declRad)));
+    const halfDayLen = (Math.acos(cosWs) * 180 / Math.PI) / 15.0;
     const isDST = (m >= 3 && m <= 9);
     const solarNoonClock = isDST ? 14.15 : 13.25;
-    const halfDayLen = 5.95 + 1.45 * Math.sin((m - 2) * Math.PI / 6);
     const sunrise = solarNoonClock - halfDayLen;
     const sunset = solarNoonClock + halfDayLen;
+    const span = Math.max(sunset - sunrise, 2.0);
     const profile = new Array(24).fill(0);
     let sum = 0;
     for (let h = 0; h < 24; h++) {
       if (h + 0.5 > sunrise && h + 0.5 < sunset) {
-        const val = Math.sin(Math.PI * (h + 0.5 - sunrise) / (sunset - sunrise));
+        const val = Math.sin(Math.PI * (h + 0.5 - sunrise) / span);
         if (val > 0) {
           profile[h] = Math.pow(val, 1.2);
           sum += profile[h];
@@ -7448,7 +7479,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
     let monthCostSinFV = 0;
 
     for (let h = 0; h < 24; h++) {
-      const pv = (solarDailyKwh * solarHourlyProfile[h]) + (windDailyKwh / 24.0);
+      const pv = (solarDailyKwh * solarHourlyProfile[h]) + (windDailyKwh * WIND_HOURLY_PROFILE[h]);
       const load = loadDailyKwh * LOAD_PROFILE[h];
       const price = tou.horas[h];
       const isValley = price <= Math.min(...tou.horas) * 1.15;

@@ -162,6 +162,12 @@
     return table[Math.max(0, Math.min(11, monthIdx | 0))];
   }
 
+  function _calcOrbitalEccentricity(dayOfYear) {
+    return (typeof dayOfYear === 'number' && isFinite(dayOfYear) && dayOfYear >= 1)
+      ? (1 + 0.033 * Math.cos(2 * Math.PI * (dayOfYear - 1) / 365))
+      : 1;
+  }
+
   /**
    * Desagregación Erbs del índice de claridad kt → fracción difusa.
    * @param {number} ghi         Irradiancia global horizontal (W/m²)
@@ -175,9 +181,7 @@
       return { kt: 0, dhiFraction: 1.0, dhi: 0, dni: 0, e0: 1 };
     }
     const sinElev = Math.max(0.017, Math.sin(sunElevDeg * Math.PI / 180));
-    const e0 = (typeof dayOfYear === 'number' && isFinite(dayOfYear) && dayOfYear >= 1)
-      ? (1 + 0.033 * Math.cos(2 * Math.PI * (dayOfYear - 1) / 365))
-      : 1;
+    const e0 = _calcOrbitalEccentricity(dayOfYear);
     // [AUD-2026 · D-05] kt es un índice físico en [0,1]; antes se recortaba a 0,85.
     const kt = Math.min(1.0, Math.max(0.0, ghi / (SOLAR_CONST_WM2 * e0 * sinElev + 1e-3)));
     let dhiFraction;
@@ -220,7 +224,7 @@
   /**
    * Modelo de difusa anisotrópica de Perez (1990) con abrillantamiento circunsolar y de horizonte.
    */
-  function getPerezDiffuse(dhi, dni, ghi, sunElevDeg, tiltRad, cosTheta) {
+  function getPerezDiffuse(dhi, dni, ghi, sunElevDeg, tiltRad, cosTheta, dayOfYear, e0Override) {
     if (dhi <= 0) return 0;
     const elevRad = Math.max(0.01, (sunElevDeg || 0) * Math.PI / 180);
     const thetaZRad = Math.PI / 2 - elevRad;
@@ -228,8 +232,14 @@
     // Masa de aire óptica relativa (Kasten-Young 1989)
     const airMass = 1 / (Math.sin(elevRad) + 0.50572 * Math.pow(Math.max(0, (sunElevDeg || 0) + 6.07995), -1.6364));
 
+    // Irradiancia extraterrestre normal corregida por excentricidad orbital
+    const e0 = (typeof e0Override === 'number' && isFinite(e0Override) && e0Override > 0)
+      ? e0Override
+      : _calcOrbitalEccentricity(dayOfYear);
+    const I0 = SOLAR_CONST_WM2 * e0;
+
     // Parámetro de brillo cenital Delta
-    const delta = (dhi * airMass) / SOLAR_CONST_WM2;
+    const delta = (dhi * airMass) / I0;
 
     // Parámetro de claridad atmosférica Epsilon
     const kappa = 1.041;
@@ -269,6 +279,8 @@
    * @param {number} o.tiltRad   Inclinación del plano en radianes
    * @param {number} [o.albedo]  Albedo del entorno (default 0.20)
    * @param {number} [o.iamB0]   Coeficiente ASHRAE (default 0.05)
+   * @param {number} [o.dayOfYear] Día del año (1-365) para excentricidad orbital E0
+   * @param {number} [o.e0]      Factor de excentricidad orbital explícito
    * @param {string} [o.diffuseModel] 'hay-davies' (default) o 'perez' (Perez 1990)
    * @returns {{G_b:number,G_d:number,G_r:number,G_poa:number,G_poa_raw:number,iamFactor:number,iamBlend:number}}
    */
@@ -281,6 +293,10 @@
     const albedo = (typeof o.albedo === 'number') ? o.albedo : 0.20;
     const b0 = (typeof o.iamB0 === 'number') ? o.iamB0 : 0.05;
     const sinElev = Math.sin((o.sunElevDeg || 0) * Math.PI / 180);
+    const e0 = (typeof o.e0 === 'number' && isFinite(o.e0) && o.e0 > 0)
+      ? o.e0
+      : _calcOrbitalEccentricity(o.dayOfYear);
+    const I0 = SOLAR_CONST_WM2 * e0;
 
     // Componente directa (beam)
     const G_b = Math.max(0, dni * cosTheta);
@@ -288,9 +304,9 @@
     // Componente difusa anisotrópica: Perez 1990 o Hay-Davies
     let G_d = 0;
     if (o.diffuseModel === 'perez') {
-      G_d = getPerezDiffuse(dhi, dni, ghi, o.sunElevDeg || 0, tiltRad, cosTheta);
+      G_d = getPerezDiffuse(dhi, dni, ghi, o.sunElevDeg || 0, tiltRad, cosTheta, o.dayOfYear, e0);
     } else {
-      const Ai = Math.max(0, Math.min(1.0, dni / SOLAR_CONST_WM2));
+      const Ai = Math.max(0, Math.min(1.0, dni / I0));
       const termCirc = Ai * (cosTheta / Math.max(sinElev, 0.05));
       const termIso = (1 - Ai) * ((1 + Math.cos(tiltRad)) / 2);
       G_d = Math.max(0, dhi * (termCirc + termIso));
@@ -299,12 +315,17 @@
     // Componente reflejada (albedo)
     const G_r = ghi * albedo * ((1 - Math.cos(tiltRad)) / 2);
 
-    // Modificador de ángulo de incidencia físico por componente (ASHRAE / Duffie & Beckman)
+    // Modificador de ángulo de incidencia físico por componente (ASHRAE + Brandemuehl & Beckman)
     const iamFactor = (cosTheta > 0.01) ? Math.max(0, 1 - b0 * ((1 / cosTheta) - 1)) : 0;
-    // Transmitancia angular integrada para difusa celeste (ángulo medio incidente ~60°)
-    const iamDiff = Math.max(0, 1 - b0 * (1 / Math.cos(60 * Math.PI / 180) - 1));
-    // Transmitancia angular integrada para albedo del suelo (ángulo medio incidente ~68°)
-    const iamAlb = Math.max(0, 1 - b0 * (1 / Math.cos(68 * Math.PI / 180) - 1));
+    const tiltDeg = Math.max(0, Math.min(90, tiltRad * 180 / Math.PI));
+    const thetaEffDiffDeg = Math.max(0, Math.min(89.5, 59.7 - 0.1388 * tiltDeg + 0.001497 * tiltDeg * tiltDeg));
+    const thetaEffAlbDeg = Math.max(0, Math.min(89.5, 90.0 - 0.5788 * tiltDeg + 0.002693 * tiltDeg * tiltDeg));
+    const cosDiff = Math.cos(thetaEffDiffDeg * Math.PI / 180);
+    const cosAlb = Math.cos(thetaEffAlbDeg * Math.PI / 180);
+    // Transmitancia angular integrada para difusa celeste (Brandemuehl)
+    const iamDiff = (cosDiff > 0.01) ? Math.max(0, 1 - b0 * (1 / cosDiff - 1)) : 0;
+    // Transmitancia angular integrada para albedo del suelo (Brandemuehl)
+    const iamAlb = (cosAlb > 0.01) ? Math.max(0, 1 - b0 * (1 / cosAlb - 1)) : 0;
 
     const G_b_eff = G_b * iamFactor;
     const G_d_eff = G_d * iamDiff;
@@ -353,6 +374,7 @@
     const tp = transposeComponents({
       ghi: ghi, dhi: dhi, dni: dni,
       cosTheta: cosTheta, tiltRad: tiltRad, albedo: alb, sunElevDeg: sunElevDeg,
+      dayOfYear: dayOfYear,
       diffuseModel: diffuseModel || 'hay-davies'
     });
     const incAngleDeg = Math.acos(cosTheta) * 180 / Math.PI;

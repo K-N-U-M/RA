@@ -234,7 +234,7 @@
     }
 
     if (vEq <= powerCurve[0].v) {
-      var frac0 = Math.max(0, (vMs - cutIn) / Math.max(0.1, powerCurve[0].v - cutIn));
+      var frac0 = Math.max(0, (vEq - cutIn) / Math.max(0.1, powerCurve[0].v - cutIn));
       return {
         powerW: Math.max(0, powerCurve[0].p * Math.min(1, frac0)),
         ct: powerCurve[0].ct || 0.40
@@ -436,10 +436,11 @@
     var kBase = Math.max(1.2, Math.min(3.5, Number(cfg.weibullK) || 2.0));
     var gammaFactor = gammaFunction(1 + 1 / kBase);
 
-    // Constante de expansión de estela de Jensen según rugosidad: k_wake ≈ 0.5 / ln(zHub / z0)
+    // Constante de expansión de estela de Jensen según rugosidad: k_wake ≈ 0.5 / ln(zHub_eff / z0)
     var kWake = 0.075;
-    if (hubH > cfg.roughnessLengthM * 2) {
-      kWake = Math.max(0.04, Math.min(0.14, 0.5 / Math.log(hubH / cfg.roughnessLengthM)));
+    var z0Eff = Math.max(0.0002, Number(cfg.roughnessLengthM) || 0.10);
+    if (effectiveHubHeightM > z0Eff * 2) {
+      kWake = Math.max(0.04, Math.min(0.14, 0.5 / Math.log(effectiveHubHeightM / z0Eff)));
     }
 
     var peers = Array.isArray(allTurbines) ? allTurbines : (global.windTurbines || []);
@@ -747,26 +748,41 @@
       var sectors = [];
       var sectorLabels = ['N', 'NNE', 'ENE', 'E', 'ESE', 'SSE', 'S', 'SSW', 'WSW', 'W', 'WNW', 'NNW'];
       var maxSectorFreq = 0;
+      var maxSectorIdx = 0;
       var prevailingDir = 270;
+      var totalSectorHours = 0;
+      for (var sc = 0; sc < 12; sc++) {
+        totalSectorHours += sectorCounts[sc];
+      }
 
+      var freqSum = 0;
       for (var s = 0; s < 12; s++) {
-        var freq = sectorCounts[s] / nHours;
+        var rawFreq = totalSectorHours > 0 ? (sectorCounts[s] / totalSectorHours) : (1 / 12);
+        var freq = Number(rawFreq.toFixed(4));
+        freqSum += freq;
         var avgSecSpeed = sectorCounts[s] > 0 ? (sectorSpeedSums[s] / sectorCounts[s]) : vMean;
         var vScale = vMean > 0 ? Number((avgSecSpeed / vMean).toFixed(2)) : 1.0;
         var dirCenter = s * 30;
 
-        if (freq > maxSectorFreq) {
-          maxSectorFreq = freq;
+        if (rawFreq > maxSectorFreq) {
+          maxSectorFreq = rawFreq;
+          maxSectorIdx = s;
           prevailingDir = dirCenter;
         }
 
         sectors.push({
           dirDeg: dirCenter,
           label: sectorLabels[s],
-          freq: Number(freq.toFixed(3)),
+          freq: freq,
           k: weibullK,
           vScale: Math.max(0.6, Math.min(1.5, vScale))
         });
+      }
+      if (sectors.length === 12) {
+        var freqResidual = Number((1.0 - freqSum).toFixed(4));
+        if (Math.abs(freqResidual) > 0) {
+          sectors[maxSectorIdx].freq = Number(Math.max(0, sectors[maxSectorIdx].freq + freqResidual).toFixed(4));
+        }
       }
 
       var result = {

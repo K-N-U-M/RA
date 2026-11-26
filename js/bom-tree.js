@@ -709,13 +709,61 @@
         const modCfgForBom = (typeof window !== 'undefined' && window.panelConfig)
           ? window.panelConfig
           : { potencia: 450, voc: 41.5, vmp: 34.5, isc: 13.8, imp: 13.05 };
+        let bomTiltDeg = null;
+        let bomAzimutDeg = null;
+        let bomLatDeg = null;
+        if (typeof window !== 'undefined') {
+          const _wpBom = window.WP;
+          if (_wpBom && Array.isArray(_wpBom.polylines) && _wpBom.polylines.length > 0) {
+            const _selIdxBom = (typeof _wpBom.selectedPolyIdx === 'number' && _wpBom.selectedPolyIdx >= 0 && _wpBom.selectedPolyIdx < _wpBom.polylines.length)
+              ? _wpBom.selectedPolyIdx : 0;
+            const _selPolyBom = _wpBom.polylines[_selIdxBom] || _wpBom.polylines[0];
+            const _pInfBom = _selPolyBom && (_selPolyBom.roofInfo || (typeof window.computeSinglePolylineRoofInfo === 'function' ? window.computeSinglePolylineRoofInfo(_selPolyBom.points, _selPolyBom) : null));
+            if (_pInfBom) {
+              if (typeof _pInfBom.moduleTiltDeg === 'number') bomTiltDeg = _pInfBom.moduleTiltDeg;
+              else if (typeof _pInfBom.tiltDeg === 'number') bomTiltDeg = _pInfBom.tiltDeg;
+              if (typeof _pInfBom.moduleAzimuthDeg === 'number') bomAzimutDeg = _pInfBom.moduleAzimuthDeg;
+              else if (typeof _pInfBom.azimuthN === 'number') bomAzimutDeg = _pInfBom.azimuthN - 180;
+              else if (typeof _pInfBom.azimuthDeg === 'number') bomAzimutDeg = _pInfBom.azimuthDeg;
+              if (typeof _pInfBom.latDeg === 'number') bomLatDeg = _pInfBom.latDeg;
+            }
+          }
+          if (window.lastRoofInfo) {
+            if (bomTiltDeg === null) bomTiltDeg = (typeof window.lastRoofInfo.moduleTiltDeg === 'number') ? window.lastRoofInfo.moduleTiltDeg : (typeof window.lastRoofInfo.tiltDeg === 'number' ? window.lastRoofInfo.tiltDeg : null);
+            if (bomAzimutDeg === null) bomAzimutDeg = (typeof window.lastRoofInfo.moduleAzimuthDeg === 'number') ? window.lastRoofInfo.moduleAzimuthDeg : (typeof window.lastRoofInfo.azimuthDeg === 'number' ? window.lastRoofInfo.azimuthDeg : null);
+            if (bomLatDeg === null && typeof window.lastRoofInfo.latDeg === 'number') bomLatDeg = window.lastRoofInfo.latDeg;
+          }
+          if ((bomTiltDeg === null || bomAzimutDeg === null) && Array.isArray(window.allRenderedPanels) && window.allRenderedPanels.length > 0) {
+            const _firstPanBom = window.allRenderedPanels.find(p => p && !p.deleted && !p.disabled);
+            if (_firstPanBom) {
+              if (bomTiltDeg === null && typeof _firstPanBom.tiltDeg === 'number') bomTiltDeg = _firstPanBom.tiltDeg;
+              if (bomAzimutDeg === null && typeof _firstPanBom.azimuthDeg === 'number') bomAzimutDeg = _firstPanBom.azimuthDeg;
+            }
+          }
+          if ((bomTiltDeg === null || bomAzimutDeg === null || bomLatDeg === null) && typeof window.polygonAnalysis === 'function') {
+            try {
+              const _paBom = window.polygonAnalysis();
+              if (_paBom) {
+                if (bomTiltDeg === null && typeof _paBom.tiltDeg === 'number') bomTiltDeg = _paBom.tiltDeg;
+                if (bomAzimutDeg === null && typeof _paBom.azimuthDeg === 'number') bomAzimutDeg = _paBom.azimuthDeg;
+                if (bomLatDeg === null && typeof _paBom.latDeg === 'number') bomLatDeg = _paBom.latDeg;
+              }
+            } catch (ePaBom) {}
+          }
+          if (bomLatDeg === null) {
+            if (typeof projectConfig.latitude === 'number') bomLatDeg = projectConfig.latitude;
+            else if (typeof projectConfig.lat === 'number') bomLatDeg = projectConfig.lat;
+            else if (sState && sState.carto && typeof sState.carto.latitude === 'number') bomLatDeg = sState.carto.latitude;
+            else if (typeof window.latitude === 'number') bomLatDeg = window.latitude;
+          }
+        }
         const engCanonical = (typeof window !== 'undefined' && window.RA && window.RA.Electrical && typeof window.RA.Electrical.computeSizingEngineering === 'function' && tree.summary.totalPanels > 0)
           ? window.RA.Electrical.computeSizingEngineering({
               numPanels: tree.summary.totalPanels,
               cfg: modCfgForBom,
-              tiltDeg: 15,
-              azimutDeg: 0,
-              latDeg: 40.4,
+              tiltDeg: (bomTiltDeg !== null && Number.isFinite(bomTiltDeg)) ? bomTiltDeg : 15,
+              azimutDeg: (bomAzimutDeg !== null && Number.isFinite(bomAzimutDeg)) ? bomAzimutDeg : 0,
+              latDeg: (bomLatDeg !== null && Number.isFinite(bomLatDeg)) ? bomLatDeg : 40.4,
               invCount: invCountBom
             })
           : null;
@@ -726,11 +774,12 @@
           : acLinePhases;
         const totalAcKwBom = tree.summary.totalAcKw || (tree.summary.totalKwp / 1.15);
         const vAcBom = invPhases === 1 ? 230 : 400;
+        const cosPhiBom = (activeInvSpec && typeof activeInvSpec.cosPhi === 'number' && activeInvSpec.cosPhi > 0) ? Math.min(1.0, activeInvSpec.cosPhi) : 0.95;
         const iAcDesignBom = (engCanonical && engCanonical.I_ac_design > 0)
           ? engCanonical.I_ac_design
           : (1.25 * (invPhases === 1
-            ? (totalAcKwBom * 1000) / (vAcBom * 0.95)
-            : (totalAcKwBom * 1000) / (Math.sqrt(3) * vAcBom * 0.95)));
+            ? (totalAcKwBom * 1000) / (vAcBom * cosPhiBom)
+            : (totalAcKwBom * 1000) / (Math.sqrt(3) * vAcBom * cosPhiBom)));
 
         const allStrPre = (typeof RACableEngine !== 'undefined' && typeof RACableEngine.gatherAllStrings === 'function')
           ? RACableEngine.gatherAllStrings()
@@ -1522,8 +1571,25 @@
 
   // Suscribirse a cambios del proyecto para actualización en tiempo real (micro-debounce eficiente)
   let _bomDebounceTimer = null;
+  let _bindRetryTimer = null;
+  let _bindAttempts = 0;
+  const MAX_BIND_ATTEMPTS = 15;
+
+  const stopHierarchySync = function() {
+    if (_bindRetryTimer) {
+      clearTimeout(_bindRetryTimer);
+      _bindRetryTimer = null;
+    }
+    if (_bomDebounceTimer) {
+      clearTimeout(_bomDebounceTimer);
+      _bomDebounceTimer = null;
+    }
+  };
+  BOMTreeEngine.stopHierarchySync = stopHierarchySync;
+
   if (typeof root !== 'undefined') {
     const bindHierarchy = function() {
+      _bindRetryTimer = null;
       if (root.ProjectHierarchy && typeof root.ProjectHierarchy.subscribe === 'function') {
         root.ProjectHierarchy.subscribe(function() {
           const hudEl = document.getElementById('ra-bom-tree-hud');
@@ -1537,15 +1603,18 @@
             }, 80);
           }
         });
-      } else {
-        setTimeout(bindHierarchy, 400);
+      } else if (_bindAttempts < MAX_BIND_ATTEMPTS) {
+        _bindAttempts++;
+        _bindRetryTimer = setTimeout(bindHierarchy, 400);
+        if (_bindRetryTimer && typeof _bindRetryTimer.unref === 'function') _bindRetryTimer.unref();
       }
     };
     if (typeof document !== 'undefined') {
       if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', bindHierarchy);
       } else {
-        setTimeout(bindHierarchy, 200);
+        _bindRetryTimer = setTimeout(bindHierarchy, 200);
+        if (_bindRetryTimer && typeof _bindRetryTimer.unref === 'function') _bindRetryTimer.unref();
       }
     }
   }

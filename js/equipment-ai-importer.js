@@ -12,17 +12,7 @@
 (function (root) {
   'use strict';
 
-  // [D1+D2] Cliente IA unificado (cabecera x-goog-api-key, timeout y cancelación).
-  // Delega en RA.geminiFetch cuando está disponible; si no, usa fetch nativo con cabecera.
-  function _aiFetch(url, opts, timeoutMs, apiKey) {
-    if (root.RA && typeof root.RA.geminiFetch === 'function') {
-      return root.RA.geminiFetch(url, opts, timeoutMs, apiKey);
-    }
-    const cleanOpts = Object.assign({}, opts || {});
-    cleanOpts.headers = Object.assign({}, cleanOpts.headers || {});
-    if (apiKey) cleanOpts.headers['x-goog-api-key'] = apiKey;
-    return fetch(url, cleanOpts);
-  }
+  // Cliente IA delegado en root.RA.AI (con fallback directo en tests aislados)
 
   const RAEquipmentAIImporter = {
     state: {
@@ -180,34 +170,12 @@ NORMAS ESTRICTAS DE EXTRACCIÓN:
       if (this._cachedAvailableModels && this._cachedAvailableModels.length > 0) {
         return this._cachedAvailableModels;
       }
-      try {
-        const url = 'https://generativelanguage.googleapis.com/v1beta/models';
-        const resp = await _aiFetch(url, {}, 20000, apiKey);
-        if (resp.ok) {
-          const data = await resp.json();
-          if (Array.isArray(data.models)) {
-            // Filtrar únicamente modelos que soporten generación y excluir modelos especiales/pesados
-            const blacklist = /deep-research|tts|transcribe|image|live|audio|embed/i;
-            const valid = data.models
-              .filter(m => Array.isArray(m.supportedGenerationMethods) && m.supportedGenerationMethods.includes('generateContent'))
-              .map(m => m.name.replace(/^models\//, ''))
-              .filter(name => !blacklist.test(name));
-
-            const flash = valid.filter(n => /flash/i.test(n));
-            const pro = valid.filter(n => !/flash/i.test(n) && /pro/i.test(n));
-
-            flash.sort((a, b) => b.localeCompare(a, undefined, { numeric: true, sensitivity: 'base' }));
-            pro.sort((a, b) => b.localeCompare(a, undefined, { numeric: true, sensitivity: 'base' }));
-
-            const ordered = [...flash, ...pro];
-            if (ordered.length > 0) {
-              this._cachedAvailableModels = ordered;
-              return ordered;
-            }
-          }
+      if (root.RA && root.RA.AI && typeof root.RA.AI.discoverModels === 'function') {
+        const res = await root.RA.AI.discoverModels(apiKey);
+        if (Array.isArray(res) && res.length > 0) {
+          this._cachedAvailableModels = res;
+          return res;
         }
-      } catch (e) {
-        console.warn('[RAEquipmentAIImporter] No se pudo listar modelos dinámicamente:', e);
       }
       return [
         'gemini-2.5-flash',
@@ -268,11 +236,16 @@ NORMAS ESTRICTAS DE EXTRACCIÓN:
       for (const model of models) {
         try {
           const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
-          const resp = await _aiFetch(url, {
+          const reqOpts = {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(requestBody)
-          }, 90000, apiKey);
+          };
+          const resp = (root.RA && root.RA.AI && typeof root.RA.AI.fetch === 'function')
+            ? await root.RA.AI.fetch(url, reqOpts, 90000, apiKey)
+            : ((root.RA && typeof root.RA.geminiFetch === 'function')
+                ? await root.RA.geminiFetch(url, reqOpts, 90000, apiKey)
+                : await fetch(url, Object.assign({}, reqOpts, { headers: Object.assign({}, reqOpts.headers, apiKey ? { 'x-goog-api-key': apiKey } : {}) })));
 
           if (!resp.ok) {
             const errData = await resp.json().catch(() => ({}));
@@ -795,6 +768,8 @@ NORMAS ESTRICTAS DE EXTRACCIÓN:
     },
 
     escapeHtml: function (str) {
+      const san = (root.RA && (root.RA.Sanitizer || root.RA.Sanitize)) || root.RASanitize;
+      if (san && typeof san.plain === 'function') return san.plain(str);
       if (str == null) return '';
       return String(str)
         .replace(/&/g, '&amp;')

@@ -78,7 +78,9 @@
         2000
       );
     }
-    if (typeof global.renderTriad2D === 'function') {
+    if (typeof global.requestTriadRedraw === 'function') {
+      global.requestTriadRedraw();
+    } else if (typeof global.renderTriad2D === 'function') {
       global.renderTriad2D();
     }
   }
@@ -115,19 +117,54 @@
   }
   global.toggleCADFocusMode = toggleCADFocusMode;
 
+  // --- REGISTRO CENTRALIZADO DE LISTENERS PARA DESTROY / CLEANUP ---
+  const _cadSuiteCleanup = [];
+  let _cadSuiteInitialized = false;
+  function _addManagedListener(target, type, handler, options) {
+    if (!target || typeof target.addEventListener !== 'function') return;
+    target.addEventListener(type, handler, options);
+    _cadSuiteCleanup.push(function () {
+      try {
+        if (typeof target.removeEventListener === 'function') {
+          target.removeEventListener(type, handler, options);
+        }
+      } catch (_) {}
+    });
+  }
+
   // --- 2. PRE-SELECCIÓN / HOVER FEEDBACK ENGINE ---
   let _hoverRafId = null;
   let _lastHoverX = -1;
   let _lastHoverY = -1;
 
-  // Safeguard global: evitar que _isPointerButtonsDown quede bloqueado si se suelta el botón fuera del canvas
-  if (typeof window !== 'undefined') {
-    window.addEventListener('pointerup', () => { global._isPointerButtonsDown = false; }, true);
-    window.addEventListener('blur', () => { global._isPointerButtonsDown = false; global._isCameraMoving = false; });
+  function _isMeasureToolActive() {
+    return Boolean(global.RAMeasureTool && typeof global.RAMeasureTool.isActive === 'function' && global.RAMeasureTool.isActive());
+  }
+
+  function initCADSafeguardListeners() {
+    if (typeof window === 'undefined') return;
+    // Safeguard global: evitar que _isPointerButtonsDown quede bloqueado si se suelta el botón fuera del canvas
+    _addManagedListener(window, 'pointerup', () => { global._isPointerButtonsDown = false; }, true);
+    _addManagedListener(window, 'blur', () => { global._isPointerButtonsDown = false; global._isCameraMoving = false; });
   }
 
   function updateCADHover(screenPos) {
     if (!screenPos || typeof screenPos.x !== 'number' || typeof screenPos.y !== 'number') return;
+
+    // Pausar completamente el hover (y cualquier pick/drillPick) cuando la cinta métrica 3D está activa
+    if (_isMeasureToolActive()) {
+      if (_hoverRafId) {
+        cancelAnimationFrame(_hoverRafId);
+        _hoverRafId = null;
+      }
+      if (global.cadHoverTarget) {
+        global.cadHoverTarget = null;
+        if (typeof global.requestTriadRedraw === 'function') global.requestTriadRedraw();
+        else if (typeof global.renderTriad2D === 'function') global.renderTriad2D();
+      }
+      return;
+    }
+
     const viewer = global.viewer;
     if (!viewer || !viewer.scene) return;
     const scene = viewer.scene;
@@ -150,7 +187,7 @@
     if (_hoverRafId) cancelAnimationFrame(_hoverRafId);
     _hoverRafId = requestAnimationFrame(() => {
       _hoverRafId = null;
-      if (global._isCameraMoving || global._isPointerButtonsDown) return;
+      if (_isMeasureToolActive() || global._isCameraMoving || global._isPointerButtonsDown) return;
       evaluateHoverTarget(posSnap, scene);
     });
   }
@@ -443,6 +480,7 @@
 
   // --- 3. CICLO DE CLIC EN PROFUNDIDAD (TAB-CYCLING) ---
   function getCandidateEntitiesUnderScreenPos(screenPos) {
+    if (_isMeasureToolActive()) return [];
     const viewer = global.viewer;
     if (!viewer || !viewer.scene) return [];
     const scene = viewer.scene;
@@ -575,7 +613,7 @@
   function initCADCyclingListeners() {
     if (typeof window === 'undefined' || typeof window.addEventListener !== 'function') return;
     // Tecla Tab para ciclar en profundidad
-    window.addEventListener('keydown', function(e) {
+    _addManagedListener(window, 'keydown', function(e) {
       const isEditingText = (function () {
         if (typeof global.isTextInputActive === 'function' && global.isTextInputActive(e.target)) return true;
         const active = document.activeElement;
@@ -586,6 +624,7 @@
       if (isEditingText) return;
 
       if (e.key === 'Tab') {
+        if (_isMeasureToolActive()) return;
         // Si el ratón está en la escena, interceptar Tab para ciclar capas CAD
         const mousePos = { x: _lastHoverX, y: _lastHoverY };
         if (mousePos.x > 0 && mousePos.y > 0) {
@@ -642,9 +681,10 @@
     });
 
     // Clics consecutivos en el mismo punto para alternar capas
-    window.addEventListener('pointerdown', function(e) {
+    _addManagedListener(window, 'pointerdown', function(e) {
       global._isPointerButtonsDown = true;
-      if (e.target && e.target.id === 'cesiumContainer' || (e.target && e.target.tagName === 'CANVAS')) {
+      if (_isMeasureToolActive()) return;
+      if ((e.target && e.target.id === 'cesiumContainer') || (e.target && e.target.tagName === 'CANVAS')) {
         const now = Date.now();
         const pos = { x: e.clientX, y: e.clientY };
         const s = global.cadCyclingState;
@@ -667,10 +707,10 @@
         }
       }
     });
-    window.addEventListener('pointerup', function() {
+    _addManagedListener(window, 'pointerup', function() {
       global._isPointerButtonsDown = false;
     });
-    window.addEventListener('pointercancel', function() {
+    _addManagedListener(window, 'pointercancel', function() {
       global._isPointerButtonsDown = false;
     });
   }
@@ -678,9 +718,9 @@
   // --- 4. SELECCIÓN POR VENTANA / MARCO (MARQUEE BOX SELECTION) ---
   function initCADMarqueeListeners() {
     if (typeof window === 'undefined' || typeof window.addEventListener !== 'function') return;
-    const container = document.getElementById('cesiumContainer') || document.body;
 
-    window.addEventListener('pointerdown', function(e) {
+    _addManagedListener(window, 'pointerdown', function(e) {
+      if (_isMeasureToolActive()) return;
       // Activar con Shift + Drag O arrastrar en vacío con botón izquierdo
       if (e.button !== 0) return;
       const targetTag = e.target ? e.target.tagName.toLowerCase() : '';
@@ -715,13 +755,15 @@
       }
     }, true);
 
-    window.addEventListener('pointermove', function(e) {
+    _addManagedListener(window, 'pointermove', function(e) {
       updateCADHover({ x: e.clientX, y: e.clientY });
 
       if (global.cadMarqueeState.active) {
         global.cadMarqueeState.currentX = e.clientX;
         global.cadMarqueeState.currentY = e.clientY;
-        if (typeof global.renderTriad2D === 'function') {
+        if (typeof global.requestTriadRedraw === 'function') {
+          global.requestTriadRedraw();
+        } else if (typeof global.renderTriad2D === 'function') {
           global.renderTriad2D();
         }
       }
@@ -750,13 +792,15 @@
         }
       }
 
-      if (typeof global.renderTriad2D === 'function') {
+      if (typeof global.requestTriadRedraw === 'function') {
+        global.requestTriadRedraw();
+      } else if (typeof global.renderTriad2D === 'function') {
         global.renderTriad2D();
       }
     }
 
-    window.addEventListener('pointerup', function(e) { finishOrCancelMarquee(e, false); });
-    window.addEventListener('pointercancel', function(e) { finishOrCancelMarquee(e, true); });
+    _addManagedListener(window, 'pointerup', function(e) { finishOrCancelMarquee(e, false); });
+    _addManagedListener(window, 'pointercancel', function(e) { finishOrCancelMarquee(e, true); });
   }
 
   function executeMarqueeBoxSelection(x1, y1, x2, y2, isAdditive) {
@@ -922,17 +966,46 @@
   }
   global.isPointIn2DPolygon = isPointIn2DPolygon;
 
-  // --- INICIALIZACIÓN AUTOMÁTICA AL CARGAR EL DOM ---
+  // --- INICIALIZACIÓN Y DESTRUCCIÓN LIMPIA ---
+  function destroyCADSelectionSuite() {
+    if (_hoverRafId) {
+      cancelAnimationFrame(_hoverRafId);
+      _hoverRafId = null;
+    }
+    while (_cadSuiteCleanup.length > 0) {
+      const unsub = _cadSuiteCleanup.pop();
+      try {
+        if (typeof unsub === 'function') unsub();
+      } catch (_) {}
+    }
+    _cadSuiteInitialized = false;
+  }
+
   function initCADSelectionSuite() {
+    if (_cadSuiteInitialized) {
+      destroyCADSelectionSuite();
+    }
+    _cadSuiteInitialized = true;
+    initCADSafeguardListeners();
     initCADCyclingListeners();
     initCADMarqueeListeners();
     console.log('[CAD Suite] Módulos de Hover, Tab-Cycling, Modo Foco y Ventana inicializados correctamente.');
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initCADSelectionSuite);
-  } else {
-    initCADSelectionSuite();
+  global.initCADSelectionSuite = initCADSelectionSuite;
+  global.destroyCADSelectionSuite = destroyCADSelectionSuite;
+  global.RACADSelectionSuite = {
+    init: initCADSelectionSuite,
+    destroy: destroyCADSelectionSuite,
+    updateHover: updateCADHover
+  };
+
+  if (typeof document !== 'undefined') {
+    if (document.readyState === 'loading') {
+      _addManagedListener(document, 'DOMContentLoaded', initCADSelectionSuite, { once: true });
+    } else {
+      initCADSelectionSuite();
+    }
   }
 
 })(typeof window !== 'undefined' ? window : this);

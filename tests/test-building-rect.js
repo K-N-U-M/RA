@@ -110,6 +110,8 @@ global.Cesium = {
   ColorMaterialProperty: class {},
   PolylineDashMaterialProperty: class {},
   CallbackProperty: class { constructor(fn) { this.fn = fn; } },
+  ConstantProperty: class { constructor(val) { this._val = val; } getValue() { return this._val; } setValue(val) { this._val = val; } },
+  ConstantPositionProperty: class { constructor(val) { this._val = val; } getValue() { return this._val; } setValue(val) { this._val = val; } },
   PolygonHierarchy: class {},
   ArcType: { NONE: 0 },
   Cartographic: {

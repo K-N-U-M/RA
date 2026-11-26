@@ -401,12 +401,160 @@ function defaultPanelFilter(center, corners, dims, ctx) {
   return { accept: true, isShaded: isShaded };
 }
 
-if (typeof window !== 'undefined') {
-  window.segmentsIntersect2D = segmentsIntersect2D;
-  window.polygonsIntersect2D = polygonsIntersect2D;
-  window.convexHull2D = convexHull2D;
-  window.getBuildingPolygon2DForRoof = getBuildingPolygon2DForRoof;
-  window.getBuildingShadowPolygons2DForRoof = getBuildingShadowPolygons2DForRoof;
-  window.defaultPanelFilter = defaultPanelFilter;
-  if (typeof checkPanelObstacles !== 'undefined') window.checkPanelObstacles = checkPanelObstacles;
+/**
+ * Discretiza un cuadrilátero 2D de panel en 3 sub-cadenas (sub-strings S1, S2, S3)
+ * representativas de las 3 ramas de diodos de bypass de un módulo comercial estándar / half-cut.
+ * @param {Array<{u:number,v:number}>} quad 4 vértices del módulo
+ * @returns {Array<Array<{u:number,v:number}>>} 3 sub-polígonos
+ */
+function dividePanelIntoSubstrings2D(quad) {
+  if (!quad || quad.length !== 4) return quad ? [quad] : [];
+  const p0 = quad[0], p1 = quad[1], p2 = quad[2], p3 = quad[3];
+  const d01 = Math.hypot(p1.u - p0.u, p1.v - p0.v);
+  const d12 = Math.hypot(p2.u - p1.u, p2.v - p1.v);
+
+  const lerp = (a, b, t) => ({ u: a.u + (b.u - a.u) * t, v: a.v + (b.v - a.v) * t });
+
+  if (d12 >= d01) {
+    const a0 = p0, b0 = p3;
+    const a1 = lerp(p0, p1, 1 / 3), b1 = lerp(p3, p2, 1 / 3);
+    const a2 = lerp(p0, p1, 2 / 3), b2 = lerp(p3, p2, 2 / 3);
+    const a3 = p1, b3 = p2;
+    return [
+      [a0, a1, b1, b0],
+      [a1, a2, b2, b1],
+      [a2, a3, b3, b2]
+    ];
+  } else {
+    const a0 = p0, b0 = p1;
+    const a1 = lerp(p0, p3, 1 / 3), b1 = lerp(p1, p2, 1 / 3);
+    const a2 = lerp(p0, p3, 2 / 3), b2 = lerp(p1, p2, 2 / 3);
+    const a3 = p3, b3 = p2;
+    return [
+      [a0, b0, b1, a1],
+      [a1, b1, b2, a2],
+      [a2, b2, b3, a3]
+    ];
+  }
 }
+
+/**
+ * Precalcula la caja delimitadora AABB 2D (uMin, uMax, vMin, vMax) directamente sobre el cuadrilátero/polígono.
+ * @param {Array<{u:number,v:number}>} quad
+ * @returns {Array<{u:number,v:number}>}
+ */
+function precalcQuadAABB(quad) {
+  if (!quad || quad.length === 0) return quad;
+  let qUMin = Infinity, qUMax = -Infinity, qVMin = Infinity, qVMax = -Infinity;
+  for (let qi = 0; qi < quad.length; qi++) {
+    const qpt = quad[qi];
+    if (qpt.u < qUMin) qUMin = qpt.u;
+    if (qpt.u > qUMax) qUMax = qpt.u;
+    if (qpt.v < qVMin) qVMin = qpt.v;
+    if (qpt.v > qVMax) qVMax = qpt.v;
+  }
+  quad.uMin = qUMin;
+  quad.uMax = qUMax;
+  quad.vMin = qVMin;
+  quad.vMax = qVMax;
+  return quad;
+}
+
+/**
+ * Reconstruye la base ortonormal (transform, invTransform, uVec, vVec, normal, poly2D, rangeU/V, coplanar)
+ * de poly.roofInfo sin sobrescribir sus paneles. Compartido por solar-heatmap.js y project-storage.js.
+ * @param {Object} poly
+ * @param {boolean} [forceRecompute=false]
+ * @returns {Object|null}
+ */
+function rehydratePolylineRoofInfo(poly, forceRecompute) {
+  if (!poly || !Array.isArray(poly.points) || poly.points.length < 3) return poly ? poly.roofInfo : null;
+  if (!poly.roofInfo) poly.roofInfo = {};
+  const ri = poly.roofInfo;
+  if (!forceRecompute) {
+    const hasGeo = !!(ri.invTransform && ri.transform && ri.uVec && ri.vVec && ri.normal && ri.center && Array.isArray(ri.poly2D) && ri.poly2D.length >= 3);
+    if (hasGeo) {
+      if (typeof ri.coplanar !== 'boolean') {
+        const st = String(poly.structureType || ri.structureType || '').toLowerCase();
+        const estT = String((poly.estructura && poly.estructura.tipo) || (ri.estructura && ri.estructura.tipo) || '').toLowerCase();
+        ri.coplanar = st.includes('coplanar') || estT === 'coplanar' || ((ri.tiltDeg || 0) >= 8 && (!poly.modTilt || poly.modTilt === 'auto' || poly.modTilt === 'coplanar'));
+      }
+      return ri;
+    }
+  }
+  if (typeof polygonAnalysis !== 'function' || typeof Cesium === 'undefined' || !Cesium.Matrix4 || !Cesium.Cartesian3) {
+    return ri;
+  }
+  const pa = polygonAnalysis(poly.points);
+  if (!pa) return ri;
+  let uVec = pa.uVec, vVec = pa.vVec, normal = pa.normal, poly2D = pa.poly2D;
+  const wpPlane = (typeof WP !== 'undefined' && WP && Array.isArray(WP.planes) && typeof poly.planeIdx === 'number' && poly.planeIdx >= 0)
+    ? WP.planes[poly.planeIdx] : null;
+  if (wpPlane && wpPlane.uVec && wpPlane.vVec && wpPlane.normal && pa.invTransform) {
+    const uLoc = Cesium.Matrix4.multiplyByPointAsVector(pa.invTransform, wpPlane.uVec, new Cesium.Cartesian3());
+    const vLoc = Cesium.Matrix4.multiplyByPointAsVector(pa.invTransform, wpPlane.vVec, new Cesium.Cartesian3());
+    const nLoc = Cesium.Matrix4.multiplyByPointAsVector(pa.invTransform, wpPlane.normal, new Cesium.Cartesian3());
+    if (Cesium.Cartesian3.magnitude(uLoc) > 0.01 && Cesium.Cartesian3.magnitude(vLoc) > 0.01) {
+      uVec = Cesium.Cartesian3.normalize(uLoc, new Cesium.Cartesian3());
+      vVec = Cesium.Cartesian3.normalize(vLoc, new Cesium.Cartesian3());
+      normal = Cesium.Cartesian3.normalize(nLoc, new Cesium.Cartesian3());
+      if (normal.z < 0) Cesium.Cartesian3.negate(normal, normal);
+      poly2D = pa.localPoints.map(pt => ({
+        u: Cesium.Cartesian3.dot(pt, uVec),
+        v: Cesium.Cartesian3.dot(pt, vVec)
+      }));
+    }
+  }
+  let minU = Infinity, maxU = -Infinity, minV = Infinity, maxV = -Infinity;
+  poly2D.forEach(pt => {
+    if (pt.u < minU) minU = pt.u;
+    if (pt.u > maxU) maxU = pt.u;
+    if (pt.v < minV) minV = pt.v;
+    if (pt.v > maxV) maxV = pt.v;
+  });
+  ri.center = pa.center;
+  ri.origin = pa.center;
+  ri.carto = pa.carto;
+  ri.latDeg = pa.latDeg;
+  ri.lonDeg = pa.lonDeg;
+  ri.transform = pa.transform;
+  ri.invTransform = pa.invTransform;
+  ri.localPoints = pa.localPoints;
+  ri.uVec = uVec;
+  ri.vVec = vVec;
+  ri.normal = normal;
+  ri.poly2D = poly2D;
+  ri.minU = minU; ri.maxU = maxU; ri.minV = minV; ri.maxV = maxV;
+  ri.rangeU = maxU - minU; ri.rangeV = maxV - minV;
+  ri.tiltRad = pa.tiltRad;
+  ri.tiltDeg = pa.tiltDeg;
+  ri.azimuthDeg = pa.azimuthDeg;
+  ri.azimuthN = pa.azimuthN;
+  ri.area3D = pa.area3D;
+  ri.structureType = poly.structureType || ri.structureType || 'coplanar_teja';
+  ri.estructura = poly.estructura || ri.estructura || null;
+  if (typeof ri.coplanar !== 'boolean') {
+    const st = String(ri.structureType || '').toLowerCase();
+    const estT = String((ri.estructura && ri.estructura.tipo) || '').toLowerCase();
+    ri.coplanar = st.includes('coplanar') || estT === 'coplanar' || (pa.tiltDeg >= 8 && (!poly.modTilt || poly.modTilt === 'auto' || poly.modTilt === 'coplanar'));
+  }
+  poly.roofInfo = ri;
+  return ri;
+}
+
+(function(root) {
+  if (!root) return;
+  root.isPointInPolygon2D = isPointInPolygon2D;
+  root.segmentsIntersect2D = segmentsIntersect2D;
+  root.polygonsIntersect2D = polygonsIntersect2D;
+  root.convexHull2D = convexHull2D;
+  root.getBuildingPolygon2DForRoof = getBuildingPolygon2DForRoof;
+  root.getBuildingShadowPolygons2DForRoof = getBuildingShadowPolygons2DForRoof;
+  root.getObstacleShadowPolygons2DForRoof = getObstacleShadowPolygons2DForRoof;
+  if (typeof getObstaclePolygon2DForRoof === 'function') root.getObstaclePolygon2DForRoof = getObstaclePolygon2DForRoof;
+  root.defaultPanelFilter = defaultPanelFilter;
+  root.dividePanelIntoSubstrings2D = dividePanelIntoSubstrings2D;
+  root.precalcQuadAABB = precalcQuadAABB;
+  root.rehydratePolylineRoofInfo = rehydratePolylineRoofInfo;
+  if (typeof checkPanelObstacles !== 'undefined') root.checkPanelObstacles = checkPanelObstacles;
+})(typeof window !== 'undefined' ? window : (typeof self !== 'undefined' ? self : (typeof globalThis !== 'undefined' ? globalThis : this)));

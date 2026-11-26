@@ -383,7 +383,9 @@
       { id: 'ra-projects-modal', close: function() { if (typeof global.raCloseProjectsModal === 'function') global.raCloseProjectsModal(); } },
       { id: 'ra-doc-modal', close: function() { if (typeof global.closeDocModal === 'function') global.closeDocModal(); } },
       { id: 'ra-pricing-review-modal', close: function() { var btn = document.getElementById('btn-close-pricing-review') || document.getElementById('btn-cancel-pricing-review'); if (btn) btn.click(); } },
-      { id: 'ra-bill-auditor-modal', close: function() { var btn = document.getElementById('btn-close-bill-modal') || document.getElementById('btn-cancel-bill-modal'); if (btn) btn.click(); } }
+      { id: 'ra-bill-auditor-modal', close: function() { var btn = document.getElementById('btn-close-bill-modal') || document.getElementById('btn-cancel-bill-modal'); if (btn) btn.click(); } },
+      { id: 'ra-scenario-comparator-modal', close: function() { if (typeof global.closeScenarioComparatorModal === 'function') global.closeScenarioComparatorModal(); } },
+      { id: 'ra-embedded-doc-modal', close: function() { if (typeof global.closeEmbeddedDocModal === 'function') global.closeEmbeddedDocModal(); } }
     ];
 
     for (var i = 0; i < modalDefinitions.length; i++) {

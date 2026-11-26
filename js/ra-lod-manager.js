@@ -22,16 +22,18 @@
   const ALTITUDE_THRESHOLD = 85.0; // Metros de altitud de cámara
 
   // Estado del Gobernador Adaptativo en Movimiento
+  let _initialized = false;
   let _isMotionBoostActive = false;
   let _settleTimer = null;
   let _savedState = {
     sse: 16,
-    skipLod: false,
+    skipLod: true,
     loadSiblings: true,
     cullMoving: false,
-    dynamicSse: false,
-    softShadows: true,
+    dynamicSse: true,
+    softShadows: null,
     resScale: 1.0,
+    resScaleModified: false,
     fxaa: true
   };
 
@@ -41,9 +43,12 @@
 
   const RALodManager = {
     init: function() {
+      if (_initialized) return;
+      _initialized = true;
       const checkViewer = setInterval(() => {
         if (global.viewer && global.viewer.camera && global.viewer.scene) {
           clearInterval(checkViewer);
+          global.viewer._raMovePerfHooked = true;
           this.bindCameraEvents();
           this.bindFrameGovernor();
         }
@@ -82,6 +87,7 @@
 
       if (camera.moveStart && typeof camera.moveStart.addEventListener === 'function') {
         camera.moveStart.addEventListener(() => {
+          global._isCameraMoving = true;
           if (!isEnabled) return;
           if (_settleTimer) {
             clearTimeout(_settleTimer);
@@ -93,6 +99,7 @@
 
       if (camera.moveEnd && typeof camera.moveEnd.addEventListener === 'function') {
         camera.moveEnd.addEventListener(() => {
+          global._isCameraMoving = false;
           if (_settleTimer) clearTimeout(_settleTimer);
           _settleTimer = setTimeout(() => {
             _settleTimer = null;
@@ -129,13 +136,14 @@
           ts.dynamicScreenSpaceErrorDensity = 0.00278;
           ts.dynamicScreenSpaceErrorFactor = 4.0;
           ts.loadSiblings = false;
-          if (_savedState.sse < 16) {
-            ts.maximumScreenSpaceError = 16;
+          if (_savedState.sse < 24) {
+            ts.maximumScreenSpaceError = 24;
           }
         } catch (_eTs) {}
       }
 
       // 2. Desactivar filtrado suave PCF de sombras durante el giro (ahorra 4-6ms de fill-rate)
+      _savedState.softShadows = null;
       if (scene.shadowMap && scene.shadowMap.enabled) {
         try {
           _savedState.softShadows = !!scene.shadowMap.softShadows;
@@ -143,12 +151,26 @@
         } catch (_eSm) {}
       }
 
-      // 3. Gobernador Automático de Resolución: si el frame time medio supera 18ms (<55 FPS),
-      // reducir temporalmente la escala de resolución un 15% mientras se orbita
-      _savedState.resScale = viewer.resolutionScale || 1.0;
-      if (_emaFrameMs > 18.0 && _savedState.resScale > 0.75) {
+      // 3. Gobernador Adaptativo de Resolución:
+      //    - En pantallas HiDPI (devicePixelRatio > 1), reducir resolutionScale a 0.75 en órbita.
+      //    - En pantallas 1x si el frame time medio supera 18ms (<55 FPS), reducir 15% (mín. 0.75).
+      const baseResScale = (typeof viewer.resolutionScale === 'number' && viewer.resolutionScale > 0)
+        ? viewer.resolutionScale
+        : 1.0;
+      _savedState.resScale = baseResScale;
+      _savedState.resScaleModified = false;
+      const dpr = (typeof global.devicePixelRatio === 'number' && global.devicePixelRatio > 0)
+        ? global.devicePixelRatio
+        : 1.0;
+      if (dpr > 1.0 && baseResScale > 0.75) {
         try {
-          viewer.resolutionScale = Math.max(0.75, Math.round(_savedState.resScale * 0.85 * 100) / 100);
+          viewer.resolutionScale = 0.75;
+          _savedState.resScaleModified = true;
+        } catch (_eRs) {}
+      } else if (_emaFrameMs > 18.0 && baseResScale > 0.75) {
+        try {
+          viewer.resolutionScale = Math.max(0.75, Math.round(baseResScale * 0.85 * 100) / 100);
+          _savedState.resScaleModified = true;
         } catch (_eRs) {}
       }
 
@@ -178,23 +200,27 @@
         } catch (_eTs) {}
       }
 
-      // 2. Restaurar sombras suaves de alta definición
-      if (scene.shadowMap && scene.shadowMap.enabled) {
+      // 2. Restaurar sombras suaves de alta definición si fueron modificadas
+      if (scene.shadowMap && _savedState.softShadows !== null) {
         try {
           scene.shadowMap.softShadows = _savedState.softShadows;
         } catch (_eSm) {}
+        _savedState.softShadows = null;
       }
 
-      // 3. Restaurar escala de resolución nativa al 100%
-      if (viewer.resolutionScale !== _savedState.resScale) {
+      // 3. Restaurar escala de resolución nativa (1.0 por defecto)
+      if (_savedState.resScaleModified || viewer.resolutionScale !== _savedState.resScale) {
         try {
-          viewer.resolutionScale = _savedState.resScale;
+          viewer.resolutionScale = _savedState.resScale || 1.0;
         } catch (_eRs) {}
+        _savedState.resScaleModified = false;
       }
 
-      // 4. Evaluar distancia final y solicitar fotograma limpio de asentamiento
+      // 4. Evaluar distancia final y solicitar fotogramas de asentamiento (unificado con ShadowSettings)
       this.evaluateCameraDistance();
-      if (typeof scene.requestRender === 'function') {
+      if (global.ShadowSettings && typeof global.ShadowSettings.requestSettleFrames === 'function') {
+        global.ShadowSettings.requestSettleFrames(scene);
+      } else if (typeof scene.requestRender === 'function') {
         scene.requestRender();
         if (typeof global.requestAnimationFrame === 'function') {
           global.requestAnimationFrame(() => {

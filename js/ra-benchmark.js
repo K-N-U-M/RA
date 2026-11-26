@@ -251,41 +251,70 @@
 
     hookCesiumRender: function() {
       const self = this;
-      const checkViewer = setInterval(() => {
-        if (global.viewer && global.viewer.scene) {
-          clearInterval(checkViewer);
-          const scene = global.viewer.scene;
+      let attached = false;
 
-          scene.preRender.addEventListener(() => {
-            renderStartTime = performance.now();
-            lastRenderCallTime = renderStartTime;
-            isGpuSleeping = false;
-            if (!isExpanded && isEnabled) {
-              if (_idleSleepTimer) clearTimeout(_idleSleepTimer);
-              _idleSleepTimer = setTimeout(() => {
-                _idleSleepTimer = null;
-                isGpuSleeping = true;
-                actualRenderDurationMs = 0.0;
-                self.updateDOM();
-              }, 250);
-            }
-          });
+      const attachScene = (scene) => {
+        if (attached || !scene) return;
+        attached = true;
 
-          scene.postRender.addEventListener(() => {
-            const now = performance.now();
-            if (renderStartTime > 0) {
-              actualRenderDurationMs = now - renderStartTime;
-            }
-            if (!isExpanded && isEnabled && (now - _lastPillUpdateTs > 250)) {
-              _lastPillUpdateTs = now;
-              if (performance && performance.memory) {
-                memoryMb = Math.round(performance.memory.usedJSHeapSize / (1024 * 1024));
-              }
+        scene.preRender.addEventListener(() => {
+          renderStartTime = performance.now();
+          lastRenderCallTime = renderStartTime;
+          isGpuSleeping = false;
+          if (!isExpanded && isEnabled) {
+            if (_idleSleepTimer) clearTimeout(_idleSleepTimer);
+            _idleSleepTimer = setTimeout(() => {
+              _idleSleepTimer = null;
+              isGpuSleeping = true;
+              actualRenderDurationMs = 0.0;
               self.updateDOM();
+            }, 250);
+          }
+        });
+
+        scene.postRender.addEventListener(() => {
+          const now = performance.now();
+          if (renderStartTime > 0) {
+            actualRenderDurationMs = now - renderStartTime;
+          }
+          if (!isExpanded && isEnabled && (now - _lastPillUpdateTs > 250)) {
+            _lastPillUpdateTs = now;
+            if (performance && performance.memory) {
+              memoryMb = Math.round(performance.memory.usedJSHeapSize / (1024 * 1024));
             }
-          });
+            self.updateDOM();
+          }
+        });
+      };
+
+      const tryAttachNow = () => {
+        if (global.viewer && global.viewer.scene) {
+          attachScene(global.viewer.scene);
+          return true;
         }
-      }, 250);
+        return false;
+      };
+
+      if (tryAttachNow()) return;
+
+      const events = global.RA && global.RA.events;
+      if (events && typeof events.on === 'function') {
+        events.on('viewer:ready', (v) => {
+          const target = (v && v.scene) ? v : global.viewer;
+          if (target && target.scene) attachScene(target.scene);
+        });
+        events.on('panels:updated', () => self.updateDOM());
+        if (typeof global.addEventListener === 'function') {
+          global.addEventListener('load', tryAttachNow, { once: true });
+        }
+      } else {
+        // Fallback seguro si ra-events.js aún no ha cargado
+        const checkViewer = setInterval(() => {
+          if (tryAttachNow()) {
+            clearInterval(checkViewer);
+          }
+        }, 250);
+      }
     },
 
     stopMetricsLoop: function() {

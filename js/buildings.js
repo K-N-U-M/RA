@@ -62,7 +62,7 @@
       translucent: false,
       closed: (closed !== false),
       flat: false,
-      renderState: { polygonOffset: true, polygonOffsetFactor: 2.0, polygonOffsetUnits: 2.0 },
+      renderState: { polygonOffset: { enabled: true, factor: 2.0, units: 2.0 } },
       fragmentShaderSource: BUILDINGS_MATTE_FS
     });
   }
@@ -1791,13 +1791,11 @@ function render3DBuildingsInCesium() {
       }
 
       bldRectState.cursorPos = Cesium.Cartesian3.clone(flatCursor);
+      const linePositions = [bldRectState.p1, bldRectState.cursorPos];
       if (!bldRectState.previewLine) {
         bldRectState.previewLine = window.viewer.entities.add({
           polyline: {
-            positions: new Cesium.CallbackProperty(() => {
-              if (!bldRectState.p1 || !bldRectState.cursorPos) return [];
-              return [bldRectState.p1, bldRectState.cursorPos];
-            }, false),
+            positions: new Cesium.ConstantProperty(linePositions),
             width: 3.5,
             material: new Cesium.ColorMaterialProperty(Cesium.Color.fromCssColorString('#818CF8')),
             arcType: Cesium.ArcType.NONE,
@@ -1805,6 +1803,12 @@ function render3DBuildingsInCesium() {
           }
         });
         bldRectState.tempEntities.push(bldRectState.previewLine);
+      } else if (bldRectState.previewLine.polyline) {
+        if (bldRectState.previewLine.polyline.positions && typeof bldRectState.previewLine.polyline.positions.setValue === 'function') {
+          bldRectState.previewLine.polyline.positions.setValue(linePositions);
+        } else {
+          bldRectState.previewLine.polyline.positions = new Cesium.ConstantProperty(linePositions);
+        }
       }
       window.viewer.scene.requestRender();
       return;
@@ -1815,7 +1819,6 @@ function render3DBuildingsInCesium() {
       const vDiff = Cesium.Cartesian3.subtract(flatCursor, bldRectState.p1, new Cesium.Cartesian3());
       const dFondo = Cesium.Cartesian3.dot(vDiff, bldRectState.dirV);
       updateBuildingRectWithDistance(dFondo);
-      window.viewer.scene.requestRender();
     }
   }
 
@@ -1847,22 +1850,19 @@ function render3DBuildingsInCesium() {
       }
     }
 
+    const rectPts = [bldRectState.p1, bldRectState.p2, bldRectState.p3, bldRectState.p4];
+    const rectOutline = [bldRectState.p1, bldRectState.p2, bldRectState.p3, bldRectState.p4, bldRectState.p1];
+
     if (!bldRectState.previewRect) {
       bldRectState.previewRect = window.viewer.entities.add({
         polygon: {
-          hierarchy: new Cesium.CallbackProperty(() => {
-            if (!bldRectState.p1 || !bldRectState.p2 || !bldRectState.p3 || !bldRectState.p4) return new Cesium.PolygonHierarchy([]);
-            return new Cesium.PolygonHierarchy([bldRectState.p1, bldRectState.p2, bldRectState.p3, bldRectState.p4]);
-          }, false),
+          hierarchy: new Cesium.ConstantProperty(new Cesium.PolygonHierarchy(rectPts)),
           material: Cesium.Color.fromCssColorString('#818CF8').withAlpha(0.35),
           perPositionHeight: true,
           arcType: Cesium.ArcType.NONE
         },
         polyline: {
-          positions: new Cesium.CallbackProperty(() => {
-            if (!bldRectState.p1 || !bldRectState.p2 || !bldRectState.p3 || !bldRectState.p4) return [];
-            return [bldRectState.p1, bldRectState.p2, bldRectState.p3, bldRectState.p4, bldRectState.p1];
-          }, false),
+          positions: new Cesium.ConstantProperty(rectOutline),
           width: 3.5,
           material: new Cesium.ColorMaterialProperty(Cesium.Color.fromCssColorString('#38BDF8')),
           arcType: Cesium.ArcType.NONE,
@@ -1870,6 +1870,25 @@ function render3DBuildingsInCesium() {
         }
       });
       bldRectState.tempEntities.push(bldRectState.previewRect);
+    } else {
+      if (bldRectState.previewRect.polygon) {
+        const nextHierarchy = new Cesium.PolygonHierarchy(rectPts);
+        if (bldRectState.previewRect.polygon.hierarchy && typeof bldRectState.previewRect.polygon.hierarchy.setValue === 'function') {
+          bldRectState.previewRect.polygon.hierarchy.setValue(nextHierarchy);
+        } else {
+          bldRectState.previewRect.polygon.hierarchy = new Cesium.ConstantProperty(nextHierarchy);
+        }
+      }
+      if (bldRectState.previewRect.polyline) {
+        if (bldRectState.previewRect.polyline.positions && typeof bldRectState.previewRect.polyline.positions.setValue === 'function') {
+          bldRectState.previewRect.polyline.positions.setValue(rectOutline);
+        } else {
+          bldRectState.previewRect.polyline.positions = new Cesium.ConstantProperty(rectOutline);
+        }
+      }
+    }
+    if (window.viewer && window.viewer.scene && typeof window.viewer.scene.requestRender === 'function') {
+      window.viewer.scene.requestRender();
     }
   }
 

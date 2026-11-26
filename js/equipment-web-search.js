@@ -13,15 +13,7 @@
 (function (root) {
   'use strict';
 
-  function _aiFetch(url, opts, timeoutMs, apiKey) {
-    if (root.RA && typeof root.RA.geminiFetch === 'function') {
-      return root.RA.geminiFetch(url, opts, timeoutMs, apiKey);
-    }
-    const cleanOpts = Object.assign({}, opts || {});
-    cleanOpts.headers = Object.assign({}, cleanOpts.headers || {});
-    if (apiKey) cleanOpts.headers['x-goog-api-key'] = apiKey;
-    return fetch(url, cleanOpts);
-  }
+  // Cliente IA delegado en root.RA.AI (con fallback directo en tests aislados)
 
   const RAEquipmentWebSearch = {
     state: {
@@ -48,6 +40,12 @@
     },
 
     discoverAvailableModels: async function (apiKey) {
+      if (root.RA && root.RA.AI && typeof root.RA.AI.discoverModels === 'function') {
+        try {
+          const res = await root.RA.AI.discoverModels(apiKey);
+          if (Array.isArray(res) && res.length > 0) return res;
+        } catch (e) {}
+      }
       if (root.RA && typeof root.RA.discoverGeminiModels === 'function') {
         try {
           const res = await root.RA.discoverGeminiModels(apiKey);
@@ -217,11 +215,16 @@ REGLAS DE RIGOR TÉCNICO:
       for (const model of models) {
         try {
           const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
-          const res = await _aiFetch(url, {
+          const reqOpts = {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(requestBody)
-          }, 30000, apiKey);
+          };
+          const res = (root.RA && root.RA.AI && typeof root.RA.AI.fetch === 'function')
+            ? await root.RA.AI.fetch(url, reqOpts, 30000, apiKey)
+            : ((root.RA && typeof root.RA.geminiFetch === 'function')
+                ? await root.RA.geminiFetch(url, reqOpts, 30000, apiKey)
+                : await fetch(url, Object.assign({}, reqOpts, { headers: Object.assign({}, reqOpts.headers, apiKey ? { 'x-goog-api-key': apiKey } : {}) })));
 
           if (!res.ok) {
             const errText = await res.text();

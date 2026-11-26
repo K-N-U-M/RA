@@ -27,6 +27,8 @@
   let _renameDraft = '';
 
   function escapeHtml(str) {
+    const san = (root.RA && (root.RA.Sanitizer || root.RA.Sanitize)) || root.RASanitize;
+    if (san && typeof san.plain === 'function') return san.plain(str);
     return String(str == null ? '' : str)
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')

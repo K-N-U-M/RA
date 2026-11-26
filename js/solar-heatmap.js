@@ -658,79 +658,10 @@
    * Corrige proyectos importados cuyo roofInfo solo contenía { area, tilt, azimuth, panels }.
    */
   function ensureRoofGeometry(poly) {
-    if (!poly || !Array.isArray(poly.points) || poly.points.length < 3) return poly ? poly.roofInfo : null;
-    const ri = poly.roofInfo || {};
-    const hasGeo = !!(ri.invTransform && ri.transform && ri.uVec && ri.vVec && ri.normal && ri.center && Array.isArray(ri.poly2D) && ri.poly2D.length >= 3);
-    if (hasGeo) {
-      if (typeof ri.coplanar !== 'boolean') {
-        const st = String(poly.structureType || ri.structureType || '').toLowerCase();
-        const estT = String((poly.estructura && poly.estructura.tipo) || (ri.estructura && ri.estructura.tipo) || '').toLowerCase();
-        ri.coplanar = st.includes('coplanar') || estT === 'coplanar' || ((ri.tiltDeg || 0) >= 8 && (!poly.modTilt || poly.modTilt === 'auto' || poly.modTilt === 'coplanar'));
-      }
-      return ri;
+    if (typeof rehydratePolylineRoofInfo === 'function') {
+      return rehydratePolylineRoofInfo(poly, false);
     }
-    if (typeof polygonAnalysis !== 'function' || typeof Cesium === 'undefined' || !Cesium.Matrix4 || !Cesium.Cartesian3) {
-      poly.roofInfo = ri;
-      return ri;
-    }
-    const pa = polygonAnalysis(poly.points);
-    if (!pa) {
-      poly.roofInfo = ri;
-      return ri;
-    }
-    let uVec = pa.uVec, vVec = pa.vVec, normal = pa.normal, poly2D = pa.poly2D;
-    const wpPlane = (typeof WP !== 'undefined' && WP && Array.isArray(WP.planes) && typeof poly.planeIdx === 'number' && poly.planeIdx >= 0)
-      ? WP.planes[poly.planeIdx] : null;
-    if (wpPlane && wpPlane.uVec && wpPlane.vVec && wpPlane.normal && pa.invTransform) {
-      const uLoc = Cesium.Matrix4.multiplyByPointAsVector(pa.invTransform, wpPlane.uVec, new Cesium.Cartesian3());
-      const vLoc = Cesium.Matrix4.multiplyByPointAsVector(pa.invTransform, wpPlane.vVec, new Cesium.Cartesian3());
-      const nLoc = Cesium.Matrix4.multiplyByPointAsVector(pa.invTransform, wpPlane.normal, new Cesium.Cartesian3());
-      if (Cesium.Cartesian3.magnitude(uLoc) > 0.01 && Cesium.Cartesian3.magnitude(vLoc) > 0.01) {
-        uVec = Cesium.Cartesian3.normalize(uLoc, new Cesium.Cartesian3());
-        vVec = Cesium.Cartesian3.normalize(vLoc, new Cesium.Cartesian3());
-        normal = Cesium.Cartesian3.normalize(nLoc, new Cesium.Cartesian3());
-        if (normal.z < 0) Cesium.Cartesian3.negate(normal, normal);
-        poly2D = pa.localPoints.map(pt => ({
-          u: Cesium.Cartesian3.dot(pt, uVec),
-          v: Cesium.Cartesian3.dot(pt, vVec)
-        }));
-      }
-    }
-    let minU = Infinity, maxU = -Infinity, minV = Infinity, maxV = -Infinity;
-    poly2D.forEach(pt => {
-      if (pt.u < minU) minU = pt.u;
-      if (pt.u > maxU) maxU = pt.u;
-      if (pt.v < minV) minV = pt.v;
-      if (pt.v > maxV) maxV = pt.v;
-    });
-    ri.center = pa.center;
-    ri.origin = pa.center;
-    ri.carto = pa.carto;
-    ri.latDeg = pa.latDeg;
-    ri.lonDeg = pa.lonDeg;
-    ri.transform = pa.transform;
-    ri.invTransform = pa.invTransform;
-    ri.localPoints = pa.localPoints;
-    ri.uVec = uVec;
-    ri.vVec = vVec;
-    ri.normal = normal;
-    ri.poly2D = poly2D;
-    ri.minU = minU; ri.maxU = maxU; ri.minV = minV; ri.maxV = maxV;
-    ri.rangeU = maxU - minU; ri.rangeV = maxV - minV;
-    ri.tiltRad = pa.tiltRad;
-    ri.tiltDeg = pa.tiltDeg;
-    ri.azimuthDeg = pa.azimuthDeg;
-    ri.azimuthN = pa.azimuthN;
-    ri.area3D = pa.area3D;
-    ri.structureType = poly.structureType || ri.structureType || 'coplanar_teja';
-    ri.estructura = poly.estructura || ri.estructura || null;
-    if (typeof ri.coplanar !== 'boolean') {
-      const st = String(ri.structureType || '').toLowerCase();
-      const estT = String((ri.estructura && ri.estructura.tipo) || '').toLowerCase();
-      ri.coplanar = st.includes('coplanar') || estT === 'coplanar' || (pa.tiltDeg >= 8 && (!poly.modTilt || poly.modTilt === 'auto' || poly.modTilt === 'coplanar'));
-    }
-    poly.roofInfo = ri;
-    return ri;
+    return poly ? poly.roofInfo : null;
   }
 
   /**
@@ -1174,6 +1105,7 @@
           if (hModGlobal >= 0.04) {
             const invT = pInfo.invTransform || (pInfo.transform && typeof Cesium !== 'undefined' && Cesium.Matrix4 ? Cesium.Matrix4.inverse(pInfo.transform, new Cesium.Matrix4()) : null);
             pList.forEach((p, pIdx) => {
+              if (!p || p.deleted || p.disabled || p.isGhost) return;
               const myLayoutIdx = (p.layoutIndex !== undefined) ? p.layoutIndex : pIdx;
               let topU1, topV1, topU2, topV2;
               let effHMod = hModGlobal;
@@ -1229,7 +1161,11 @@
           interRowEdges
         });
 
+        const fallbackModWp = (cfg.moduleProps && typeof cfg.moduleProps.wp === 'number' && cfg.moduleProps.wp > 0) ? cfg.moduleProps.wp : 450;
+        const polyWp = (typeof wpGetPolyWp === 'function') ? wpGetPolyWp(poly) : fallbackModWp;
+
         pList.forEach((p, idx) => {
+          if (!p || p.deleted || p.disabled || p.isGhost) return;
           const pId = p.panelId || p.id || ('pan_' + polyIdx + '_' + idx);
           const u = typeof p.u === 'number' ? p.u : 0;
           const v = typeof p.v === 'number' ? p.v : 0;
@@ -1302,6 +1238,7 @@
             v: v,
             h: h,
             w: w,
+            wp: (typeof p.wp === 'number' && p.wp > 0) ? p.wp : polyWp,
             areaM2: p.areaM2 || (w * h),
             tiltDeg: tiltVal,
             azDeg: azVal,
@@ -1373,6 +1310,7 @@
         lng: cfg.lng,
         resolution: cfg.resolution,
         detailedBypass: cfg.detailedBypass,
+        shadowSimConfig: cfg.shadowSimConfig || { includeObstacles: true, includeBuildings: true, includeInterRow: true, shadowWeightPct: 100 },
         basePct: panelHorizons ? 25 : 0,
         panels,
         faldones,
@@ -1399,6 +1337,7 @@
     polylines.forEach((poly, polyIdx) => {
       const panels = Array.isArray(poly.panels) ? poly.panels : (poly.roofInfo && Array.isArray(poly.roofInfo.panels) ? poly.roofInfo.panels : []);
       panels.forEach((p, idx) => {
+        if (!p || p.deleted || p.disabled || p.isGhost) return;
         const pId = p.panelId || p.id || ('panel_' + polyIdx + '_' + idx);
         const lIdx = p.layoutIndex !== undefined ? p.layoutIndex : idx;
         const res = map.get(pId) ||
@@ -1588,60 +1527,34 @@
     let currentStep = 0;
     let frameStartTime = performance.now();
 
-    /**
-     * Discretiza un cuadrilátero 2D de panel en 3 sub-cadenas (sub-strings S1, S2, S3)
-     * representativas de las 3 ramas de diodos de bypass de un módulo comercial estándar / half-cut.
-     * En módulos fotovoltaicos comerciales estándar (IEC 61215), los 3 diodos dividen el ancho del
-     * panel en 3 columnas que recorren toda la longitud larga del módulo.
-     * @param {Array<{u:number,v:number}>} quad 4 vértices del módulo
-     * @returns {Array<Array<{u:number,v:number}>>} 3 sub-polígonos
-     */
-    function dividePanelIntoSubstrings2D(quad) {
-      if (!quad || quad.length !== 4) return quad ? [quad] : [];
-      const p0 = quad[0], p1 = quad[1], p2 = quad[2], p3 = quad[3];
-      const d01 = Math.hypot(p1.u - p0.u, p1.v - p0.v);
-      const d12 = Math.hypot(p2.u - p1.u, p2.v - p1.v);
-
-      const lerp = (a, b, t) => ({ u: a.u + (b.u - a.u) * t, v: a.v + (b.v - a.v) * t });
-
-      if (d12 >= d01) {
-        // La dimensión larga es p1->p2 y p0->p3. Los diodos dividen la dimensión corta (p0->p1 y p3->p2)
-        // generando 3 columnas longitudinales completas a lo largo de la altura del módulo.
-        const a0 = p0, b0 = p3;
-        const a1 = lerp(p0, p1, 1 / 3), b1 = lerp(p3, p2, 1 / 3);
-        const a2 = lerp(p0, p1, 2 / 3), b2 = lerp(p3, p2, 2 / 3);
-        const a3 = p1, b3 = p2;
-        return [
-          [a0, a1, b1, b0],
-          [a1, a2, b2, b1],
-          [a2, a3, b3, b2]
-        ];
-      } else {
-        // La dimensión larga es p0->p1 y p3->p2. Los diodos dividen la dimensión corta (p0->p3 y p1->p2).
-        const a0 = p0, b0 = p1;
-        const a1 = lerp(p0, p3, 1 / 3), b1 = lerp(p1, p2, 1 / 3);
-        const a2 = lerp(p0, p3, 2 / 3), b2 = lerp(p1, p2, 2 / 3);
-        const a3 = p3, b3 = p2;
-        return [
-          [a0, b0, b1, a1],
-          [a1, b1, b2, a2],
-          [a2, b2, b3, a3]
-        ];
-      }
+    function shrinkPolyInward(poly, marginM) {
+      if (!poly || poly.length < 3 || marginM <= 0) return poly;
+      let cx = 0, cy = 0;
+      for (let i = 0; i < poly.length; i++) { cx += poly[i].u; cy += poly[i].v; }
+      cx /= poly.length; cy /= poly.length;
+      return poly.map(pt => {
+        const du = pt.u - cx, dv = pt.v - cy;
+        const len = Math.hypot(du, dv);
+        if (len <= marginM * 1.5) return pt;
+        const scale = Math.max(0.5, (len - marginM) / len);
+        return { u: cx + du * scale, v: cy + dv * scale };
+      });
     }
 
-    // 5. Bucle Time-Sliced con presupuesto de 15ms
-    const _T_AMB_TABLE = {
-      costal_med: [11.0, 12.0, 14.0, 16.0, 20.0, 25.0, 28.0, 28.5, 24.0, 19.0, 14.0, 11.0],
-      costa_med:  [11.0, 12.0, 14.0, 16.0, 20.0, 25.0, 28.0, 28.5, 24.0, 19.0, 14.0, 11.0],
-      interior:   [5.0,  7.0,  10.0, 12.0, 17.0, 23.0, 27.0, 27.0, 22.0, 15.0,  9.0,  5.0],
-      atlantico:  [9.0,  10.0, 12.0, 13.0, 16.0, 19.0, 21.0, 21.5, 19.0, 15.0, 11.0,  9.0],
-      canarias:   [18.0, 18.5, 19.0, 20.0, 21.5, 23.5, 25.0, 26.0, 25.5, 23.5, 21.0, 19.0]
-    };
+    // 5. Bucle Time-Sliced con presupuesto de 15ms (SSOT: RA.Radiation & polygon-shadow-math.js)
+    const _radM = (typeof window !== 'undefined' && window.RA && window.RA.Radiation) ? window.RA.Radiation : null;
     const climaticZone = (typeof getClimaticZone === 'function') ? getClimaticZone(lat, lng) : 'interior';
     const noctModule = (activeModule && (activeModule.noct || activeModule.NOCT)) || 45;
     const rawGamma = (activeModule && (activeModule.tempCoeffPmax || activeModule.gammaPmp || (activeModule.tecnologia && activeModule.tecnologia.includes('N-Type') ? -0.0028 : -0.0034))) || -0.0034;
     const gammaCoeff = (Math.abs(rawGamma) > 0.05) ? rawGamma / 100.0 : rawGamma; // normaliza si viene en %/°C
+    const raShadowSimCfg = (typeof window !== 'undefined' && window.raShadowSimConfig)
+      ? {
+          includeObstacles: window.raShadowSimConfig.includeObstacles !== false,
+          includeBuildings: window.raShadowSimConfig.includeBuildings !== false,
+          includeInterRow: window.raShadowSimConfig.includeInterRow !== false,
+          shadowWeightPct: (typeof window.raShadowSimConfig.shadowWeightPct === 'number') ? window.raShadowSimConfig.shadowWeightPct : 100
+        }
+      : { includeObstacles: true, includeBuildings: true, includeInterRow: true, shadowWeightPct: 100 };
     // [MEJORA 3 AAA]: Delegación al Web Worker dedicado off-thread (60 FPS puros sin micro-tirones)
     let workerHandled = false;
     if (typeof Worker !== 'undefined' && typeof window !== 'undefined' && window.location && window.location.protocol.startsWith('http')) {
@@ -1652,9 +1565,11 @@
           lng,
           resolution: simResolution,
           detailedBypass: detailedBypass,
+          shadowSimConfig: raShadowSimCfg,
           polylines,
           climaticZone,
           moduleProps: {
+            wp: (activeModule && activeModule.wp) || 450,
             noct: noctModule,
             gammaCoeff: gammaCoeff,
             isBifacial: isBifacial,
@@ -1688,10 +1603,10 @@
       for (let mIdx = 0; mIdx < monthsDoy.length; mIdx++) {
       const m = monthsReal[mIdx];
       // Temperatura ambiente de diseño según zona climática y mes calendario REAL
-      const tAmbMonth = (_T_AMB_TABLE[climaticZone] || _T_AMB_TABLE.interior)[m];
+      const tAmbMonth = _radM ? _radM.getAmbientTempMonth(climaticZone, m) : 15.0;
       const GHI_daily_Wh = (typeof getRobustMonthlyGHI === 'function')
         ? getRobustMonthlyGHI(lat, lng, m)
-        : ((typeof estimateMonthlyGHI === 'function') ? estimateMonthlyGHI(lat, m) : (4600 * (1 + 0.32 * Math.sin((m - 2) * Math.PI / 6))));
+        : ((typeof estimateMonthlyGHI === 'function') ? estimateMonthlyGHI(lat, m) : (_radM ? _radM.estimateMonthlyGHI(lat, m) : 4600));
 
       // [C6] Distribución diurna específica del mes: se normaliza la curva seno para que la
       // energía integrada del mes sea EXACTAMENTE la insolación diaria real (antes se asumía
@@ -1758,23 +1673,11 @@
 
         // [C6] Insolación instantánea conservando la energía diaria real del mes (integral = GHI_daily_Wh)
         const GHI_instant = Math.max(0, (GHI_daily_Wh / (_sinAltSum * hourStepDt)) * sinAlt);
-        // [B2] Desagregación Erbs vía motor único de radiación (RA.Radiation). Fallback inline si el módulo no está.
-        let G_dhi, G_dni;
-        // [AUD-2026 · D-04] Día del año para corregir la excentricidad orbital en Erbs.
+        // [B2] Desagregación Erbs vía motor único de radiación (RA.Radiation)
         const _doyHeat = (typeof monthsDoy !== 'undefined' && monthsDoy[mIdx]) ? monthsDoy[mIdx] : 180;
-        if (typeof window !== 'undefined' && window.RA && window.RA.Radiation && typeof window.RA.Radiation.decomposeErbs === 'function') {
-          const _dec = window.RA.Radiation.decomposeErbs(GHI_instant, elevation, _doyHeat);
-          G_dhi = _dec.dhi;
-          G_dni = _dec.dni;
-        } else {
-          const _kt = Math.min(1.0, Math.max(0.0, GHI_instant / (1367 * sinAlt + 1e-3)));
-          let DHI_fraction;
-          if (_kt < 0.22) DHI_fraction = 1.0 - 0.09 * _kt;
-          else if (_kt < 0.80) DHI_fraction = 0.9511 - 0.1604 * _kt + 4.388 * _kt * _kt - 16.638 * Math.pow(_kt, 3) + 12.336 * Math.pow(_kt, 4);
-          else DHI_fraction = 0.165;
-          G_dhi = GHI_instant * DHI_fraction;
-          G_dni = Math.max(0, (GHI_instant - G_dhi) / Math.max(sinAlt, 0.05));
-        }
+        const _dec = _radM ? _radM.decomposeErbs(GHI_instant, elevation, _doyHeat) : { dhi: GHI_instant * 0.3, dni: Math.max(0, (GHI_instant * 0.7) / Math.max(sinAlt, 0.05)) };
+        const G_dhi = _dec.dhi;
+        const G_dni = _dec.dni;
 
         polylines.forEach(poly => {
           const pInfo = poly.roofInfo || (typeof computeSinglePolylineRoofInfo === "function" ? computeSinglePolylineRoofInfo(poly.points, poly) : null);
@@ -1835,19 +1738,11 @@
           if (interRowQuads.length > 0) {
             polyShadowQuads2D.push(...interRowQuads);
           }
-          // Precalcular AABBs de los quads de sombra una vez por faldón/hora (evita O(T·N²) en bucle de paneles)
+          // Precalcular AABBs de los quads de sombra una vez por faldón/hora (SSOT: polygon-shadow-math.js)
           for (let qi = 0; qi < polyShadowQuads2D.length; qi++) {
             const q = polyShadowQuads2D[qi];
             if (!q || q.length === 0 || q.uMin !== undefined) continue;
-            let qUMin = Infinity, qUMax = -Infinity, qVMin = Infinity, qVMax = -Infinity;
-            for (let pi = 0; pi < q.length; pi++) {
-              const qpt = q[pi];
-              if (qpt.u < qUMin) qUMin = qpt.u;
-              if (qpt.u > qUMax) qUMax = qpt.u;
-              if (qpt.v < qVMin) qVMin = qpt.v;
-              if (qpt.v > qVMax) qVMax = qpt.v;
-            }
-            q.uMin = qUMin; q.uMax = qUMax; q.vMin = qVMin; q.vMax = qVMax;
+            if (typeof precalcQuadAABB === 'function') precalcQuadAABB(q);
           }
 
           pInfo.panels.forEach((pData, pIdx) => {
@@ -1859,11 +1754,10 @@
             const up = Cesium.Ellipsoid.WGS84.geodeticSurfaceNormal(pData.center || (pData.corners && pData.corners[0]), new Cesium.Cartesian3());
             const cosSlope = Math.max(0, Math.min(1, Cesium.Cartesian3.dot(panelNormWorld, up)));
             const tiltRad = Math.acos(cosSlope);
-            const svf = (1 + cosSlope) / 2;
 
             let diffuseOcclusion = 0.0;
             let minObsDist = Infinity;
-            if (activeObstacles && activeObstacles.length > 0 && typeof pData.u === 'number' && typeof pData.v === 'number') {
+            if (shadowCfg.includeObstacles !== false && activeObstacles && activeObstacles.length > 0 && typeof pData.u === 'number' && typeof pData.v === 'number') {
               for (let oi = 0; oi < activeObstacles.length; oi++) {
                 const o = activeObstacles[oi];
                 const oPts = (typeof getObstaclePolygon2DForRoof === 'function') ? getObstaclePolygon2DForRoof(o, 0.0, pInfo) : null;
@@ -1891,27 +1785,18 @@
 
             // 3. Transposición física POA (W/m²) por módulo — motor único RA.Radiation (Perez 1990 anisotrópico)
             const moduleB0 = (activeModule && (activeModule.iamB0 || activeModule.b0)) || 0.05;
-            let G_beam = 0, G_diffuse = 0, G_albedo = 0;
-            if (typeof window !== 'undefined' && window.RA && window.RA.Radiation && typeof window.RA.Radiation.transposeComponents === 'function') {
-              const _tp = window.RA.Radiation.transposeComponents({
-                ghi: GHI_instant, dhi: G_dhi, dni: G_dni,
-                cosTheta: cosIncidence, tiltRad: tiltRad,
-                albedo: 0.20, iamB0: moduleB0, sunElevDeg: elevation,
-                diffuseModel: 'perez'
-              });
-              // Componentes físicas con IAM selectivo (haz, difusa celeste y albedo)
-              G_beam = (_tp.G_b_eff !== undefined) ? _tp.G_b_eff : (_tp.G_b * _tp.iamBlend);
-              G_diffuse = ((_tp.G_d_eff !== undefined) ? _tp.G_d_eff : (_tp.G_d * _tp.iamBlend)) * svfAmbient;
-              G_albedo = (_tp.G_r_eff !== undefined) ? _tp.G_r_eff : (_tp.G_r * _tp.iamBlend);
-            } else {
-              // Fallback legacy: difusa isótropa + IAM solo en haz
-              if (cosIncidence > 0.005) {
-                const iam = Math.max(0, 1 - 0.05 * (1 / Math.max(cosIncidence, 0.01) - 1));
-                G_beam = G_dni * cosIncidence * iam;
-              }
-              G_diffuse = G_dhi * svf * svfAmbient;
-              G_albedo = GHI_instant * 0.20 * ((1 - cosSlope) / 2);
-            }
+            const _tp = _radM
+              ? _radM.transposeComponents({
+                  ghi: GHI_instant, dhi: G_dhi, dni: G_dni,
+                  cosTheta: cosIncidence, tiltRad: tiltRad,
+                  albedo: 0.20, iamB0: moduleB0, sunElevDeg: elevation,
+                  dayOfYear: _doyHeat,
+                  diffuseModel: 'perez'
+                })
+              : { G_b_eff: Math.max(0, G_dni * cosIncidence), G_d_eff: G_dhi, G_r_eff: 0 };
+            const G_beam = (_tp.G_b_eff !== undefined) ? _tp.G_b_eff : (_tp.G_b * _tp.iamBlend);
+            const G_diffuse = ((_tp.G_d_eff !== undefined) ? _tp.G_d_eff : (_tp.G_d * _tp.iamBlend)) * svfAmbient;
+            const G_albedo = (_tp.G_r_eff !== undefined) ? _tp.G_r_eff : (_tp.G_r * _tp.iamBlend);
 
             // Bifacialidad: factor de vista hacia cubierta/suelo con función coseno² escalada por altura libre
             const isRaised = !(pInfo && pInfo.coplanar) || (effClearance >= 0.25);
@@ -1967,10 +1852,12 @@
                   if (ppt.v > vMax) vMax = ppt.v;
                 }
 
+                // Área celular activa (descontando ~4.5 cm del marco de aluminio inactivo) para paridad exacta con el Worker
+                const activeCellPoly = shrinkPolyInward(panelPoly2D, 0.045);
                 // Discretización física en 3 sub-cadenas (diodos de bypass IEC 61215)
-                const subStrings = (panelPoly2D.length === 4)
-                  ? dividePanelIntoSubstrings2D(panelPoly2D)
-                  : [panelPoly2D];
+                const subStrings = (detailedBypass && activeCellPoly.length === 4)
+                  ? dividePanelIntoSubstrings2D(activeCellPoly)
+                  : [activeCellPoly];
                 const subShaded = new Array(subStrings.length).fill(false);
 
                 for (const quad of polyShadowQuads2D) {
@@ -2013,7 +1900,9 @@
                   }
                 }
 
-                shadedSubstringsCount = subShaded.filter(Boolean).length;
+                shadedSubstringsCount = (!detailedBypass && subShaded.some(Boolean))
+                  ? 3
+                  : subShaded.filter(Boolean).length;
                 if (shadedSubstringsCount > 0) {
                   isShaded = true;
                 }
@@ -2050,9 +1939,12 @@
               pData.annualShadedLoss += instantLossW * mw * hourStepDt;
             }
 
-            // [B6] Energía neta real del mes calendario (para el reparto mensual de la memoria/oferta).
+            // [B6] Energía neta real del mes calendario (escalada por kWp individual del módulo).
             const effectiveLossW = (isShaded && instantLossW > 0) ? instantLossW : 0;
-            _monthlyNetWh[m] += (instantPotentialW - effectiveLossW) * mw * hourStepDt;
+            const _fallbackWp = (activeModule && activeModule.wp) || 450;
+            const _polyWp = (typeof wpGetPolyWp === 'function') ? wpGetPolyWp(poly) : _fallbackWp;
+            const _pKwpIndiv = ((typeof pData.wp === 'number' && pData.wp > 0) ? pData.wp : _polyWp) / 1000.0;
+            _monthlyNetWh[m] += (instantPotentialW - effectiveLossW) * mw * hourStepDt * _pKwpIndiv;
           });
         });
 
@@ -2102,13 +1994,15 @@
 
     // 6. Cálculo final de porcentajes, producción anual en kWh y clasificación
     const pNomW = (activeModule && activeModule.wp) || 450;
-    const pKwp = pNomW / 1000.0;
     const prCalc = (typeof window !== 'undefined' && typeof window.raCalculateSystemPR === 'function')
       ? window.raCalculateSystemPR(0.925)
       : { prTotal: 0.84, prBOS: 0.885 };
-    // Dado que el modelo por instantes ya integra las pérdidas angulares (IAM) y térmicas (tempFactor)
-    // paso a paso en cada hora, el factor de rendimiento de balance de planta (BOS) evita descontar dos veces calor e IAM.
-    const prSys = (typeof prCalc.prBOS === 'number') ? prCalc.prBOS : (prCalc.prTotal / (0.925 * (1 - 0.028)));
+    // Dado que el modelo por instantes ya integra las pérdidas angulares (IAM), térmicas (tempFactor)
+    // y de sombreado/bypass por sub-strings en cada hora, se excluye `bypass` de prBOS para evitar doble descuento.
+    let prSys = (typeof prCalc.prBOS === 'number') ? prCalc.prBOS : (prCalc.prTotal / (0.925 * (1 - 0.028)));
+    if (prCalc.factors && typeof prCalc.factors.bypass === 'number' && prCalc.factors.bypass > 0 && prCalc.factors.bypass < 1) {
+      prSys = prSys / (1 - prCalc.factors.bypass);
+    }
 
     let maxNetWh = 0;
     polylines.forEach(poly => {
@@ -2122,6 +2016,7 @@
     if (maxNetWh <= 0) maxNetWh = 1;
 
     polylines.forEach(poly => {
+      const polyWp = (typeof wpGetPolyWp === 'function') ? wpGetPolyWp(poly) : pNomW;
       const panels = Array.isArray(poly.panels) ? poly.panels : (poly.roofInfo && Array.isArray(poly.roofInfo.panels) ? poly.roofInfo.panels : []);
       panels.forEach(p => {
         if (!p || p.deleted || p.disabled || p.isGhost) return;
@@ -2132,7 +2027,7 @@
         p.annualYieldPct = Math.max(0, Math.round((100 - p.annualLossPct) * 10) / 10);
 
         const netWh = Math.max(0, p.annualTotalPotential - (p.annualShadedLoss || 0));
-        const panelKwp = ((typeof p.wp === 'number' && p.wp > 0) ? p.wp : pNomW) / 1000.0;
+        const panelKwp = ((typeof p.wp === 'number' && p.wp > 0) ? p.wp : polyWp) / 1000.0;
         // Generación bruta anual fotovoltaica y generación neta tras PR de sistema
         p.annualGrossKwh = (netWh / 1000.0) * panelKwp;
         p._lastPrSys = prSys;
@@ -2182,7 +2077,7 @@
         const _start = (_i === 0) ? 0 : monthsReal[_i];
         const _end = (_i + 1 < monthsReal.length) ? monthsReal[_i + 1] : 12;
         const effStride = workerHandled ? 1 : (heatmapStride || 1);
-        const _blockVal = (_monthlyNetWh[monthsReal[_i]] * effStride) / 1000.0 * pKwp * prSys;
+        const _blockVal = (_monthlyNetWh[monthsReal[_i]] * effStride) / 1000.0 * prSys;
         let _wSum = 0;
         for (let _k = _start; _k < _end; _k++) _wSum += _ghiW[_k];
         if (_wSum <= 0) _wSum = (_end - _start) || 1;
