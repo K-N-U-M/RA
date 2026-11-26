@@ -1,0 +1,162 @@
+/* ============================================================================
+   RA — TEMA NEUMÓRFICO CLARO (Soft UI / Dieter Rams / Braun Reference)
+   Rama experimental: feat/ui-redesign-reference
+   ============================================================================ */
+
+:root {
+  --nm-bg: #e7eaee;
+  --nm-surface: #ebedf0;
+  --nm-surface-elevated: #f1f3f6;
+  --nm-surface-inset: #e1e5ea;
+  --nm-text: #1e242b;
+  --nm-text-muted: #6e7781;
+  --nm-accent: #e84a27;
+  --nm-accent-soft: rgba(232, 74, 39, 0.14);
+  --nm-shadow-out: 6px 6px 14px rgba(163, 177, 198, 0.48), -6px -6px 14px rgba(255, 255, 255, 0.88);
+  --nm-shadow-out-sm: 3px 3px 8px rgba(163, 177, 198, 0.45), -3px -3px 8px rgba(255, 255, 255, 0.88);
+  --nm-shadow-in: inset 3px 3px 7px rgba(163, 177, 198, 0.48), inset -3px -3px 7px rgba(255, 255, 255, 0.88);
+
+  /* Sobreescritura de tokens base */
+  --bg-card: var(--nm-surface);
+  --text-slate-100: var(--nm-text);
+  --text-slate-200: #2d353f;
+  --text-slate-300: #4b5563;
+  --text-slate-400: var(--nm-text-muted);
+  --text-slate-500: #8b949e;
+  --amber-400: var(--nm-accent);
+  --amber-500: var(--nm-accent);
+  --sky-400: var(--nm-accent);
+  --sky-500: var(--nm-accent);
+}
+
+/* ── Sidebar principal ────────────────────────────────────────────────────── */
+#ra-sidebar {
+  background: var(--nm-bg) !important;
+  color: var(--nm-text) !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.7) !important;
+  box-shadow: 8px 0 24px rgba(163, 177, 198, 0.4) !important;
+}
+
+#ra-sidebar h1,
+#ra-sidebar h2,
+#ra-sidebar h3,
+#ra-sidebar h4,
+#ra-sidebar label,
+#ra-sidebar .sb-title {
+  color: var(--nm-text) !important;
+}
+
+#ra-sidebar .sb-subtitle,
+#ra-sidebar small {
+  color: var(--nm-text-muted) !important;
+}
+
+/* ── Tarjetas y acordeones ────────────────────────────────────────────────── */
+#ra-sidebar .wp-card,
+#ra-sidebar .ra-card,
+#ra-sidebar .card,
+#ra-sidebar details,
+#ra-sidebar .wp-subdock {
+  background: var(--nm-surface) !important;
+  color: var(--nm-text) !important;
+  border: 1px solid rgba(255, 255, 255, 0.65) !important;
+  border-radius: 18px !important;
+  box-shadow: var(--nm-shadow-out-sm) !important;
+}
+
+/* ── Stepper 5 pasos ──────────────────────────────────────────────────────── */
+.wp-step-btn {
+  background: var(--nm-surface) !important;
+  color: var(--nm-text-muted) !important;
+  border: 1px solid rgba(255, 255, 255, 0.7) !important;
+  border-radius: 14px !important;
+  box-shadow: var(--nm-shadow-out-sm) !important;
+  transition: all 0.2s ease !important;
+}
+
+.wp-step-btn.active {
+  background: var(--nm-surface-elevated) !important;
+  color: var(--nm-accent) !important;
+  box-shadow: var(--nm-shadow-in) !important;
+  border-color: rgba(232, 74, 39, 0.28) !important;
+}
+
+.wp-step-btn.active .wp-step-num {
+  background: var(--nm-accent) !important;
+  color: #ffffff !important;
+}
+
+/* ── Inputs y selects hundidos (inset) ────────────────────────────────────── */
+#ra-sidebar input[type="text"],
+#ra-sidebar input[type="number"],
+#ra-sidebar input[type="search"],
+#ra-sidebar select,
+#ra-sidebar textarea {
+  background: var(--nm-surface-inset) !important;
+  color: var(--nm-text) !important;
+  border: 1px solid rgba(255, 255, 255, 0.55) !important;
+  border-radius: 12px !important;
+  box-shadow: var(--nm-shadow-in) !important;
+}
+
+/* ── Botones neumórficos ──────────────────────────────────────────────────── */
+#ra-sidebar button:not(.wp-step-btn),
+#ra-floating-tools-container button,
+#ra-floating-settings-btn,
+#ra-solar-fab-btn,
+#ra-outliner-fab-btn,
+#ra-bom-fab-btn,
+#ra-btn-compare-scenarios {
+  background: var(--nm-surface-elevated) !important;
+  color: var(--nm-text) !important;
+  border: 1px solid rgba(255, 255, 255, 0.75) !important;
+  border-radius: 14px !important;
+  box-shadow: var(--nm-shadow-out-sm) !important;
+}
+
+#ra-sidebar button:not(.wp-step-btn):hover,
+#ra-floating-tools-container button:hover {
+  color: var(--nm-accent) !important;
+  box-shadow: var(--nm-shadow-out) !important;
+}
+
+#ra-sidebar button.primary,
+#ra-sidebar button[style*="background:#0284c7"],
+#ra-sidebar button[style*="background:#2563eb"],
+#ra-sidebar button[style*="background: #2563eb"] {
+  background: var(--nm-accent) !important;
+  color: #ffffff !important;
+  border-color: transparent !important;
+}
+
+/* ── HUDs, Barra de Estado y Onboarding ───────────────────────────────────── */
+#ra-hud-energy,
+#ra-project-status-hud,
+#ra-cad-status-bar,
+#ra-onboarding-empty-card,
+#ra-cad-outliner-panel,
+#ra-bom-tree-hud,
+#ra-solar-time-hud {
+  background: rgba(235, 237, 240, 0.94) !important;
+  color: var(--nm-text) !important;
+  border: 1px solid rgba(255, 255, 255, 0.8) !important;
+  border-radius: 18px !important;
+  box-shadow: var(--nm-shadow-out) !important;
+  backdrop-filter: blur(10px) !important;
+}
+
+#ra-cad-status-bar span,
+#ra-hud-energy span,
+#ra-project-status-hud span {
+  color: var(--nm-text) !important;
+}
+
+/* ── Modales ──────────────────────────────────────────────────────────────── */
+.ra-modal,
+[id$="-modal"] > div {
+  background: var(--nm-bg) !important;
+  color: var(--nm-text) !important;
+  border: 1px solid rgba(255, 255, 255, 0.8) !important;
+  border-radius: 22px !important;
+  box-shadow: 0 24px 60px rgba(30, 36, 43, 0.25) !important;
+}
