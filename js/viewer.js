@@ -349,19 +349,21 @@ async function loadGoogle3D(opts) {
         maximumMemoryUsage: 512,
         preloadWhenStationary: !recoveryMode,
         preloadAncestors: false,
-        skipLevelOfDetail: false, // [FIX HUECOS SOMBRA] No saltar LOD: mantiene geometría continua
-        loadSiblings: !recoveryMode, // Desactivar en recuperación para no saturar flujos HTTP/3 QUIC
-        cullWithChildrenBounds: false, // [FIX HUECOS SOMBRA] Evitar culling prematuro de edificios adyacentes
-        dynamicScreenSpaceError: false // [FIX HUECOS SOMBRA] Evitar degradación agresiva en bordes de pantalla
+        skipLevelOfDetail: true,
+        loadSiblings: !recoveryMode,
+        cullWithChildrenBounds: true,
+        dynamicScreenSpaceError: true,
+        dynamicScreenSpaceErrorDensity: 0.00278,
+        dynamicScreenSpaceErrorFactor: 4.0
       });
       const initShadowMode = (typeof window !== 'undefined' && window.ShadowSettings && !window.ShadowSettings.getSettings().selfShadows)
         ? Cesium.ShadowMode.RECEIVE_ONLY
         : Cesium.ShadowMode.ENABLED;
       google3DTileset.shadows = (typeof Cesium !== 'undefined' && Cesium.ShadowMode) ? initShadowMode : undefined;
-      google3DTileset.cullWithChildrenBounds = false;
-      google3DTileset.skipLevelOfDetail = false;
+      google3DTileset.cullWithChildrenBounds = true;
+      google3DTileset.skipLevelOfDetail = true;
       google3DTileset.loadSiblings = !recoveryMode;
-      google3DTileset.dynamicScreenSpaceError = false;
+      google3DTileset.dynamicScreenSpaceError = true;
       google3DTileset._raRecoveryMode = recoveryMode;
       window.google3DTileset = google3DTileset;
       attachTilesetLoadMonitor(google3DTileset, 'Google 3D');

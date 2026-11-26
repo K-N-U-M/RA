@@ -494,14 +494,38 @@ function wpConfigureShadowMap(sm) {
   }
   const userCfgRadius = 400.0;
   sm.enabled = true;
-  sm.size = 4096;
-  sm.softShadows = true;
+  sm.size = 2048;
+  sm.softShadows = false;
   sm.darkness = 0.50;
   sm.maximumDistance = userCfgRadius;
-  sm._fitNearFar = true;
+  sm._fitNearFar = false;
   sm.cascadesEnabled = true;
-  sm.numberOfCascades = 4;
+  sm.numberOfCascades = 2;
   sm.fadingEnabled = true;
+  if (!viewer._raMovePerfHooked && viewer.camera) {
+    viewer._raMovePerfHooked = true;
+    let _savedSoft = null;
+    let _savedSse = null;
+    viewer.camera.moveStart.addEventListener(() => {
+      if (viewer.scene && viewer.scene.shadowMap) {
+        _savedSoft = viewer.scene.shadowMap.softShadows;
+        viewer.scene.shadowMap.softShadows = false;
+      }
+      if (window.google3DTileset) {
+        _savedSse = window.google3DTileset.maximumScreenSpaceError;
+        if (_savedSse < 24) window.google3DTileset.maximumScreenSpaceError = 24;
+      }
+    });
+    viewer.camera.moveEnd.addEventListener(() => {
+      if (viewer.scene && viewer.scene.shadowMap && _savedSoft !== null) {
+        viewer.scene.shadowMap.softShadows = _savedSoft;
+      }
+      if (window.google3DTileset && _savedSse !== null) {
+        window.google3DTileset.maximumScreenSpaceError = _savedSse;
+      }
+      if (viewer.scene) viewer.scene.requestRender();
+    });
+  }
   const depthBias = Math.max(0.00025, Math.min(0.005, (window.wpShadowBiasMeters || 0.08) / userCfgRadius));
   if (sm._primitiveBias) {
     sm._primitiveBias.polygonOffset = true;
