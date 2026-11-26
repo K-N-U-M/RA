@@ -60,7 +60,7 @@
     overlay.setAttribute('aria-modal', 'true');
     overlay.setAttribute('aria-label', 'Configurar credenciales del visor 3D');
     overlay.style.cssText = [
-      'position:fixed', 'inset:0', 'z-index:var(--z-modal, 1300)',
+      'position:fixed', 'inset:0', 'z-index:2147483647',
       'background:rgba(2,6,23,0.82)', 'backdrop-filter:blur(8px)',
       'display:flex', 'align-items:center', 'justify-content:center', 'padding:16px',
       'font-family:var(--font-sans, Inter, system-ui, sans-serif)'
