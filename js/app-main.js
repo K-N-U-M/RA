@@ -423,13 +423,13 @@ function wpCheckSavedProject() {
       const banner = document.createElement('div');
       banner.id = 'ra-restore-autosave-banner';
       banner.style.cssText = 'position:fixed;top:64px;right:16px;z-index:9999;display:flex;align-items:center;gap:10px;' +
-        'padding:10px 14px;border-radius:8px;background:rgba(15,23,42,0.95);border:1px solid rgba(56,189,248,0.5);' +
-        'color:#fff;font-family:Inter,sans-serif;font-size:12px;box-shadow:0 10px 25px -5px rgba(0,0,0,0.6);';
+        'padding:10px 14px;border-radius:10px;background:#f3f5f8;border:1px solid #dfe3e8;' +
+        'color:#1e242b;font-family:Inter,sans-serif;font-size:12px;box-shadow:0 10px 25px -5px rgba(30,36,43,0.18),0 2px 6px rgba(30,36,43,0.08);';
       banner.innerHTML = '<span>Sesión previa encontrada (' + dateStr + ')</span>' +
         '<button onclick="wpRestoreAutosave(); this.parentNode.remove();" style="padding:4px 10px;border-radius:6px;' +
-        'border:none;background:#38bdf8;color:#0f172a;font-weight:700;cursor:pointer;font-size:11px;">RESTAURAR</button>' +
-        '<button onclick="this.parentNode.remove();" style="padding:4px 8px;border-radius:6px;border:1px solid rgba(255,255,255,0.2);' +
-        'background:transparent;color:#94a3b8;cursor:pointer;font-size:11px;">✕</button>';
+        'border:none;background:#e84a27;color:#ffffff;font-weight:700;cursor:pointer;font-size:11px;">RESTAURAR</button>' +
+        '<button onclick="this.parentNode.remove();" style="padding:4px 8px;border-radius:6px;border:1px solid #dfe3e8;' +
+        'background:#ebedf0;color:#57606a;cursor:pointer;font-size:11px;">✕</button>';
       document.body.appendChild(banner);
       setTimeout(() => { if (banner.parentNode) banner.remove(); }, 20000);
     }
@@ -685,18 +685,18 @@ function wpCompararEscenarios() {
   // render de la tabla
   const mejor = [...scenarios].sort((a, b) => (b.van - a.van))[0];
   const fila = (s, mejorFlag) => `
-    <tr style="background:${mejorFlag ? 'rgba(16,185,129,0.12)' : 'transparent'};border-bottom:1px solid rgba(255,255,255,0.06);">
-      <td style="padding:5px 6px;font-weight:${mejorFlag ? '900' : '600'};color:${mejorFlag ? '#34D399' : '#E2E8F0'};">${s.nombre}${mejorFlag ? ' ★' : ''}</td>
-      <td style="padding:5px 6px;text-align:right;color:var(--text-slate-300);">${s.kwh.toLocaleString('es-ES')}</td>
-      <td style="padding:5px 6px;text-align:right;color:#FBBF24;">${s.capex.toLocaleString('es-ES')} €</td>
-      <td style="padding:5px 6px;text-align:right;color:var(--text-slate-300);">${s.ahorro.toLocaleString('es-ES')} €</td>
-      <td style="padding:5px 6px;text-align:right;color:${s.payback < 8 ? '#34D399' : '#FBBF24'};">${isFinite(s.payback) ? s.payback.toFixed(1) + ' a' : '—'}</td>
-      <td style="padding:5px 6px;text-align:right;color:${s.van > 0 ? '#34D399' : '#F87171'};">${s.van.toLocaleString('es-ES')} €</td>
-      <td style="padding:5px 6px;text-align:right;color:var(--text-slate-300);">${s.tirString || (s.tir != null ? s.tir.toFixed(1) + '%' : 'N/D')}</td>
+    <tr style="background:${mejorFlag ? 'rgba(5,150,105,0.12)' : 'transparent'};border-bottom:1px solid #dfe3e8;">
+      <td style="padding:5px 6px;font-weight:${mejorFlag ? '900' : '600'};color:${mejorFlag ? '#059669' : '#1e242b'};">${s.nombre}${mejorFlag ? ' ★' : ''}</td>
+      <td style="padding:5px 6px;text-align:right;color:#1e242b;">${s.kwh.toLocaleString('es-ES')}</td>
+      <td style="padding:5px 6px;text-align:right;color:#e84a27;font-weight:700;">${s.capex.toLocaleString('es-ES')} €</td>
+      <td style="padding:5px 6px;text-align:right;color:#1e242b;">${s.ahorro.toLocaleString('es-ES')} €</td>
+      <td style="padding:5px 6px;text-align:right;color:${s.payback < 8 ? '#059669' : '#d97706'};">${isFinite(s.payback) ? s.payback.toFixed(1) + ' a' : '—'}</td>
+      <td style="padding:5px 6px;text-align:right;color:${s.van > 0 ? '#059669' : '#dc2626'};">${s.van.toLocaleString('es-ES')} €</td>
+      <td style="padding:5px 6px;text-align:right;color:#1e242b;">${s.tirString || (s.tir != null ? s.tir.toFixed(1) + '%' : 'N/D')}</td>
     </tr>`;
   container.innerHTML = `
     <table style="width:100%;border-collapse:collapse;font-size: 10px;">
-      <thead><tr style="color:var(--text-slate-400);border-bottom:1px solid rgba(255,255,255,0.12);">
+      <thead><tr style="color:#57606a;border-bottom:1px solid #dfe3e8;">
         <th style="text-align:left;padding:4px 6px;">Escenario</th>
         <th style="text-align:right;padding:4px 6px;">kWh/año</th>
         <th style="text-align:right;padding:4px 6px;">CAPEX</th>
@@ -707,7 +707,7 @@ function wpCompararEscenarios() {
       </tr></thead>
       <tbody>${scenarios.map(s => fila(s, s === mejor)).join('')}</tbody>
     </table>
-    <div style="font-size: 10px;color:#64748b;margin-top:5px;">
+    <div style="font-size: 10px;color:#57606a;margin-top:5px;">
       ★ mejor VAN. CAPEX = equipamiento de catálogo + instalación fija. Ahorro escalado del modelo financiero por kWh producido. TIR a 25 años con degradación 0,45%/año.
     </div>`;
   container.style.display = 'block';
@@ -8729,20 +8729,20 @@ function _flushHeatmapPanelHover() {
     const strColor = panelData.stringColor || '#00F0FF';
     const strLabel = panelData.stringName || ('String #' + ((panelData.polyIdx || 0) + 1));
     const modeBadge = isHeatmapActive && isSimValid
-      ? `<span style="display:inline-flex;align-items:center;gap:3px;padding:1px 5px;border-radius:4px;font-size: 10px;background:rgba(16,185,129,0.15);color:#10b981;border:1px solid rgba(16,185,129,0.3);font-weight:700;">☀️ Heatmap Solar</span>`
-      : `<span style="display:inline-flex;align-items:center;gap:3px;padding:1px 5px;border-radius:4px;font-size: 10px;background:rgba(56,189,248,0.12);color:${strColor};border:1px solid rgba(56,189,248,0.25);font-weight:700;">⚡ ${strLabel}</span>`;
+      ? `<span style="display:inline-flex;align-items:center;gap:3px;padding:1px 5px;border-radius:4px;font-size: 10px;background:rgba(5,150,105,0.12);color:#059669;border:1px solid rgba(5,150,105,0.3);font-weight:700;">☀️ Heatmap Solar</span>`
+      : `<span style="display:inline-flex;align-items:center;gap:3px;padding:1px 5px;border-radius:4px;font-size: 10px;background:rgba(232,74,39,0.10);color:#e84a27;border:1px solid rgba(232,74,39,0.28);font-weight:700;">⚡ ${strLabel}</span>`;
 
     const lossHtml = isSimValid
-      ? `<span style="font-weight:700;color:${loss > 0.05 ? '#f97316' : '#10b981'};">${loss > 0.05 ? '-' + loss.toFixed(1) + '%' : '100% Libre'}</span>`
-      : `<span style="font-weight:600;color:#94a3b8;font-size: 10px;font-style:italic;">⚠️ Simulación pendiente (Paso 3)</span>`;
+      ? `<span style="font-weight:700;color:${loss > 0.05 ? '#e84a27' : '#059669'};">${loss > 0.05 ? '-' + loss.toFixed(1) + '%' : '100% Libre'}</span>`
+      : `<span style="font-weight:600;color:#57606a;font-size: 10px;font-style:italic;">⚠️ Simulación pendiente (Paso 3)</span>`;
 
     const diagHtml = isSimValid
-      ? `<span style="font-weight:700;color:${isUnv ? '#ef4444' : (isMlpe ? '#f59e0b' : '#10b981')};">${isUnv ? '❌ Inviable' : (isMlpe ? '⚠️ Requiere Optimizador' : '✅ Óptimo')}</span>`
-      : `<span style="font-weight:600;color:#94a3b8;font-size: 10px;">Pendiente de cálculo</span>`;
+      ? `<span style="font-weight:700;color:${isUnv ? '#dc2626' : (isMlpe ? '#d97706' : '#059669')};">${isUnv ? '❌ Inviable' : (isMlpe ? '⚠️ Requiere Optimizador' : '✅ Óptimo')}</span>`
+      : `<span style="font-weight:600;color:#57606a;font-size: 10px;">Pendiente de cálculo</span>`;
 
     const kwhHtml = isSimValid
-      ? `<span style="font-weight:800;color:#10b981;">${kwh.toLocaleString('es-ES')} kWh/año</span>`
-      : `<span style="font-weight:600;color:#94a3b8;font-size: 10px;">${kwh.toLocaleString('es-ES')} kWh/año <span style="font-size: 10px;color:#64748B;">(est.)</span></span>`;
+      ? `<span style="font-weight:800;color:#059669;">${kwh.toLocaleString('es-ES')} kWh/año</span>`
+      : `<span style="font-weight:600;color:#57606a;font-size: 10px;">${kwh.toLocaleString('es-ES')} kWh/año <span style="font-size: 10px;color:#57606a;">(est.)</span></span>`;
 
     // [Opción 2] Métricas ampliadas de radiación e insolación anual
     const insolationVal = (typeof panelData.annualTotalInsolation === 'number' && panelData.annualTotalInsolation > 0)
@@ -8750,8 +8750,8 @@ function _flushHeatmapPanelHover() {
       : (typeof panelData.annualGrossKwh === 'number' ? Math.round(panelData.annualGrossKwh / 0.885) : null);
     const insolationRow = (isSimValid && insolationVal)
       ? `<div style="display:flex;justify-content:space-between;margin-bottom:2px;gap:12px;font-size:10px;">
-           <span style="color:#94a3b8;">Radiación Incidente:</span>
-           <span style="color:#f8fafc;font-weight:700;">${insolationVal.toLocaleString('es-ES')} kWh/año</span>
+           <span style="color:#57606a;">Radiación Incidente:</span>
+           <span style="color:#1e242b;font-weight:700;">${insolationVal.toLocaleString('es-ES')} kWh/año</span>
          </div>`
       : '';
 
@@ -8761,32 +8761,32 @@ function _flushHeatmapPanelHover() {
       : (typeof panelData.annualYieldPct === 'number' ? panelData.annualYieldPct : null);
     const relYieldRow = (isSimValid && relYieldVal !== null)
       ? `<div style="display:flex;justify-content:space-between;margin-bottom:2px;gap:12px;font-size:10px;">
-           <span style="color:#94a3b8;">Rendimiento vs. Líder:</span>
-           <span style="color:${relYieldVal >= 95 ? '#10b981' : (relYieldVal >= 85 ? '#f59e0b' : '#ef4444')};font-weight:700;">${relYieldVal.toFixed(1)}%</span>
+           <span style="color:#57606a;">Rendimiento vs. Líder:</span>
+           <span style="color:${relYieldVal >= 95 ? '#059669' : (relYieldVal >= 85 ? '#d97706' : '#dc2626')};font-weight:700;">${relYieldVal.toFixed(1)}%</span>
          </div>`
       : '';
 
     tooltip.innerHTML = `
-      <div style="font-weight:800;color:var(--amber-400);font-size:11px;margin-bottom:4px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(255,255,255,0.1);padding-bottom:3px;gap:8px;">
+      <div style="font-weight:800;color:#e84a27;font-size:11px;margin-bottom:4px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #dfe3e8;padding-bottom:3px;gap:8px;">
         <span>MÓDULO #${hoveredIdx + 1}</span>
         ${modeBadge}
       </div>
       <div style="display:flex;justify-content:space-between;margin-bottom:2px;gap:12px;font-size:10px;">
-        <span style="color:#94a3b8;">Orientación:</span>
-        <span style="color:#cbd5e1;font-weight:600;">${tilt}° · ${azStr}</span>
+        <span style="color:#57606a;">Orientación:</span>
+        <span style="color:#1e242b;font-weight:600;">${tilt}° · ${azStr}</span>
       </div>
       <div style="display:flex;justify-content:space-between;margin-bottom:2px;gap:12px;">
-        <span style="color:#cbd5e1;">Producci&oacute;n Neta Anual:</span>
+        <span style="color:#57606a;">Producci&oacute;n Neta Anual:</span>
         ${kwhHtml}
       </div>
       <div style="display:flex;justify-content:space-between;margin-bottom:2px;gap:12px;">
-        <span style="color:#cbd5e1;">Pérdidas Sombras:</span>
+        <span style="color:#57606a;">Pérdidas Sombras:</span>
         ${lossHtml}
       </div>
       ${insolationRow}
       ${relYieldRow}
-      <div style="display:flex;justify-content:space-between;margin-top:4px;padding-top:4px;border-top:1px solid rgba(255,255,255,0.1);font-size:10px;">
-        <span style="color:#94a3b8;">Diagnóstico:</span>
+      <div style="display:flex;justify-content:space-between;margin-top:4px;padding-top:4px;border-top:1px solid #dfe3e8;font-size:10px;">
+        <span style="color:#57606a;">Diagnóstico:</span>
         ${diagHtml}
       </div>
     `;

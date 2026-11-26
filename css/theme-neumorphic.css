@@ -18,8 +18,11 @@
 
   /* Sobreescritura global de tokens base */
   --bg-card: var(--nm-surface);
+  --bg-card-hover: var(--nm-surface-elevated);
   --bg-panel: var(--nm-bg);
   --bg-input: var(--nm-surface-inset);
+  --border-subtle: rgba(163, 177, 198, 0.35);
+  --border-medium: rgba(163, 177, 198, 0.55);
   --text-slate-100: var(--nm-text);
   --text-slate-200: #2d353f;
   --text-slate-300: #3d4652;
@@ -48,21 +51,41 @@
   box-shadow: 8px 0 24px rgba(163, 177, 198, 0.42) !important;
 }
 
-/* Pisar TODOS los fondos oscuros inline dentro de la sidebar y acordeones */
-#ra-sidebar [style*="background"],
+/* Pisar TODOS los fondos oscuros inline dentro de la sidebar, pasos 1-5 y acordeones */
+#ra-sidebar [style*="background"]:not(button.primary):not(.btn-primary):not(.obs-color-swatch):not([style*="e84a27"]):not([style*="linear-gradient"]),
 #ra-sidebar .sb-section,
 #ra-sidebar .sb-card,
 #ra-sidebar .wp-card,
 #ra-sidebar .ra-card,
+#ra-sidebar .ui-card,
 #ra-sidebar .card,
+#ra-sidebar .step-panel-header,
+#ra-sidebar .step-hero,
+#ra-sidebar .cat-card,
+#ra-sidebar .eq-card,
+#ra-sidebar .doc-card,
+#ra-sidebar .solar-card,
+#ra-sidebar .wind-card,
+#ra-sidebar .faldon-card,
+#ra-sidebar .wp-step-active-banner,
+#ra-sidebar .engine-card-opt,
+#ra-sidebar .bom-kpi-row,
 #ra-sidebar details,
 #ra-sidebar .wp-subdock,
 #ra-sidebar .wp-subdock-hdr,
 #ra-sidebar .wp-subdock-body,
 #ra-sidebar [id^="wp-subdock-"],
+#ra-sidebar [id^="wp-step-"] > div,
+#ra-sidebar [id^="wp-step2-"],
+#ra-sidebar [id^="step3-"],
+#ra-sidebar [id^="step4-"],
+#ra-sidebar [id^="step5-"],
 #ra-sidebar [id^="step"] > div,
+#ra-sidebar [class*="card"]:not(.card-tag),
+#ra-sidebar [class*="panel"],
 #ra-sidebar .sb-search-box {
   background: var(--nm-surface) !important;
+  background-color: var(--nm-surface) !important;
   background-image: none !important;
   color: var(--nm-text) !important;
   border-color: rgba(163, 177, 198, 0.35) !important;
@@ -71,13 +94,152 @@
 /* Tarjetas principales con relieve neumórfico limpio */
 #ra-sidebar .wp-card,
 #ra-sidebar .ra-card,
+#ra-sidebar .ui-card,
+#ra-sidebar .ui-card:hover,
 #ra-sidebar .card,
+#ra-sidebar .cat-card,
+#ra-sidebar .eq-card,
+#ra-sidebar .doc-card,
+#ra-sidebar .solar-card,
+#ra-sidebar .wind-card,
+#ra-sidebar .faldon-card,
 #ra-sidebar .wp-subdock,
-#ra-sidebar [id^="wp-subdock-body-"] > div {
+#ra-sidebar [id^="wp-subdock-body-"] > div,
+#wp-step-1-content .ui-card,
+#wp-step-2-content .ui-card,
+#wp-step-3-content .ui-card,
+#wp-step-4-content .ui-card,
+#wp-step-5-content .ui-card,
+#step3-bill-data-card,
+#step4-roof-scope-bar,
+#step5-commercial-hub-card {
   background: var(--nm-surface-elevated) !important;
-  border: 1px solid rgba(255, 255, 255, 0.8) !important;
+  background-color: var(--nm-surface-elevated) !important;
+  background-image: none !important;
+  color: var(--nm-text) !important;
+  border: 1px solid rgba(255, 255, 255, 0.85) !important;
   border-radius: 16px !important;
   box-shadow: var(--nm-shadow-out-sm) !important;
+}
+
+/* Cabeceras de Paso 1..5, .step-panel-header, .step-hero y badges 3D CAD */
+.step-panel-header,
+.step-hero,
+#ra-sidebar .ui-card-head,
+#wp-step-1-content .ui-card-head,
+#wp-step-2-content .ui-card-head,
+#wp-step-3-content .ui-card-head,
+#wp-step-4-content .ui-card-head,
+#wp-step-5-content .ui-card-head {
+  background: transparent !important;
+  background-image: none !important;
+  color: var(--nm-text) !important;
+  border-bottom-color: rgba(163, 177, 198, 0.28) !important;
+}
+
+.step-panel-header *,
+.step-hero *,
+#ra-sidebar .ui-card-head > span:first-child,
+#ra-sidebar .ui-card-head > div > span:first-child {
+  color: var(--nm-text) !important;
+}
+
+#ra-sidebar .ui-card-head .card-tag,
+#ra-sidebar .card-tag {
+  background: rgba(232, 74, 39, 0.12) !important;
+  color: var(--nm-accent) !important;
+  border: 1px solid rgba(232, 74, 39, 0.28) !important;
+  border-radius: 8px !important;
+  font-weight: 800 !important;
+}
+
+/* Caso específico Paso 2: Subtabs Solar/Eólica (#wp-step2-gen-tabs) */
+#wp-step2-gen-tabs {
+  background: var(--nm-surface-inset) !important;
+  border: 1px solid rgba(255, 255, 255, 0.75) !important;
+  border-radius: 12px !important;
+  box-shadow: var(--nm-shadow-in) !important;
+}
+
+#ra-sidebar .step2-gen-tab-btn {
+  background: transparent !important;
+  color: var(--nm-text-muted) !important;
+  border: 1px solid transparent !important;
+  box-shadow: none !important;
+}
+
+#ra-sidebar .step2-gen-tab-btn:hover {
+  background: rgba(255, 255, 255, 0.5) !important;
+  color: var(--nm-text) !important;
+}
+
+#ra-sidebar .step2-gen-tab-btn.tab-solar.active,
+#ra-sidebar .step2-gen-tab-btn.tab-wind.active {
+  background: var(--nm-surface-elevated) !important;
+  color: var(--nm-accent) !important;
+  border: 1px solid rgba(232, 74, 39, 0.32) !important;
+  box-shadow: var(--nm-shadow-out-sm) !important;
+}
+
+/* Caso específico Paso 2: Cajas KPI (MÓDULOS, POTENCIA DC, STRINGS MPPT) */
+.stat-pill,
+.kpi-box,
+[class*="kpi"],
+[class*="stat-pill"],
+[id^="p2-kpi-"],
+[id*="kpi"],
+#ra-sidebar .stat-pill,
+#ra-sidebar .bom-kpi {
+  background: var(--nm-surface-inset) !important;
+  background-color: var(--nm-surface-inset) !important;
+  background-image: none !important;
+  color: var(--nm-text) !important;
+  border: 1px solid rgba(255, 255, 255, 0.78) !important;
+  border-radius: 12px !important;
+  box-shadow: var(--nm-shadow-in) !important;
+}
+
+.stat-pill-label,
+.kpi-box .kpi-label,
+#ra-sidebar .stat-pill-label,
+#ra-sidebar .bom-kpi {
+  color: var(--nm-text-muted) !important;
+}
+
+.stat-pill-value,
+#ra-sidebar .stat-pill-value,
+#ra-sidebar .bom-kpi b,
+#p3-stat-panels,
+#p3-stat-kwp,
+#p3-stat-strings {
+  color: var(--nm-text) !important;
+}
+
+#ra-sidebar .stat-pill-value.amber { color: #c83a1b !important; }
+#ra-sidebar .stat-pill-value.emerald { color: #059669 !important; }
+#ra-sidebar .stat-pill-value.blue { color: #2563eb !important; }
+#ra-sidebar .stat-pill-value.sky { color: #0284c7 !important; }
+
+/* Caso específico Paso 2: Tarjeta Faldón #1 (#faldon-edit-card) */
+#faldon-edit-card,
+#faldon-selector-container,
+#faldon-empty-state {
+  background: var(--nm-surface-elevated) !important;
+  background-color: var(--nm-surface-elevated) !important;
+  background-image: none !important;
+  color: var(--nm-text) !important;
+  border: 1px solid rgba(232, 74, 39, 0.35) !important;
+  border-radius: 14px !important;
+  box-shadow: var(--nm-shadow-out-sm) !important;
+}
+
+#faldon-card-name {
+  color: var(--nm-text) !important;
+  font-weight: 800 !important;
+}
+
+#faldon-edit-card > div > div {
+  background: transparent !important;
 }
 
 /* Cabeceras de acordeones 1.1, 1.2, 1.3 */
@@ -548,18 +710,67 @@
   border-color: rgba(163, 177, 198, 0.35) !important;
 }
 
+/* Modales, catálogos y popovers fuera de la sidebar */
+.modal-header,
+.modal-body,
+[class*="modal"] .ui-card,
+[class*="modal"] .cat-card,
+[class*="modal"] .eq-card,
+[class*="modal"] .doc-card,
+[id$="-modal"] .ui-card,
+[role="dialog"] .ui-card,
+.cat-table-wrap,
+.cat-table thead th,
+.dock-popover {
+  background: var(--nm-surface-elevated) !important;
+  background-color: var(--nm-surface-elevated) !important;
+  background-image: none !important;
+  color: var(--nm-text) !important;
+  border-color: rgba(163, 177, 198, 0.35) !important;
+}
+
+.cat-nav-pill {
+  background: var(--nm-surface) !important;
+  color: var(--nm-text-muted) !important;
+  border: 1px solid rgba(255, 255, 255, 0.8) !important;
+  box-shadow: var(--nm-shadow-out-sm) !important;
+}
+
+.cat-nav-pill.active {
+  background: var(--nm-surface-elevated) !important;
+  background-image: none !important;
+  color: var(--nm-accent) !important;
+  border-color: rgba(232, 74, 39, 0.35) !important;
+  box-shadow: var(--nm-shadow-in) !important;
+}
+
+.cat-table tbody tr:hover {
+  background: rgba(232, 74, 39, 0.06) !important;
+}
+
+.dock-popover-title,
+.dock-popover-subtitle {
+  color: var(--nm-text) !important;
+}
+
 /* ── 3. Reglas Globales Anti-Oscuro Inline (Excluyendo Visor 3D Cesium) ───── */
 body :is(
   [style*="0f172a"], [style*="0F172A"],
   [style*="1e293b"], [style*="1E293B"],
   [style*="0b1120"], [style*="0B1120"],
-  [style*="020617"],
-  [style*="15, 23, 42"], [style*="15,23,42"],
-  [style*="30, 41, 59"], [style*="30,41,59"],
+  [style*="020617"], [style*="111827"],
+  [style*="rgba(15, 23, 42"], [style*="rgba(15,23,42"], [style*="15, 23, 42"], [style*="15,23,42"],
+  [style*="rgba(30, 41, 59"], [style*="rgba(30,41,59"], [style*="30, 41, 59"], [style*="30,41,59"],
+  [style*="rgba(2, 6, 23"], [style*="rgba(2,6,23"], [style*="2, 6, 23"], [style*="2,6,23"],
+  [style*="rgba(11, 17, 32"], [style*="rgba(11,17,32"], [style*="11, 17, 32"], [style*="11,17,32"],
+  [style*="rgba(17, 24, 39"], [style*="rgba(17,24,39"], [style*="17, 24, 39"], [style*="17,24,39"],
+  [style*="rgba(10, 16, 29"], [style*="rgba(10,16,29"], [style*="10, 16, 29"], [style*="10,16,29"],
   [style*="8, 14, 26"], [style*="8,14,26"],
-  [style*="2, 6, 23"], [style*="2,6,23"]
-):not(#cesiumContainer):not(#cesiumContainer *):not(.cesium-viewer):not(.cesium-viewer *):not(canvas) {
+  [style*="rgba(0, 0, 0, 0."], [style*="rgba(0,0,0,0."],
+  [style*="rgba(2, 132, 199"], [style*="rgba(2,132,199"]
+):not(#cesiumContainer):not(#cesiumContainer *):not(.cesium-viewer):not(.cesium-viewer *):not(canvas):not(.obs-color-swatch):not(button.primary):not(.btn-primary):not(#ra-cred-save):not(#ra-bm-stress-btn):not([style*="e84a27"]):not([style*="linear-gradient"]) {
   background: var(--nm-surface-elevated) !important;
+  background-color: var(--nm-surface-elevated) !important;
   background-image: none !important;
   color: var(--nm-text) !important;
   border-color: rgba(163, 177, 198, 0.38) !important;
@@ -574,9 +785,16 @@ body :is(
   [style*="color:#F8FAFC"], [style*="color: #F8FAFC"],
   [style*="color:#e2e8f0"], [style*="color: #e2e8f0"],
   [style*="color:#E2E8F0"], [style*="color: #E2E8F0"],
+  [style*="color:#cbd5e1"], [style*="color: #cbd5e1"],
+  [style*="color:#CBD5E1"], [style*="color: #CBD5E1"],
+  [style*="color:#94a3b8"], [style*="color: #94a3b8"],
+  [style*="color:#94A3B8"], [style*="color: #94A3B8"],
   [style*="color:#f1f5f9"], [style*="color: #f1f5f9"],
-  [style*="color:#F1F5F9"], [style*="color: #F1F5F9"]
-):not(#cesiumContainer):not(#cesiumContainer *):not(.cesium-viewer):not(.cesium-viewer *):not(canvas):not(button.primary):not(.primary):not(#ra-cred-save):not(#ra-bm-stress-btn):not([style*="background:#e84a27"]):not([style*="background: #e84a27"]):not([style*="background:#0284c7"]):not([style*="background: #0284c7"]):not([style*="background:#2563eb"]):not([style*="background: #2563eb"]):not([style*="background: linear-gradient"]):not([style*="background:linear-gradient"]) {
+  [style*="color:#F1F5F9"], [style*="color: #F1F5F9"],
+  [style*="rgb(255, 255, 255)"], [style*="rgb(248, 250, 252)"],
+  [style*="rgb(226, 232, 240)"], [style*="rgb(203, 213, 225)"],
+  [style*="rgb(148, 163, 184)"]
+):not(#cesiumContainer):not(#cesiumContainer *):not(.cesium-viewer):not(.cesium-viewer *):not(canvas):not(button.primary):not(.primary):not(.btn-primary):not(#ra-cred-save):not(#ra-bm-stress-btn):not(.obs-color-swatch):not([style*="e84a27"]):not([style*="0284c7"]):not([style*="2563eb"]):not([style*="linear-gradient"]) {
   color: var(--nm-text) !important;
 }
 

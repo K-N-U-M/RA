@@ -1852,20 +1852,20 @@ function wpRenderAutoEngineeringBanner(info, isManualOverride = false) {
 
   if (isManualOverride) {
     banner.innerHTML = `
-      <div style="background:rgba(15,23,42,0.92);border:1px solid rgba(245,158,11,0.4);border-radius:8px;padding:8px 10px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 4px 15px rgba(0,0,0,0.3);margin-bottom:6px;">
+      <div style="background:#f3f5f8;border:1px solid rgba(217,119,6,0.45);border-radius:8px;padding:8px 10px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 4px 12px rgba(30,36,43,0.08);margin-bottom:6px;">
         <div style="display:flex;align-items:center;gap:6px;">
-          <span style="background:rgba(245,158,11,0.15);color:#FBBF24;border:1px solid rgba(245,158,11,0.3);padding:2px 6px;border-radius:4px;font-size:9.5px;font-weight:900;">
+          <span style="background:rgba(217,119,6,0.12);color:#b45309;border:1px solid rgba(217,119,6,0.3);padding:2px 6px;border-radius:4px;font-size:9.5px;font-weight:900;">
             🛠️ MODO MANUAL
           </span>
-          <span style="font-size:10px;color:#CBD5E1;">
+          <span style="font-size:10px;color:#57606a;">
             Ajustes personalizados por el proyectista.
           </span>
         </div>
         <div style="display:flex;gap:4px;align-items:center;">
-          <button type="button" class="doc-mini-btn" onclick="wpOpenSmartInverterMatchingModal()" style="background:rgba(56,189,248,0.15);border:1px solid #38BDF8;color:#38BDF8;font-size:9.5px;font-weight:bold;padding:3px 7px;cursor:pointer;" title="Comparar alternativas técnicas 1x Central vs Nx Modulares vs MLPE">
+          <button type="button" class="doc-mini-btn" onclick="wpOpenSmartInverterMatchingModal()" style="background:rgba(232,74,39,0.10);border:1px solid #e84a27;color:#e84a27;font-size:9.5px;font-weight:bold;padding:3px 7px;cursor:pointer;" title="Comparar alternativas técnicas 1x Central vs Nx Modulares vs MLPE">
             <i data-lucide="sparkles" class="icon-sm"></i> ALTERNATIVAS
           </button>
-          <button type="button" class="doc-mini-btn" onclick="if(window.solarProjectConfig) window.solarProjectConfig.userManuallySelectedInverter=false; window.solarProjectConfig.userManuallySelectedBattery=false; wpAutoSelectOptimalEngineering(true);" style="background:linear-gradient(135deg,#10B981,#059669);border:none;color:#fff;font-size:9.5px;font-weight:900;padding:3px 8px;border-radius:4px;cursor:pointer;" title="Volver a calcular la topología e inversor óptimo por IA">
+          <button type="button" class="doc-mini-btn" onclick="if(window.solarProjectConfig) window.solarProjectConfig.userManuallySelectedInverter=false; window.solarProjectConfig.userManuallySelectedBattery=false; wpAutoSelectOptimalEngineering(true);" style="background:linear-gradient(135deg,#059669,#10B981);border:none;color:#fff;font-size:9.5px;font-weight:900;padding:3px 8px;border-radius:4px;cursor:pointer;" title="Volver a calcular la topología e inversor óptimo por IA">
             <i data-lucide="rotate-ccw" class="icon-sm"></i> RESTAURAR AUTO
           </button>
         </div>
@@ -1890,44 +1890,44 @@ function wpRenderAutoEngineeringBanner(info, isManualOverride = false) {
       window.solarProjectConfig.lastSuggestedCommercialModels = comModels;
     }
     const modelsHtml = comModels.length > 0 ? `
-      <div style="font-size: 10px;color:#94A3B8;margin-bottom:6px;">
-        <b style="color:#CBD5E1;">Equipos de mercado sugeridos (clic para añadir en 1 clic a la BD comercial):</b>
+      <div style="font-size: 10px;color:#57606a;margin-bottom:6px;">
+        <b style="color:#1e242b;">Equipos de mercado sugeridos (clic para añadir en 1 clic a la BD comercial):</b>
         <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:3px;">
-          ${comModels.map((m, idx) => `<button type="button" onclick="wpAddSuggestedCommercialModelToCatalog(${idx})" style="background:rgba(245,158,11,0.14);border:1px solid rgba(245,158,11,0.45);border-radius:4px;padding:2px 6px;color:#FDE68A;font-size:10px;font-weight:bold;cursor:pointer;" title="Añadir ${m.brand} ${m.model} al catálogo comercial y seleccionarlo">➕ ${m.brand} ${m.model} (${m.kw} kW)</button>`).join('')}
+          ${comModels.map((m, idx) => `<button type="button" onclick="wpAddSuggestedCommercialModelToCatalog(${idx})" style="background:rgba(217,119,6,0.12);border:1px solid rgba(217,119,6,0.4);border-radius:4px;padding:2px 6px;color:#b45309;font-size:10px;font-weight:bold;cursor:pointer;" title="Añadir ${m.brand} ${m.model} al catálogo comercial y seleccionarlo">➕ ${m.brand} ${m.model} (${m.kw} kW)</button>`).join('')}
         </div>
       </div>
     ` : '';
 
     banner.innerHTML = `
-      <div style="background:linear-gradient(135deg, rgba(69,10,10,0.92), rgba(30,27,75,0.92));border:2px solid #F59E0B;border-radius:8px;padding:8px;box-shadow:0 0 14px rgba(245,158,11,0.28);margin-bottom:6px;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;border-bottom:1px solid rgba(255,255,255,0.1);padding-bottom:3px;">
-          <span style="font-size:10px;font-weight:900;color:#FBBF24;">
+      <div style="background:#f3f5f8;border:2px solid #d97706;border-radius:8px;padding:8px;box-shadow:0 4px 14px rgba(217,119,6,0.16);margin-bottom:6px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;border-bottom:1px solid #dfe3e8;padding-bottom:3px;">
+          <span style="font-size:10px;font-weight:900;color:#b45309;">
             <i data-lucide="alert-triangle" class="icon-sm"></i> ⚠️ EQUIPO RECOMENDADO FUERA DE CATÁLOGO
           </span>
           <div style="display:flex;gap:4px;align-items:center;">
-            <span class="card-tag" style="background:rgba(239,68,68,0.25);border:1px solid #EF4444;color:#FCA5A5;font-size: 9.5px;font-weight:900;">
+            <span class="card-tag" style="background:rgba(220,38,38,0.12);border:1px solid #dc2626;color:#dc2626;font-size: 9.5px;font-weight:900;">
               NO REGISTRADO EN BD
             </span>
-            <button type="button" class="doc-mini-btn" onclick="wpOpenSmartInverterMatchingModal()" style="background:rgba(56,189,248,0.2);border:1px solid #38BDF8;color:#38BDF8;font-size: 10px;font-weight:bold;padding:2px 6px;cursor:pointer;" title="Comparar alternativas técnicas 1x Central vs Nx Modulares vs MLPE">
+            <button type="button" class="doc-mini-btn" onclick="wpOpenSmartInverterMatchingModal()" style="background:rgba(232,74,39,0.10);border:1px solid #e84a27;color:#e84a27;font-size: 10px;font-weight:bold;padding:2px 6px;cursor:pointer;" title="Comparar alternativas técnicas 1x Central vs Nx Modulares vs MLPE">
               <i data-lucide="sparkles" class="icon-sm"></i> COMPARAR 1X VS NX
             </button>
           </div>
         </div>
-        <div style="font-size: 10px;color:#FCD34D;background:rgba(245,158,11,0.12);padding:4px 6px;border-radius:4px;margin-bottom:5px;border-left:3px solid #F59E0B;line-height:1.3;">
+        <div style="font-size: 10px;color:#92400e;background:rgba(217,119,6,0.12);padding:4px 6px;border-radius:4px;margin-bottom:5px;border-left:3px solid #d97706;line-height:1.3;">
           <b>Cuello de Botella Físico:</b> ${info.bottleneckReason || 'Requisitos del proyecto no cubiertos por los equipos disponibles en catálogo.'}
         </div>
-        <div style="font-size: 10px;color:#E2E8F0;line-height:1.35;margin-bottom:4px;">
+        <div style="font-size: 10px;color:#1e242b;line-height:1.35;margin-bottom:4px;">
           <b>Inversor Ideal Auto-Generado:</b> ${sc.count}× ${sc.inverter.brand} ${sc.inverter.model} (${sc.totalAcKw} kW AC · ${sc.mpptCount} MPPTs · Sobrecarga: ${sc.overloadPct}%)
         </div>
         ${modelsHtml}
-        <div style="display:flex;gap:6px;align-items:center;margin-top:6px;border-top:1px solid rgba(255,255,255,0.08);padding-top:5px;">
-          <button type="button" class="doc-mini-btn" onclick="wpSaveVirtualInverterToCatalog()" style="background:linear-gradient(135deg,#F59E0B,#D97706);border:none;color:#0F172A;font-size: 10px;font-weight:900;padding:4px 8px;cursor:pointer;" title="Añadir este equipo directamente a la base de datos comercial con un solo clic">
+        <div style="display:flex;gap:6px;align-items:center;margin-top:6px;border-top:1px solid #dfe3e8;padding-top:5px;">
+          <button type="button" class="doc-mini-btn" onclick="wpSaveVirtualInverterToCatalog()" style="background:linear-gradient(135deg,#e84a27,#d97706);border:none;color:#ffffff;font-size: 10px;font-weight:900;padding:4px 8px;cursor:pointer;" title="Añadir este equipo directamente a la base de datos comercial con un solo clic">
             <i data-lucide="plus-circle" class="icon-sm"></i> AÑADIR A BASE DE DATOS COMERCIAL (1 CLIC)
           </button>
-          <button type="button" class="doc-mini-btn" onclick="openEquipmentCatalogModal('ai_import')" style="background:rgba(56,189,248,0.15);border:1px solid #38BDF8;color:#38BDF8;font-size: 10px;font-weight:bold;padding:3px 7px;cursor:pointer;" title="Importar PDF técnico de inversor real con IA">
+          <button type="button" class="doc-mini-btn" onclick="openEquipmentCatalogModal('ai_import')" style="background:rgba(232,74,39,0.10);border:1px solid #e84a27;color:#e84a27;font-size: 10px;font-weight:bold;padding:3px 7px;cursor:pointer;" title="Importar PDF técnico de inversor real con IA">
             <i data-lucide="sparkles" class="icon-sm"></i> SUBIR PDF CON IA
           </button>
-          <button type="button" class="doc-mini-btn" onclick="openEquipmentCatalogModal('inverters')" style="background:rgba(148,163,184,0.15);border:1px solid #94A3B8;color:#CBD5E1;font-size: 10px;font-weight:bold;padding:3px 7px;cursor:pointer;" title="Abrir catálogo">
+          <button type="button" class="doc-mini-btn" onclick="openEquipmentCatalogModal('inverters')" style="background:#ebedf0;border:1px solid #dfe3e8;color:#1e242b;font-size: 10px;font-weight:bold;padding:3px 7px;cursor:pointer;" title="Abrir catálogo">
             <i data-lucide="database" class="icon-sm"></i> CATÁLOGO
           </button>
         </div>
@@ -1945,32 +1945,32 @@ function wpRenderAutoEngineeringBanner(info, isManualOverride = false) {
   };
 
   const topoColors = {
-    inverter: '#38BDF8',
-    optimizer: '#F59E0B',
-    microinverter: '#10B981'
+    inverter: '#e84a27',
+    optimizer: '#d97706',
+    microinverter: '#059669'
   };
 
   banner.innerHTML = `
-    <div style="background:linear-gradient(135deg, rgba(15,23,42,0.95), rgba(30,41,59,0.90));border:1.5px solid ${topoColors[info.topology] || '#38BDF8'};border-radius:8px;padding:9px 10px;box-shadow:0 4px 15px rgba(0,0,0,0.35);margin-bottom:6px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;border-bottom:1px solid rgba(255,255,255,0.08);padding-bottom:5px;">
-        <span style="font-size:10.5px;font-weight:900;color:${topoColors[info.topology] || '#38BDF8'};display:flex;align-items:center;gap:5px;">
+    <div style="background:#f3f5f8;border:1.5px solid ${topoColors[info.topology] || '#e84a27'};border-radius:8px;padding:9px 10px;box-shadow:0 4px 14px rgba(30,36,43,0.08);margin-bottom:6px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;border-bottom:1px solid #dfe3e8;padding-bottom:5px;">
+        <span style="font-size:10.5px;font-weight:900;color:${topoColors[info.topology] || '#e84a27'};display:flex;align-items:center;gap:5px;">
           <i data-lucide="cpu" class="icon-sm"></i> PILOTO AUTOMÁTICO ACTIVO: ${topoLabels[info.topology] || info.topology}
         </span>
         <div style="display:flex;gap:4px;align-items:center;">
-          <span class="card-tag" style="background:rgba(16,185,129,0.2);color:#34D399;font-size:9.5px;font-weight:800;border:1px solid rgba(16,185,129,0.3);">
+          <span class="card-tag" style="background:rgba(5,150,105,0.12);color:#059669;font-size:9.5px;font-weight:800;border:1px solid rgba(5,150,105,0.3);">
             ✓ AUTO-INGENIERÍA OK
           </span>
-          <button type="button" class="doc-mini-btn" onclick="wpOpenSmartInverterMatchingModal()" style="background:rgba(56,189,248,0.2);border:1px solid #38BDF8;color:#38BDF8;font-size:9.5px;font-weight:bold;padding:2px 6px;cursor:pointer;" title="Comparar alternativas técnicas: 1x Central vs Nx Modulares vs MLPE">
+          <button type="button" class="doc-mini-btn" onclick="wpOpenSmartInverterMatchingModal()" style="background:rgba(232,74,39,0.10);border:1px solid #e84a27;color:#e84a27;font-size:9.5px;font-weight:bold;padding:2px 6px;cursor:pointer;" title="Comparar alternativas técnicas: 1x Central vs Nx Modulares vs MLPE">
             <i data-lucide="sparkles" class="icon-sm"></i> ALTERNATIVAS
           </button>
         </div>
       </div>
-      <div style="font-size:10px;color:#E2E8F0;line-height:1.4;margin-bottom:4px;">
+      <div style="font-size:10px;color:#1e242b;line-height:1.4;margin-bottom:4px;">
         ${(info.topology === 'microinverter' || (sc && sc.isMicro))
           ? `<b>Arquitectura Seleccionada:</b> ${sc.count}× Microinversores ${sc.inverter.brand} ${sc.inverter.model} (${sc.totalAcKw} kW AC · Seguimiento granular por módulo · Inmune a sombras)`
           : `<b>Arquitectura Seleccionada:</b> ${sc.count}× ${sc.inverter.brand} ${sc.inverter.model} (${sc.totalAcKw} kW AC · ${sc.mpptCount} MPPTs · Sobrecarga DC/AC: <b>${sc.overloadPct}%</b>)`}
       </div>
-      <div style="font-size:9.5px;color:#94A3B8;line-height:1.35;background:rgba(0,0,0,0.3);padding:4px 6px;border-radius:4px;border:1px solid rgba(255,255,255,0.05);">
+      <div style="font-size:9.5px;color:#57606a;line-height:1.35;background:#ebedf0;padding:4px 6px;border-radius:4px;border:1px solid #dfe3e8;">
         <b>Criterio Técnico del Algoritmo:</b> ${info.rationale} (${info.distinctOrientations} ${info.distinctOrientations === 1 ? 'orientación de cubierta' : 'orientaciones distintas'}, ${info.totalPanels} placas · ${info.totalKwp.toFixed(1)} kWp).
       </div>
     </div>
