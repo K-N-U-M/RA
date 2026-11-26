@@ -58,7 +58,7 @@
     toast.style.cursor = 'pointer';
 
     let icon = '<i data-lucide="info" class="icon-sm"></i>';
-    let borderCol = '#e84a27';
+    let borderCol = '#e8a204';
     let bgGradient = 'linear-gradient(135deg, #f3f5f8, #ebedf0)';
 
     if (type === 'success') {
@@ -82,7 +82,7 @@
       { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
     ));
 
-    const titleCol = type === 'warning' ? '#b45309' : (type === 'success' ? '#059669' : (type === 'error' ? '#dc2626' : '#e84a27'));
+    const titleCol = type === 'warning' ? '#b45309' : (type === 'success' ? '#059669' : (type === 'error' ? '#dc2626' : '#e8a204'));
     toast.innerHTML = `
       <span style="font-size:16px;line-height:1.2;margin-top:2px;color:${titleCol};">${icon}</span>
       <div style="flex:1;min-width:0;">
@@ -238,7 +238,7 @@
     const statusEl = document.getElementById('ra-status');
     if (!statusEl) return;
     const duration = (typeof ms === 'number' && ms > 0) ? ms : 5000;
-    const closeBtn = '<span onclick="hideStatus()" style="cursor:pointer; margin-left: 14px; padding-left: 14px; border-left: 1px solid rgba(232,74,39,0.3); font-size: 18px; line-height: 1; opacity: 0.8; display: flex; align-items: center;" title="Cerrar">&times;</span>';
+    const closeBtn = '<span onclick="hideStatus()" style="cursor:pointer; margin-left: 14px; padding-left: 14px; border-left: 1px solid rgba(232, 162, 4,0.3); font-size: 18px; line-height: 1; opacity: 0.8; display: flex; align-items: center;" title="Cerrar">&times;</span>';
     const safeMsg = String(msg == null ? '' : msg).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     statusEl.innerHTML = '<div style="display:flex; align-items:center;">' + safeMsg + closeBtn + '</div>';
     statusEl.classList.add('visible');
@@ -277,7 +277,7 @@
       btnTag.style.fontWeight = isPbr ? '900' : 'normal';
     }
     if (btnEl) {
-      btnEl.style.borderColor = isPbr ? '#059669' : 'rgba(232,74,39,0.45)';
+      btnEl.style.borderColor = isPbr ? '#059669' : 'rgba(232, 162, 4,0.45)';
       btnEl.style.background = isPbr ? 'rgba(5,150,105,0.14)' : '#ebedf0';
     }
     if (typeof global.wpFastRenderSimulatedPanels === 'function') {
@@ -327,12 +327,12 @@
     const btnEl = document.getElementById('btn-toggle-labels-visibility');
     if (btnTag) {
       btnTag.textContent = isVis ? '[L] ON' : '[L] OFF';
-      btnTag.style.background = isVis ? 'rgba(5,150,105,0.14)' : 'rgba(232,74,39,0.14)';
-      btnTag.style.color = isVis ? '#059669' : '#e84a27';
+      btnTag.style.background = isVis ? 'rgba(5,150,105,0.14)' : 'rgba(232, 162, 4,0.14)';
+      btnTag.style.color = isVis ? '#059669' : '#e8a204';
     }
     if (btnEl) {
-      btnEl.style.borderColor = isVis ? 'rgba(5,150,105,0.4)' : 'rgba(232,74,39,0.45)';
-      btnEl.style.background = isVis ? '#ebedf0' : 'rgba(232,74,39,0.08)';
+      btnEl.style.borderColor = isVis ? 'rgba(5,150,105,0.4)' : 'rgba(232, 162, 4,0.45)';
+      btnEl.style.background = isVis ? '#ebedf0' : 'rgba(232, 162, 4,0.08)';
     }
 
     // 5. Notificación al usuario

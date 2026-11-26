@@ -10,8 +10,8 @@
   --nm-surface-inset: #dfe3e8;
   --nm-text: #1e242b;
   --nm-text-muted: #57606a;
-  --nm-accent: #e84a27;
-  --nm-accent-soft: rgba(232, 74, 39, 0.12);
+  --nm-accent: #e8a204;
+  --nm-accent-soft: rgba(232, 162, 4, 0.12);
   --nm-shadow-out: 5px 5px 12px rgba(163, 177, 198, 0.45), -5px -5px 12px rgba(255, 255, 255, 0.92);
   --nm-shadow-out-sm: 3px 3px 7px rgba(163, 177, 198, 0.42), -3px -3px 7px rgba(255, 255, 255, 0.90);
   --nm-shadow-in: inset 3px 3px 6px rgba(163, 177, 198, 0.45), inset -3px -3px 6px rgba(255, 255, 255, 0.90);
@@ -31,7 +31,7 @@
   --amber-300: var(--nm-accent);
   --amber-400: var(--nm-accent);
   --amber-500: var(--nm-accent);
-  --amber-600: #c83a1b;
+  --amber-600: #c27d03;
   --sky-300: #0284c7;
   --sky-400: var(--nm-accent);
   --sky-500: var(--nm-accent);
@@ -146,9 +146,9 @@
 
 #ra-sidebar .ui-card-head .card-tag,
 #ra-sidebar .card-tag {
-  background: rgba(232, 74, 39, 0.12) !important;
+  background: rgba(232, 162, 4, 0.12) !important;
   color: var(--nm-accent) !important;
-  border: 1px solid rgba(232, 74, 39, 0.28) !important;
+  border: 1px solid rgba(232, 162, 4, 0.28) !important;
   border-radius: 8px !important;
   font-weight: 800 !important;
 }
@@ -177,7 +177,7 @@
 #ra-sidebar .step2-gen-tab-btn.tab-wind.active {
   background: var(--nm-surface-elevated) !important;
   color: var(--nm-accent) !important;
-  border: 1px solid rgba(232, 74, 39, 0.32) !important;
+  border: 1px solid rgba(232, 162, 4, 0.32) !important;
   box-shadow: var(--nm-shadow-out-sm) !important;
 }
 
@@ -215,7 +215,7 @@
   color: var(--nm-text) !important;
 }
 
-#ra-sidebar .stat-pill-value.amber { color: #c83a1b !important; }
+#ra-sidebar .stat-pill-value.amber { color: #c27d03 !important; }
 #ra-sidebar .stat-pill-value.emerald { color: #059669 !important; }
 #ra-sidebar .stat-pill-value.blue { color: #2563eb !important; }
 #ra-sidebar .stat-pill-value.sky { color: #0284c7 !important; }
@@ -228,7 +228,7 @@
   background-color: var(--nm-surface-elevated) !important;
   background-image: none !important;
   color: var(--nm-text) !important;
-  border: 1px solid rgba(232, 74, 39, 0.35) !important;
+  border: 1px solid rgba(232, 162, 4, 0.35) !important;
   border-radius: 14px !important;
   box-shadow: var(--nm-shadow-out-sm) !important;
 }
@@ -295,7 +295,7 @@
   background: var(--nm-surface-elevated) !important;
   color: var(--nm-accent) !important;
   box-shadow: var(--nm-shadow-in) !important;
-  border-color: rgba(232, 74, 39, 0.3) !important;
+  border-color: rgba(232, 162, 4, 0.3) !important;
 }
 
 .wp-step-btn.active .wp-step-num {
@@ -351,7 +351,7 @@
   background: var(--nm-accent) !important;
   color: #ffffff !important;
   border-color: transparent !important;
-  box-shadow: 3px 3px 9px rgba(232, 74, 39, 0.35), -2px -2px 6px rgba(255, 255, 255, 0.7) !important;
+  box-shadow: 3px 3px 9px rgba(232, 162, 4, 0.35), -2px -2px 6px rgba(255, 255, 255, 0.7) !important;
 }
 
 #ra-sidebar button.primary span,
@@ -364,9 +364,9 @@
 /* Badges de estado (ej. SIN PLANO) */
 #ra-sidebar [id$="-badge"],
 #ra-sidebar .badge {
-  background: rgba(232, 74, 39, 0.12) !important;
+  background: rgba(232, 162, 4, 0.12) !important;
   color: var(--nm-accent) !important;
-  border: 1px solid rgba(232, 74, 39, 0.25) !important;
+  border: 1px solid rgba(232, 162, 4, 0.25) !important;
   border-radius: 10px !important;
 }
 
@@ -519,7 +519,7 @@
 }
 
 #ra-project-loading-hud svg circle:first-child {
-  stroke: rgba(232, 74, 39, 0.18) !important;
+  stroke: rgba(232, 162, 4, 0.18) !important;
 }
 
 #ra-project-loading-hud svg circle:last-child {
@@ -563,8 +563,8 @@
 #ra-loading-overlay [class*="bar"],
 .loading-overlay [class*="bar"] {
   background: var(--nm-accent) !important;
-  background-image: linear-gradient(90deg, #e84a27, #f97316) !important;
-  box-shadow: 0 0 10px rgba(232, 74, 39, 0.4) !important;
+  background-image: linear-gradient(90deg, #e8a204, #f97316) !important;
+  box-shadow: 0 0 10px rgba(232, 162, 4, 0.4) !important;
 }
 
 /* ── 2. Credenciales Gate, Toasts, A11y, Benchmark, Status & Confirm Bar ──── */
@@ -740,12 +740,12 @@
   background: var(--nm-surface-elevated) !important;
   background-image: none !important;
   color: var(--nm-accent) !important;
-  border-color: rgba(232, 74, 39, 0.35) !important;
+  border-color: rgba(232, 162, 4, 0.35) !important;
   box-shadow: var(--nm-shadow-in) !important;
 }
 
 .cat-table tbody tr:hover {
-  background: rgba(232, 74, 39, 0.06) !important;
+  background: rgba(232, 162, 4, 0.06) !important;
 }
 
 .dock-popover-title,
@@ -808,17 +808,17 @@ button.primary,
 #ra-sidebar button[style*="background: #0284c7"],
 #ra-sidebar button[style*="background:#2563eb"],
 #ra-sidebar button[style*="background: #2563eb"],
-#ra-sidebar button[style*="background:#e84a27"],
-#ra-sidebar button[style*="background: #e84a27"],
+#ra-sidebar button[style*="background:#e8a204"],
+#ra-sidebar button[style*="background: #e8a204"],
 #ra-sidebar button[style*="background: linear-gradient"],
 [id$="-modal"] button.primary,
 [role="dialog"] button.primary,
 [role="alertdialog"] button.primary {
   background: var(--nm-accent) !important;
-  background-image: linear-gradient(135deg, #e84a27, #d63d1b) !important;
+  background-image: linear-gradient(135deg, #e8a204, #d63d1b) !important;
   color: #ffffff !important;
   border: 1px solid rgba(255, 255, 255, 0.25) !important;
-  box-shadow: 4px 4px 10px rgba(232, 74, 39, 0.35), -2px -2px 6px rgba(255, 255, 255, 0.75) !important;
+  box-shadow: 4px 4px 10px rgba(232, 162, 4, 0.35), -2px -2px 6px rgba(255, 255, 255, 0.75) !important;
 }
 
 button.primary *,

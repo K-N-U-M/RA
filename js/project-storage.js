@@ -686,31 +686,31 @@ function raEnsureLoadingHUDElements() {
 
   hud.innerHTML = `
     <div style="background:linear-gradient(145deg,#f3f5f8,#ebedf0);border:1px solid rgba(255,255,255,0.75);border-radius:18px;box-shadow:12px 12px 28px rgba(163,173,188,0.48),-12px -12px 28px rgba(255,255,255,0.9);padding:32px 36px;width:440px;max-width:90vw;display:flex;flex-direction:column;align-items:center;gap:20px;box-sizing:border-box;position:relative;overflow:hidden;">
-      <div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#e84a27,#f97316,#e84a27);"></div>
+      <div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#e8a204,#f97316,#e8a204);"></div>
       <div style="display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;">
         <div style="position:relative;width:52px;height:52px;display:flex;align-items:center;justify-content:center;">
           <svg viewBox="0 0 52 52" style="width:100%;height:100%;animation:raHudSpin 3s linear infinite;">
             <circle cx="26" cy="26" r="22" fill="none" stroke="rgba(30,36,43,0.1)" stroke-width="3"></circle>
-            <circle cx="26" cy="26" r="22" fill="none" stroke="#e84a27" stroke-width="3" stroke-dasharray="35 110" stroke-linecap="round"></circle>
+            <circle cx="26" cy="26" r="22" fill="none" stroke="#e8a204" stroke-width="3" stroke-dasharray="35 110" stroke-linecap="round"></circle>
           </svg>
-          <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#e84a27;">
+          <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#e8a204;">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
             </svg>
           </div>
         </div>
         <div>
-          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:#e84a27;">CARGANDO PROYECTO SOLAR</div>
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:#e8a204;">CARGANDO PROYECTO SOLAR</div>
           <div id="ra-load-hud-title" style="font-size:15px;font-weight:700;color:#1e242b;margin-top:2px;max-width:360px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Cargando...</div>
         </div>
       </div>
       <div style="display:flex;align-items:baseline;gap:4px;">
-        <span id="ra-load-hud-pct" style="font-size:44px;font-weight:800;font-family:var(--font-mono,monospace);color:#e84a27;text-shadow:0 2px 10px rgba(232,74,39,0.18);line-height:1;">0</span>
+        <span id="ra-load-hud-pct" style="font-size:44px;font-weight:800;font-family:var(--font-mono,monospace);color:#e8a204;text-shadow:0 2px 10px rgba(232, 162, 4,0.18);line-height:1;">0</span>
         <span style="font-size:22px;font-weight:700;color:#57606a;font-family:var(--font-mono,monospace);">%</span>
       </div>
       <div style="width:100%;display:flex;flex-direction:column;gap:8px;">
         <div style="width:100%;height:8px;background:#dfe3e8;border-radius:999px;overflow:hidden;border:1px solid rgba(255,255,255,0.5);box-shadow:inset 2px 2px 5px rgba(163,173,188,0.5),inset -2px -2px 5px rgba(255,255,255,0.8);">
-          <div id="ra-load-hud-bar" style="width:0%;height:100%;background:linear-gradient(90deg,#e84a27,#f97316);border-radius:999px;transition:width 0.12s ease-out;box-shadow:0 0 8px rgba(232,74,39,0.35);"></div>
+          <div id="ra-load-hud-bar" style="width:0%;height:100%;background:linear-gradient(90deg,#e8a204,#f97316);border-radius:999px;transition:width 0.12s ease-out;box-shadow:0 0 8px rgba(232, 162, 4,0.35);"></div>
         </div>
         <div style="display:flex;justify-content:space-between;align-items:center;width:100%;">
           <span id="ra-load-hud-status" style="font-size:12px;font-weight:600;color:#1e242b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:280px;">Iniciando carga...</span>

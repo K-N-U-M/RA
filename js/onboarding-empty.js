@@ -128,7 +128,7 @@
         card.innerHTML = [
             '<span style="font-weight:600;color:#1e242b;margin-right:4px;">Empieza tu proyecto:</span>',
             '<button type="button" data-ra-onb="search" style="background:#ebedf0;color:#1e242b;border:1px solid rgba(255,255,255,0.7);box-shadow:3px 3px 6px rgba(163,173,188,0.4),-3px -3px 6px rgba(255,255,255,0.85);border-radius:8px;padding:6px 10px;cursor:pointer;font-size:12px;font-weight:600;">1. Buscar dirección</button>',
-            '<button type="button" data-ra-onb="draw" style="background:#e84a27;color:#ffffff;border:none;box-shadow:3px 3px 8px rgba(232,74,39,0.3);border-radius:8px;padding:6px 10px;cursor:pointer;font-size:12px;font-weight:600;">2. Dibujar cubierta</button>',
+            '<button type="button" data-ra-onb="draw" style="background:#e8a204;color:#ffffff;border:none;box-shadow:3px 3px 8px rgba(232, 162, 4,0.3);border-radius:8px;padding:6px 10px;cursor:pointer;font-size:12px;font-weight:600;">2. Dibujar cubierta</button>',
             '<button type="button" data-ra-onb="close" style="background:#dfe3e8;color:#57606a;border:1px solid rgba(255,255,255,0.6);border-radius:8px;padding:6px 10px;cursor:pointer;font-size:12px;">Cerrar</button>'
         ].join('');
 

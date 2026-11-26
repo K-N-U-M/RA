@@ -50,7 +50,7 @@
         ].join(';');
 
         bar.innerHTML = [
-            '<span id="ra-cad-sb-step" style="color:#e84a27;font-weight:700;">Paso: 1. Emplazamiento</span>',
+            '<span id="ra-cad-sb-step" style="color:#e8a204;font-weight:700;">Paso: 1. Emplazamiento</span>',
             '<span style="color:rgba(87,96,106,0.3);">|</span>',
             '<span id="ra-cad-sb-tool" style="color:#1e242b;font-weight:500;">Herramienta: Selección</span>',
             '<span style="color:rgba(87,96,106,0.3);">|</span>',

@@ -1862,7 +1862,7 @@ function wpRenderAutoEngineeringBanner(info, isManualOverride = false) {
           </span>
         </div>
         <div style="display:flex;gap:4px;align-items:center;">
-          <button type="button" class="doc-mini-btn" onclick="wpOpenSmartInverterMatchingModal()" style="background:rgba(232,74,39,0.10);border:1px solid #e84a27;color:#e84a27;font-size:9.5px;font-weight:bold;padding:3px 7px;cursor:pointer;" title="Comparar alternativas técnicas 1x Central vs Nx Modulares vs MLPE">
+          <button type="button" class="doc-mini-btn" onclick="wpOpenSmartInverterMatchingModal()" style="background:rgba(232, 162, 4,0.10);border:1px solid #e8a204;color:#e8a204;font-size:9.5px;font-weight:bold;padding:3px 7px;cursor:pointer;" title="Comparar alternativas técnicas 1x Central vs Nx Modulares vs MLPE">
             <i data-lucide="sparkles" class="icon-sm"></i> ALTERNATIVAS
           </button>
           <button type="button" class="doc-mini-btn" onclick="if(window.solarProjectConfig) window.solarProjectConfig.userManuallySelectedInverter=false; window.solarProjectConfig.userManuallySelectedBattery=false; wpAutoSelectOptimalEngineering(true);" style="background:linear-gradient(135deg,#059669,#10B981);border:none;color:#fff;font-size:9.5px;font-weight:900;padding:3px 8px;border-radius:4px;cursor:pointer;" title="Volver a calcular la topología e inversor óptimo por IA">
@@ -1908,7 +1908,7 @@ function wpRenderAutoEngineeringBanner(info, isManualOverride = false) {
             <span class="card-tag" style="background:rgba(220,38,38,0.12);border:1px solid #dc2626;color:#dc2626;font-size: 9.5px;font-weight:900;">
               NO REGISTRADO EN BD
             </span>
-            <button type="button" class="doc-mini-btn" onclick="wpOpenSmartInverterMatchingModal()" style="background:rgba(232,74,39,0.10);border:1px solid #e84a27;color:#e84a27;font-size: 10px;font-weight:bold;padding:2px 6px;cursor:pointer;" title="Comparar alternativas técnicas 1x Central vs Nx Modulares vs MLPE">
+            <button type="button" class="doc-mini-btn" onclick="wpOpenSmartInverterMatchingModal()" style="background:rgba(232, 162, 4,0.10);border:1px solid #e8a204;color:#e8a204;font-size: 10px;font-weight:bold;padding:2px 6px;cursor:pointer;" title="Comparar alternativas técnicas 1x Central vs Nx Modulares vs MLPE">
               <i data-lucide="sparkles" class="icon-sm"></i> COMPARAR 1X VS NX
             </button>
           </div>
@@ -1921,10 +1921,10 @@ function wpRenderAutoEngineeringBanner(info, isManualOverride = false) {
         </div>
         ${modelsHtml}
         <div style="display:flex;gap:6px;align-items:center;margin-top:6px;border-top:1px solid #dfe3e8;padding-top:5px;">
-          <button type="button" class="doc-mini-btn" onclick="wpSaveVirtualInverterToCatalog()" style="background:linear-gradient(135deg,#e84a27,#d97706);border:none;color:#ffffff;font-size: 10px;font-weight:900;padding:4px 8px;cursor:pointer;" title="Añadir este equipo directamente a la base de datos comercial con un solo clic">
+          <button type="button" class="doc-mini-btn" onclick="wpSaveVirtualInverterToCatalog()" style="background:linear-gradient(135deg,#e8a204,#d97706);border:none;color:#ffffff;font-size: 10px;font-weight:900;padding:4px 8px;cursor:pointer;" title="Añadir este equipo directamente a la base de datos comercial con un solo clic">
             <i data-lucide="plus-circle" class="icon-sm"></i> AÑADIR A BASE DE DATOS COMERCIAL (1 CLIC)
           </button>
-          <button type="button" class="doc-mini-btn" onclick="openEquipmentCatalogModal('ai_import')" style="background:rgba(232,74,39,0.10);border:1px solid #e84a27;color:#e84a27;font-size: 10px;font-weight:bold;padding:3px 7px;cursor:pointer;" title="Importar PDF técnico de inversor real con IA">
+          <button type="button" class="doc-mini-btn" onclick="openEquipmentCatalogModal('ai_import')" style="background:rgba(232, 162, 4,0.10);border:1px solid #e8a204;color:#e8a204;font-size: 10px;font-weight:bold;padding:3px 7px;cursor:pointer;" title="Importar PDF técnico de inversor real con IA">
             <i data-lucide="sparkles" class="icon-sm"></i> SUBIR PDF CON IA
           </button>
           <button type="button" class="doc-mini-btn" onclick="openEquipmentCatalogModal('inverters')" style="background:#ebedf0;border:1px solid #dfe3e8;color:#1e242b;font-size: 10px;font-weight:bold;padding:3px 7px;cursor:pointer;" title="Abrir catálogo">
@@ -1945,22 +1945,22 @@ function wpRenderAutoEngineeringBanner(info, isManualOverride = false) {
   };
 
   const topoColors = {
-    inverter: '#e84a27',
+    inverter: '#e8a204',
     optimizer: '#d97706',
     microinverter: '#059669'
   };
 
   banner.innerHTML = `
-    <div style="background:#f3f5f8;border:1.5px solid ${topoColors[info.topology] || '#e84a27'};border-radius:8px;padding:9px 10px;box-shadow:0 4px 14px rgba(30,36,43,0.08);margin-bottom:6px;">
+    <div style="background:#f3f5f8;border:1.5px solid ${topoColors[info.topology] || '#e8a204'};border-radius:8px;padding:9px 10px;box-shadow:0 4px 14px rgba(30,36,43,0.08);margin-bottom:6px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;border-bottom:1px solid #dfe3e8;padding-bottom:5px;">
-        <span style="font-size:10.5px;font-weight:900;color:${topoColors[info.topology] || '#e84a27'};display:flex;align-items:center;gap:5px;">
+        <span style="font-size:10.5px;font-weight:900;color:${topoColors[info.topology] || '#e8a204'};display:flex;align-items:center;gap:5px;">
           <i data-lucide="cpu" class="icon-sm"></i> PILOTO AUTOMÁTICO ACTIVO: ${topoLabels[info.topology] || info.topology}
         </span>
         <div style="display:flex;gap:4px;align-items:center;">
           <span class="card-tag" style="background:rgba(5,150,105,0.12);color:#059669;font-size:9.5px;font-weight:800;border:1px solid rgba(5,150,105,0.3);">
             ✓ AUTO-INGENIERÍA OK
           </span>
-          <button type="button" class="doc-mini-btn" onclick="wpOpenSmartInverterMatchingModal()" style="background:rgba(232,74,39,0.10);border:1px solid #e84a27;color:#e84a27;font-size:9.5px;font-weight:bold;padding:2px 6px;cursor:pointer;" title="Comparar alternativas técnicas: 1x Central vs Nx Modulares vs MLPE">
+          <button type="button" class="doc-mini-btn" onclick="wpOpenSmartInverterMatchingModal()" style="background:rgba(232, 162, 4,0.10);border:1px solid #e8a204;color:#e8a204;font-size:9.5px;font-weight:bold;padding:2px 6px;cursor:pointer;" title="Comparar alternativas técnicas: 1x Central vs Nx Modulares vs MLPE">
             <i data-lucide="sparkles" class="icon-sm"></i> ALTERNATIVAS
           </button>
         </div>

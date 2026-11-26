@@ -1403,7 +1403,7 @@ function wpOpenPricingReviewModal(onConfirm) {
       '<div style="background:#e7eaee;border:1px solid #dfe3e8;border-radius:14px;width:860px;max-width:96vw;max-height:92vh;display:flex;flex-direction:column;box-shadow:0 24px 48px -12px rgba(30,36,43,0.22),0 4px 14px rgba(30,36,43,0.08);overflow:hidden;color:#1e242b;font-family:Inter,system-ui,sans-serif;">' +
         '<div style="padding:14px 20px;background:#f3f5f8;border-bottom:1px solid #dfe3e8;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;">' +
           '<div style="display:flex;align-items:center;gap:10px;">' +
-            '<span style="display:inline-flex;align-items:center;color:#e84a27;">' + _mSvg('tag', 20, '#e84a27') + '</span>' +
+            '<span style="display:inline-flex;align-items:center;color:#e8a204;">' + _mSvg('tag', 20, '#e8a204') + '</span>' +
             '<div>' +
               '<div style="font-weight:900;font-size:13px;color:#1e242b;letter-spacing:0.5px;">REVISIÓN DE PRECIOS &amp; PRESUPUESTO FINAL</div>' +
               '<div id="pricing-modal-subtitle" style="font-size: 10px;color:#57606a;">Verifica o ajusta los importes de cada partida antes de emitir la entrega final</div>' +
@@ -1413,8 +1413,8 @@ function wpOpenPricingReviewModal(onConfirm) {
         '</div>' +
         '<div style="padding:16px 20px;display:flex;flex-direction:column;gap:12px;overflow-y:auto;">' +
           '<div style="background:#f3f5f8;border:1px solid #dfe3e8;border-radius:10px;padding:8px 12px;display:flex;justify-content:space-between;align-items:center;font-size:10px;box-shadow:0 2px 6px rgba(30,36,43,0.04);">' +
-            '<div style="display:flex;align-items:center;gap:6px;color:#e84a27;font-weight:800;">' +
-              '<span style="display:inline-flex;">' + _mSvg('bolt', 13, '#e84a27') + '</span>' +
+            '<div style="display:flex;align-items:center;gap:6px;color:#e8a204;font-weight:800;">' +
+              '<span style="display:inline-flex;">' + _mSvg('bolt', 13, '#e8a204') + '</span>' +
               '<span id="pricing-modal-project-info">Proyecto: 0 paneles (0.00 kWp)</span>' +
             '</div>' +
             '<div id="pricing-modal-equip-info" style="color:#57606a;font-size: 10px;text-align:right;">Inversor / Batería</div>' +
@@ -1424,8 +1424,8 @@ function wpOpenPricingReviewModal(onConfirm) {
           '<div style="background:#f3f5f8;border:1px solid #dfe3e8;border-radius:10px;padding:11px 12px;display:flex;flex-direction:column;gap:8px;box-shadow:0 2px 6px rgba(30,36,43,0.04);">' +
             '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;">' +
               '<div style="display:flex;align-items:center;gap:6px;">' +
-                '<span style="display:inline-flex;">' + _mSvg('user', 13, '#e84a27') + '</span>' +
-                '<span style="font-size:10.5px;font-weight:900;color:#e84a27;text-transform:uppercase;letter-spacing:0.5px;">Datos de Facturación del Cliente</span>' +
+                '<span style="display:inline-flex;">' + _mSvg('user', 13, '#e8a204') + '</span>' +
+                '<span style="font-size:10.5px;font-weight:900;color:#e8a204;text-transform:uppercase;letter-spacing:0.5px;">Datos de Facturación del Cliente</span>' +
                 '<span id="pricing-bill-sync-badge" style="font-size:9px;font-weight:800;padding:1px 6px;border-radius:4px;background:#ebedf0;color:#57606a;border:1px solid #dfe3e8;">Manual</span>' +
               '</div>' +
               '<div style="display:flex;align-items:center;gap:6px;">' +
@@ -1477,8 +1477,8 @@ function wpOpenPricingReviewModal(onConfirm) {
           '<div style="background:#f3f5f8;border:1px solid #dfe3e8;border-radius:10px;padding:11px 12px;display:flex;flex-direction:column;gap:8px;box-shadow:0 2px 6px rgba(30,36,43,0.04);">' +
             '<div style="display:flex;justify-content:space-between;align-items:center;">' +
               '<div style="display:flex;align-items:center;gap:6px;">' +
-                '<span style="display:inline-flex;">' + _mSvg('chart', 13, '#e84a27') + '</span>' +
-                '<span style="font-size:10.5px;font-weight:900;color:#e84a27;text-transform:uppercase;letter-spacing:0.5px;">Consumo &amp; Parámetros Eléctricos del Cliente</span>' +
+                '<span style="display:inline-flex;">' + _mSvg('chart', 13, '#e8a204') + '</span>' +
+                '<span style="font-size:10.5px;font-weight:900;color:#e8a204;text-transform:uppercase;letter-spacing:0.5px;">Consumo &amp; Parámetros Eléctricos del Cliente</span>' +
               '</div>' +
               '<span style="font-size:9.5px;color:#57606a;">Condicionan el ahorro anual, retorno y amortización</span>' +
             '</div>' +
@@ -1486,7 +1486,7 @@ function wpOpenPricingReviewModal(onConfirm) {
               '<div>' +
                 '<label style="display:block;font-size:9px;color:#57606a;font-weight:700;margin-bottom:2px;">Consumo Anual Total</label>' +
                 '<div style="display:flex;align-items:center;gap:4px;">' +
-                  '<input type="number" id="pricing-cust-consumo" min="100" max="1000000" step="50" style="width:100%;box-sizing:border-box;padding:4px 7px;background:#ffffff;border:1px solid #e84a27;border-radius:5px;color:#e84a27;font-size:11px;font-weight:800;text-align:right;">' +
+                  '<input type="number" id="pricing-cust-consumo" min="100" max="1000000" step="50" style="width:100%;box-sizing:border-box;padding:4px 7px;background:#ffffff;border:1px solid #e8a204;border-radius:5px;color:#e8a204;font-size:11px;font-weight:800;text-align:right;">' +
                   '<span style="font-size:10px;color:#57606a;white-space:nowrap;">kWh/año</span>' +
                 '</div>' +
               '</div>' +
@@ -1566,7 +1566,7 @@ function wpOpenPricingReviewModal(onConfirm) {
               '</div>' +
               '<div style="display:flex;align-items:center;gap:6px;">' +
                 '<button type="button" id="btn-ai-survey-pricing" style="padding:3px 8px;background:rgba(124,58,237,0.1);border:1px solid rgba(124,58,237,0.35);border-radius:5px;color:#7c3aed;font-size:9.5px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:4px;" title="Consultar a Google Gemini los precios actuales de mercado en España para estos equipos">' + _mSvg('sparkles', 12, '#7c3aed') + ' Sondeo Precios (IA Gemini)</button>' +
-                '<button type="button" id="btn-reset-pricing-to-design" style="padding:3px 8px;background:rgba(232,74,39,0.1);border:1px solid rgba(232,74,39,0.35);border-radius:5px;color:#e84a27;font-size:9.5px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;gap:4px;" title="Recalcular todas las partidas automáticamente a partir del diseño 3D y equipos seleccionados">' + _mSvg('refresh', 12, '#e84a27') + ' Recalcular según diseño</button>' +
+                '<button type="button" id="btn-reset-pricing-to-design" style="padding:3px 8px;background:rgba(232, 162, 4,0.1);border:1px solid rgba(232, 162, 4,0.35);border-radius:5px;color:#e8a204;font-size:9.5px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;gap:4px;" title="Recalcular todas las partidas automáticamente a partir del diseño 3D y equipos seleccionados">' + _mSvg('refresh', 12, '#e8a204') + ' Recalcular según diseño</button>' +
               '</div>' +
             '</div>' +
             '<div id="pricing-ai-survey-banner" style="display:none;background:rgba(124,58,237,0.08);border:1px solid rgba(124,58,237,0.3);border-radius:6px;padding:8px 10px;font-size:10px;color:#1e242b;line-height:1.4;">' +
@@ -1585,7 +1585,7 @@ function wpOpenPricingReviewModal(onConfirm) {
             '</div>' +
             '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid #dfe3e8;">' +
               '<div style="flex:1;min-width:0;padding-right:10px;">' +
-                '<div style="font-size:11px;font-weight:800;color:#1e242b;display:flex;align-items:center;gap:5px;"><span style="display:inline-flex;color:#e84a27;">' + _mSvg('gridPanel', 13, '#e84a27') + '</span> <span id="pricing-title-panels">Módulos Fotovoltaicos Tier-1</span></div>' +
+                '<div style="font-size:11px;font-weight:800;color:#1e242b;display:flex;align-items:center;gap:5px;"><span style="display:inline-flex;color:#e8a204;">' + _mSvg('gridPanel', 13, '#e8a204') + '</span> <span id="pricing-title-panels">Módulos Fotovoltaicos Tier-1</span></div>' +
                 '<div id="pricing-subtext-panels" style="font-size: 10px;color:#57606a;">0 módulos en cubierta</div>' +
               '</div>' +
               '<div style="display:flex;align-items:center;gap:12px;flex-shrink:0;">' +
@@ -1594,7 +1594,7 @@ function wpOpenPricingReviewModal(onConfirm) {
                     '<input type="number" id="pricing-input-panel-price" min="40" max="1000" step="1" style="width:70px;padding:4px 6px;background:#ffffff;border:1px solid #dfe3e8;border-radius:6px;color:#1e242b;font-size:11px;font-weight:700;text-align:right;">' +
                     '<span style="font-size:10px;color:#57606a;">€/ud</span>' +
                   '</div>' +
-                  '<span id="pricing-row-panel-subtotal" style="font-size:11px;font-weight:800;color:#e84a27;min-width:60px;text-align:right;">0 €</span>' +
+                  '<span id="pricing-row-panel-subtotal" style="font-size:11px;font-weight:800;color:#e8a204;min-width:60px;text-align:right;">0 €</span>' +
                 '</div>' +
                 '<div style="width:105px;text-align:right;">' +
                   '<span id="pricing-row-panel-pvp" style="font-size:11.5px;font-weight:900;color:#059669;">0 €</span>' +
@@ -1648,7 +1648,7 @@ function wpOpenPricingReviewModal(onConfirm) {
             '</div>' +
             '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid #dfe3e8;">' +
               '<div style="flex:1;min-width:0;padding-right:10px;">' +
-                '<div style="font-size:11px;font-weight:800;color:#1e242b;display:flex;align-items:center;gap:5px;"><span style="display:inline-flex;color:#e84a27;">' + _mSvg('plug', 13, '#e84a27') + '</span> Cableado, Conducciones &amp; Cuadros</div>' +
+                '<div style="font-size:11px;font-weight:800;color:#1e242b;display:flex;align-items:center;gap:5px;"><span style="display:inline-flex;color:#e8a204;">' + _mSvg('plug', 13, '#e8a204') + '</span> Cableado, Conducciones &amp; Cuadros</div>' +
                 '<div id="pricing-subtext-cab" style="font-size: 10px;color:#57606a;">Líneas solares ZZ-F, cuadro DC/AC, protecciones SPD y tierras</div>' +
               '</div>' +
               '<div style="display:flex;align-items:center;gap:12px;flex-shrink:0;">' +
@@ -1693,7 +1693,7 @@ function wpOpenPricingReviewModal(onConfirm) {
             '</div>' +
             '<div id="pricing-row-wind" style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-top:1px solid #dfe3e8;">' +
               '<div style="flex:1;min-width:0;padding-right:10px;">' +
-                '<div style="font-size:11px;font-weight:800;color:#1e242b;display:flex;align-items:center;gap:5px;"><span style="display:inline-flex;color:#e84a27;">' + _mSvg('wind', 13, '#e84a27') + '</span> Aerogeneradores &amp; Soporte Eólico</div>' +
+                '<div style="font-size:11px;font-weight:800;color:#1e242b;display:flex;align-items:center;gap:5px;"><span style="display:inline-flex;color:#e8a204;">' + _mSvg('wind', 13, '#e8a204') + '</span> Aerogeneradores &amp; Soporte Eólico</div>' +
                 '<div id="pricing-subtext-wind" style="font-size: 10px;color:#57606a;">Turbinas eólicas, mástil, zapata y resistencia dump load</div>' +
               '</div>' +
               '<div style="display:flex;align-items:center;gap:12px;flex-shrink:0;">' +
@@ -1717,12 +1717,12 @@ function wpOpenPricingReviewModal(onConfirm) {
           '<div style="background:#f3f5f8;border:1px solid #dfe3e8;border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:8px;box-shadow:0 2px 6px rgba(30,36,43,0.04);">' +
             '<div style="display:flex;justify-content:space-between;align-items:center;">' +
               '<div>' +
-                '<div style="font-size:11px;font-weight:800;color:#e84a27;">Margen Comercial Deseado</div>' +
+                '<div style="font-size:11px;font-weight:800;color:#e8a204;">Margen Comercial Deseado</div>' +
                 '<div style="font-size: 10px;color:#57606a;">Beneficio bruto aplicado sobre la suma de costes directos</div>' +
               '</div>' +
               '<div style="display:flex;align-items:center;gap:4px;">' +
-                '<input type="number" id="pricing-input-margin-pct" min="0" max="100" step="1" style="width:65px;padding:4px 6px;background:#ffffff;border:1px solid #e84a27;border-radius:6px;color:#e84a27;font-size:11px;font-weight:800;text-align:right;">' +
-                '<span style="font-size:11px;color:#e84a27;font-weight:800;">%</span>' +
+                '<input type="number" id="pricing-input-margin-pct" min="0" max="100" step="1" style="width:65px;padding:4px 6px;background:#ffffff;border:1px solid #e8a204;border-radius:6px;color:#e8a204;font-size:11px;font-weight:800;text-align:right;">' +
+                '<span style="font-size:11px;color:#e8a204;font-weight:800;">%</span>' +
               '</div>' +
             '</div>' +
             '<div style="display:flex;gap:6px;">' +
@@ -1737,17 +1737,17 @@ function wpOpenPricingReviewModal(onConfirm) {
           '<div style="background:#f3f5f8;border:1px solid #dfe3e8;border-radius:10px;padding:11px 12px;display:flex;flex-direction:column;gap:8px;box-shadow:0 2px 6px rgba(30,36,43,0.04);">' +
             '<div style="display:flex;justify-content:space-between;align-items:center;">' +
               '<div style="font-size:10px;font-weight:900;color:#57606a;text-transform:uppercase;letter-spacing:0.5px;display:flex;align-items:center;gap:6px;">' +
-                '<span style="display:inline-flex;color:#e84a27;">' + _mSvg('puzzle', 13, '#e84a27') + '</span> Equipamiento Opcional (Add-ons) y Promoción' +
+                '<span style="display:inline-flex;color:#e8a204;">' + _mSvg('puzzle', 13, '#e8a204') + '</span> Equipamiento Opcional (Add-ons) y Promoción' +
               '</div>' +
-              '<div id="pricing-addons-summary-badge" style="font-size:9.5px;color:#e84a27;font-weight:700;">0 seleccionados (+0 €)</div>' +
+              '<div id="pricing-addons-summary-badge" style="font-size:9.5px;color:#e8a204;font-weight:700;">0 seleccionados (+0 €)</div>' +
             '</div>' +
             '<div id="pricing-addons-chips-container" style="display:flex;flex-wrap:wrap;gap:6px;"></div>' +
             '<div style="display:grid;grid-template-columns:auto 85px 65px 1fr;gap:6px;align-items:center;background:#ebedf0;border:1px solid #dfe3e8;border-radius:6px;padding:6px 8px;">' +
               '<label style="display:flex;align-items:center;gap:5px;font-size:10px;font-weight:700;color:#1e242b;cursor:pointer;white-space:nowrap;">' +
-                '<input type="checkbox" id="pricing-check-discount-enabled" style="accent-color:#e84a27;">' +
+                '<input type="checkbox" id="pricing-check-discount-enabled" style="accent-color:#e8a204;">' +
                 '<span>Aplicar Descuento:</span>' +
               '</label>' +
-              '<input type="number" id="pricing-input-discount-val" min="0" step="1" placeholder="5" style="width:100%;box-sizing:border-box;padding:3px 6px;background:#ffffff;border:1px solid #dfe3e8;border-radius:4px;color:#e84a27;font-size:10.5px;font-weight:800;text-align:right;">' +
+              '<input type="number" id="pricing-input-discount-val" min="0" step="1" placeholder="5" style="width:100%;box-sizing:border-box;padding:3px 6px;background:#ffffff;border:1px solid #dfe3e8;border-radius:4px;color:#e8a204;font-size:10.5px;font-weight:800;text-align:right;">' +
               '<select id="pricing-select-discount-type" style="padding:3px 4px;background:#ffffff;border:1px solid #dfe3e8;border-radius:4px;color:#1e242b;font-size:10px;font-weight:700;">' +
                 '<option value="percent">%</option>' +
                 '<option value="fixed_eur">€</option>' +
@@ -1764,7 +1764,7 @@ function wpOpenPricingReviewModal(onConfirm) {
               '<span>Beneficio Comercial:</span>' +
               '<b id="pricing-preview-margin">+0 €</b>' +
             '</div>' +
-            '<div id="pricing-preview-addons-row" style="display:none;justify-content:space-between;font-size:10.5px;color:#e84a27;">' +
+            '<div id="pricing-preview-addons-row" style="display:none;justify-content:space-between;font-size:10.5px;color:#e8a204;">' +
               '<span>Equipamiento Opcional (Add-ons):</span>' +
               '<b id="pricing-preview-addons">+0 €</b>' +
             '</div>' +
@@ -1804,7 +1804,7 @@ function wpOpenPricingReviewModal(onConfirm) {
               '<div style="font-size:8.5px;color:#57606a;font-weight:700;text-transform:uppercase;">Retorno (Payback)</div>' +
             '</div>' +
             '<div style="background:#ebedf0;padding:6px;border-radius:6px;border:1px solid #dfe3e8;">' +
-              '<div id="pricing-metric-tir" style="font-size:12px;font-weight:900;color:#e84a27;">0.0 %</div>' +
+              '<div id="pricing-metric-tir" style="font-size:12px;font-weight:900;color:#e8a204;">0.0 %</div>' +
               '<div style="font-size:8.5px;color:#57606a;font-weight:700;text-transform:uppercase;">TIR Anual</div>' +
             '</div>' +
             '<div style="background:#ebedf0;padding:6px;border-radius:6px;border:1px solid #dfe3e8;">' +

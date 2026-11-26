@@ -6332,10 +6332,10 @@ function _wpUpdateUINow() {
       vtxManagerContainer.style.display = 'block';
       const rows = selectedPoly.points.map((pt, vi) => {
         const isSel = vi === WP.selectedVtxIdx;
-        return '<div onclick="wpSelectVertex(' + vi + ')" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;padding:4px 8px;background:' + (isSel ? 'rgba(232,74,39,0.12)' : '#f3f5f8') + ';border-radius:6px;border:1px solid ' + (isSel ? '#e84a27' : '#dfe3e8') + ';font-size: 10px;transition:all 0.15s;">' +
+        return '<div onclick="wpSelectVertex(' + vi + ')" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;padding:4px 8px;background:' + (isSel ? 'rgba(232, 162, 4,0.12)' : '#f3f5f8') + ';border-radius:6px;border:1px solid ' + (isSel ? '#e8a204' : '#dfe3e8') + ';font-size: 10px;transition:all 0.15s;">' +
           '<div style="display:flex;align-items:center;gap:6px;">' +
-            '<span style="display:inline-block;width:14px;height:14px;line-height:14px;text-align:center;border-radius:3px;background:' + (isSel ? '#e84a27' : '#ebedf0') + ';color:' + (isSel ? '#ffffff' : '#1e242b') + ';font-weight:bold;font-size: 10px;border:1px solid ' + (isSel ? '#e84a27' : '#dfe3e8') + ';">' + (vi + 1) + '</span>' +
-            '<span style="color:' + (isSel ? '#e84a27' : '#1e242b') + ';font-weight:bold;">Vértice ' + (vi + 1) + '</span>' +
+            '<span style="display:inline-block;width:14px;height:14px;line-height:14px;text-align:center;border-radius:3px;background:' + (isSel ? '#e8a204' : '#ebedf0') + ';color:' + (isSel ? '#ffffff' : '#1e242b') + ';font-weight:bold;font-size: 10px;border:1px solid ' + (isSel ? '#e8a204' : '#dfe3e8') + ';">' + (vi + 1) + '</span>' +
+            '<span style="color:' + (isSel ? '#e8a204' : '#1e242b') + ';font-weight:bold;">Vértice ' + (vi + 1) + '</span>' +
           '</div>' +
           '<div style="font-family:monospace;font-size: 10px;color:#57606a;">' +
             'X: ' + pt.x.toFixed(1) + ' | Y: ' + pt.y.toFixed(1) + ' | Z: ' + pt.z.toFixed(1) +
@@ -6372,10 +6372,10 @@ function _wpUpdateUINow() {
       const rows = WP.polylines.map((poly, i) => {
         const isSel = i === WP.selectedPolyIdx;
         const strColor = getPolylineStringColor(i);
-        return '<div onclick="wpSelectPolyline(' + i + ')" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;padding:5px 8px;background:' + (isSel ? 'rgba(232,74,39,0.10)' : '#f3f5f8') + ';border-radius:6px;margin-bottom:3px;font-size: 10px;border:1px solid ' + (isSel ? '#e84a27' : '#dfe3e8') + ';transition:all 0.15s ease;">' +
+        return '<div onclick="wpSelectPolyline(' + i + ')" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;padding:5px 8px;background:' + (isSel ? 'rgba(232, 162, 4,0.10)' : '#f3f5f8') + ';border-radius:6px;margin-bottom:3px;font-size: 10px;border:1px solid ' + (isSel ? '#e8a204' : '#dfe3e8') + ';transition:all 0.15s ease;">' +
           '<div style="display:flex;align-items:center;gap:6px;">' +
             '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + strColor + ';box-shadow:0 0 4px ' + strColor + ';"></span>' +
-            '<span style="color:' + (isSel ? '#e84a27' : '#1e242b') + ';font-weight:bold;">' + (isSel ? '<i data-lucide=\"star\" class=\"icon-sm\"></i> ' : '') + poly.name + '</span>' +
+            '<span style="color:' + (isSel ? '#e8a204' : '#1e242b') + ';font-weight:bold;">' + (isSel ? '<i data-lucide=\"star\" class=\"icon-sm\"></i> ' : '') + poly.name + '</span>' +
           '</div>' +
           '<span style="color:' + (isSel ? '#1e242b' : '#57606a') + ';font-weight:' + (isSel ? '700' : 'normal') + ';">' + poly.points.length + ' vtx · ' + poly.area.toFixed(1) + ' m²</span>' +
         '</div>';
@@ -7660,7 +7660,7 @@ function wpOpenSmartInverterMatchingModal() {
     catalogListHtml = `
       <div style="background:#ebedf0;border:1px solid #dfe3e8;border-radius:8px;padding:8px;margin-bottom:8px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-          <span style="font-size:10px;font-weight:900;color:#e84a27;display:flex;align-items:center;gap:4px;">
+          <span style="font-size:10px;font-weight:900;color:#e8a204;display:flex;align-items:center;gap:4px;">
             <i data-lucide="check-circle" class="icon-sm"></i> MODELOS REALES COMPATIBLES EN CATÁLOGO (${compatibleList.length})
           </span>
           <span style="font-size:9px;color:#57606a;">Verificados por REBT / IEC</span>
@@ -7676,7 +7676,7 @@ function wpOpenSmartInverterMatchingModal() {
                     <span style="font-size:10px;font-weight:bold;color:#1e242b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
                       ${c.count}x ${c.inverter.brand} ${c.inverter.model}
                     </span>
-                    <span class="card-tag" style="background:${isSingle ? 'rgba(232,74,39,0.12)' : 'rgba(124,58,237,0.12)'};color:${isSingle ? '#e84a27' : '#7c3aed'};font-size:8.5px;padding:1px 4px;">
+                    <span class="card-tag" style="background:${isSingle ? 'rgba(232, 162, 4,0.12)' : 'rgba(124,58,237,0.12)'};color:${isSingle ? '#e8a204' : '#7c3aed'};font-size:8.5px;padding:1px 4px;">
                       ${isSingle ? '1x Central' : c.count + 'x Modular'}
                     </span>
                   </div>
@@ -7691,7 +7691,7 @@ function wpOpenSmartInverterMatchingModal() {
                 </div>
                 <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
                   <span style="font-size:10.5px;font-weight:900;color:#059669;">${c.totalCostEur} €</span>
-                  <button type="button" class="doc-mini-btn" onclick="wpApplyInverterScenario('${c.inverter.id}', ${c.count}, 'inverter', 'compat_${idx}')" style="background:#e84a27;border-color:#e84a27;color:#fff;font-size:9.5px;font-weight:bold;padding:3px 7px;cursor:pointer;">
+                  <button type="button" class="doc-mini-btn" onclick="wpApplyInverterScenario('${c.inverter.id}', ${c.count}, 'inverter', 'compat_${idx}')" style="background:#e8a204;border-color:#e8a204;color:#fff;font-size:9.5px;font-weight:bold;padding:3px 7px;cursor:pointer;">
                     Elegir
                   </button>
                 </div>
@@ -7712,8 +7712,8 @@ function wpOpenSmartInverterMatchingModal() {
     <div style="background:#f3f5f8;border:1px solid #dfe3e8;border-radius:10px;padding:10px;margin-bottom:8px;box-shadow:0 8px 24px rgba(30,36,43,0.12);">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;border-bottom:1px solid #dfe3e8;padding-bottom:4px;">
         <div style="display:flex;align-items:center;gap:6px;">
-          <span style="font-weight:900;color:#e84a27;font-size:10.5px;"><i data-lucide="sparkles" class="icon-sm"></i> COMPARATIVA INTELIGENTE DE INVERSORES</span>
-          <span class="card-tag" style="background:rgba(232,74,39,0.10);color:#e84a27;font-size: 10px;">${totalKwp.toFixed(1)} kWp · ${gridSupply === 'single_phase' ? 'Monofásico 230V' : 'Trifásico 400V'}</span>
+          <span style="font-weight:900;color:#e8a204;font-size:10.5px;"><i data-lucide="sparkles" class="icon-sm"></i> COMPARATIVA INTELIGENTE DE INVERSORES</span>
+          <span class="card-tag" style="background:rgba(232, 162, 4,0.10);color:#e8a204;font-size: 10px;">${totalKwp.toFixed(1)} kWp · ${gridSupply === 'single_phase' ? 'Monofásico 230V' : 'Trifásico 400V'}</span>
         </div>
         <button type="button" class="doc-mini-btn" onclick="document.getElementById('step3-smart-inverter-recommendations').style.display='none'"><i data-lucide="x" class="icon-sm"></i></button>
       </div>
@@ -7747,18 +7747,18 @@ function wpOpenSmartInverterMatchingModal() {
         <div style="font-size: 10px;color:#57606a;line-height:1.3;margin-bottom:5px;">
           Mínimo coste de instalación, cableado AC centralizado y un único equipo a monitorizar.
         </div>
-        <button type="button" class="doc-mini-btn" style="background:#e84a27;border-color:#e84a27;color:#fff;width:100%;font-weight:bold;padding:5px;font-size: 10px;" onclick="wpApplyInverterScenario('${scA.inverter.id}', 1, 'inverter', 'scA')">
+        <button type="button" class="doc-mini-btn" style="background:#e8a204;border-color:#e8a204;color:#fff;width:100%;font-weight:bold;padding:5px;font-size: 10px;" onclick="wpApplyInverterScenario('${scA.inverter.id}', 1, 'inverter', 'scA')">
           <i data-lucide="check" class="icon-sm"></i> APLICAR OPCIÓN 1x (${scA.totalAcKw} kW AC)
         </button>
       </div>` : ''}
 
       <!-- Opción B: Modular Distribuida Nx -->
       ${scB ? `
-      <div style="background:#ebedf0;border:1px solid rgba(232,74,39,0.3);border-radius:8px;padding:8px;margin-bottom:6px;">
+      <div style="background:#ebedf0;border:1px solid rgba(232, 162, 4,0.3);border-radius:8px;padding:8px;margin-bottom:6px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
           <div style="display:flex;align-items:center;gap:5px;">
-            <span style="font-size:10px;font-weight:900;color:#e84a27;"><i data-lucide="layers" class="icon-sm"></i> OPCIÓN B: Modular Distribuida (${scB.count}x Equipos)</span>
-            <span class="card-tag" style="background:rgba(232,74,39,0.12);color:#e84a27;font-size: 10px;">${scB.count} Inversores</span>
+            <span style="font-size:10px;font-weight:900;color:#e8a204;"><i data-lucide="layers" class="icon-sm"></i> OPCIÓN B: Modular Distribuida (${scB.count}x Equipos)</span>
+            <span class="card-tag" style="background:rgba(232, 162, 4,0.12);color:#e8a204;font-size: 10px;">${scB.count} Inversores</span>
           </div>
           <span style="font-size:10px;color:#059669;font-weight:900;">${scB.totalCostEur} €</span>
         </div>

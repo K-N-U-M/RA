@@ -427,7 +427,7 @@ function wpCheckSavedProject() {
         'color:#1e242b;font-family:Inter,sans-serif;font-size:12px;box-shadow:0 10px 25px -5px rgba(30,36,43,0.18),0 2px 6px rgba(30,36,43,0.08);';
       banner.innerHTML = '<span>Sesión previa encontrada (' + dateStr + ')</span>' +
         '<button onclick="wpRestoreAutosave(); this.parentNode.remove();" style="padding:4px 10px;border-radius:6px;' +
-        'border:none;background:#e84a27;color:#ffffff;font-weight:700;cursor:pointer;font-size:11px;">RESTAURAR</button>' +
+        'border:none;background:#e8a204;color:#ffffff;font-weight:700;cursor:pointer;font-size:11px;">RESTAURAR</button>' +
         '<button onclick="this.parentNode.remove();" style="padding:4px 8px;border-radius:6px;border:1px solid #dfe3e8;' +
         'background:#ebedf0;color:#57606a;cursor:pointer;font-size:11px;">✕</button>';
       document.body.appendChild(banner);
@@ -688,7 +688,7 @@ function wpCompararEscenarios() {
     <tr style="background:${mejorFlag ? 'rgba(5,150,105,0.12)' : 'transparent'};border-bottom:1px solid #dfe3e8;">
       <td style="padding:5px 6px;font-weight:${mejorFlag ? '900' : '600'};color:${mejorFlag ? '#059669' : '#1e242b'};">${s.nombre}${mejorFlag ? ' ★' : ''}</td>
       <td style="padding:5px 6px;text-align:right;color:#1e242b;">${s.kwh.toLocaleString('es-ES')}</td>
-      <td style="padding:5px 6px;text-align:right;color:#e84a27;font-weight:700;">${s.capex.toLocaleString('es-ES')} €</td>
+      <td style="padding:5px 6px;text-align:right;color:#e8a204;font-weight:700;">${s.capex.toLocaleString('es-ES')} €</td>
       <td style="padding:5px 6px;text-align:right;color:#1e242b;">${s.ahorro.toLocaleString('es-ES')} €</td>
       <td style="padding:5px 6px;text-align:right;color:${s.payback < 8 ? '#059669' : '#d97706'};">${isFinite(s.payback) ? s.payback.toFixed(1) + ' a' : '—'}</td>
       <td style="padding:5px 6px;text-align:right;color:${s.van > 0 ? '#059669' : '#dc2626'};">${s.van.toLocaleString('es-ES')} €</td>
@@ -8730,10 +8730,10 @@ function _flushHeatmapPanelHover() {
     const strLabel = panelData.stringName || ('String #' + ((panelData.polyIdx || 0) + 1));
     const modeBadge = isHeatmapActive && isSimValid
       ? `<span style="display:inline-flex;align-items:center;gap:3px;padding:1px 5px;border-radius:4px;font-size: 10px;background:rgba(5,150,105,0.12);color:#059669;border:1px solid rgba(5,150,105,0.3);font-weight:700;">☀️ Heatmap Solar</span>`
-      : `<span style="display:inline-flex;align-items:center;gap:3px;padding:1px 5px;border-radius:4px;font-size: 10px;background:rgba(232,74,39,0.10);color:#e84a27;border:1px solid rgba(232,74,39,0.28);font-weight:700;">⚡ ${strLabel}</span>`;
+      : `<span style="display:inline-flex;align-items:center;gap:3px;padding:1px 5px;border-radius:4px;font-size: 10px;background:rgba(232, 162, 4,0.10);color:#e8a204;border:1px solid rgba(232, 162, 4,0.28);font-weight:700;">⚡ ${strLabel}</span>`;
 
     const lossHtml = isSimValid
-      ? `<span style="font-weight:700;color:${loss > 0.05 ? '#e84a27' : '#059669'};">${loss > 0.05 ? '-' + loss.toFixed(1) + '%' : '100% Libre'}</span>`
+      ? `<span style="font-weight:700;color:${loss > 0.05 ? '#e8a204' : '#059669'};">${loss > 0.05 ? '-' + loss.toFixed(1) + '%' : '100% Libre'}</span>`
       : `<span style="font-weight:600;color:#57606a;font-size: 10px;font-style:italic;">⚠️ Simulación pendiente (Paso 3)</span>`;
 
     const diagHtml = isSimValid
@@ -8767,7 +8767,7 @@ function _flushHeatmapPanelHover() {
       : '';
 
     tooltip.innerHTML = `
-      <div style="font-weight:800;color:#e84a27;font-size:11px;margin-bottom:4px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #dfe3e8;padding-bottom:3px;gap:8px;">
+      <div style="font-weight:800;color:#e8a204;font-size:11px;margin-bottom:4px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #dfe3e8;padding-bottom:3px;gap:8px;">
         <span>MÓDULO #${hoveredIdx + 1}</span>
         ${modeBadge}
       </div>

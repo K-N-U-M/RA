@@ -1335,7 +1335,7 @@
             <div class="bom-kpi"><span>AC NOMINAL:</span> <b>${tree.summary.totalAcKw} kW</b></div>
             <div class="bom-kpi"><span>MÓDULOS:</span> <b>${tree.summary.totalPanels} u.</b></div>
             ${tree.summary.totalStorageKwh > 0 ? `<div class="bom-kpi" style="border-color:rgba(5,150,105,0.3);background:rgba(5,150,105,0.1);"><span style="color:#059669;">BATERÍA:</span> <b style="color:#059669;">${tree.summary.totalStorageKwh} kWh</b></div>` : ''}
-            ${tree.summary.totalWindTurbines > 0 ? `<div class="bom-kpi" style="border-color:rgba(232,74,39,0.3);background:rgba(232,74,39,0.1);"><span style="color:#e84a27;">EÓLICA:</span> <b style="color:#e84a27;">${tree.summary.totalWindTurbines}x (${tree.summary.totalWindKw} kW)</b></div>` : ''}
+            ${tree.summary.totalWindTurbines > 0 ? `<div class="bom-kpi" style="border-color:rgba(232, 162, 4,0.3);background:rgba(232, 162, 4,0.1);"><span style="color:#e8a204;">EÓLICA:</span> <b style="color:#e8a204;">${tree.summary.totalWindTurbines}x (${tree.summary.totalWindKw} kW)</b></div>` : ''}
           </div>
           
           

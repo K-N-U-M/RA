@@ -354,7 +354,7 @@
       var btnOk = document.createElement('button');
       btnOk.type = 'button';
       btnOk.textContent = confirmLabel;
-      btnOk.style.cssText = 'padding:8px 16px;border-radius:8px;background:#e84a27;border:none;box-shadow:3px 3px 8px rgba(232,74,39,0.3);color:#fff;font-size:12px;font-weight:800;cursor:pointer;';
+      btnOk.style.cssText = 'padding:8px 16px;border-radius:8px;background:#e8a204;border:none;box-shadow:3px 3px 8px rgba(232, 162, 4,0.3);color:#fff;font-size:12px;font-weight:800;cursor:pointer;';
       btnOk.onclick = function() { finish(true); };
 
       overlay._raCancel = function() { finish(false); };

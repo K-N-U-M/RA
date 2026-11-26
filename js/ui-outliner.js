@@ -596,7 +596,7 @@
           font-size: 10px;
           font-weight: 900;
           letter-spacing: 0.6px;
-          color: #e84a27;
+          color: #e8a204;
         }
 
         .outliner-badge {
@@ -604,9 +604,9 @@
           font-weight: 800;
           padding: 2px 6px;
           border-radius: 4px;
-          background: rgba(232, 74, 39, 0.12);
-          color: #e84a27;
-          border: 1px solid rgba(232, 74, 39, 0.3);
+          background: rgba(232, 162, 4, 0.12);
+          color: #e8a204;
+          border: 1px solid rgba(232, 162, 4, 0.3);
         }
 
         .outliner-toggle-btn {
@@ -654,13 +654,13 @@
         }
 
         .outliner-group-header:hover {
-          background: rgba(232, 74, 39, 0.1);
-          color: #e84a27;
+          background: rgba(232, 162, 4, 0.1);
+          color: #e8a204;
         }
 
         .outliner-chevron {
           font-size: 8px;
-          color: #e84a27;
+          color: #e8a204;
           width: 12px;
           display: inline-block;
           text-align: center;
@@ -719,8 +719,8 @@
         }
 
         .outliner-bld-card.active-node, .outliner-plane-card.active-node {
-          border-color: rgba(232, 74, 39, 0.65);
-          box-shadow: 0 0 8px rgba(232, 74, 39, 0.18);
+          border-color: rgba(232, 162, 4, 0.65);
+          box-shadow: 0 0 8px rgba(232, 162, 4, 0.18);
         }
 
         .outliner-bld-header, .outliner-plane-header {
@@ -752,8 +752,8 @@
         }
 
         .outliner-plane-sub-card.active-plane-sub {
-          border-color: rgba(232, 74, 39, 0.5);
-          background: rgba(232, 74, 39, 0.06);
+          border-color: rgba(232, 162, 4, 0.5);
+          background: rgba(232, 162, 4, 0.06);
         }
 
         .outliner-sub-header {
@@ -792,7 +792,7 @@
         }
 
         .sub-plane-name {
-          color: #e84a27;
+          color: #e8a204;
           font-size: 10px;
         }
 
@@ -930,8 +930,8 @@
         }
 
         .outliner-poly-item.selected-poly {
-          border-color: #e84a27;
-          background: rgba(232, 74, 39, 0.1);
+          border-color: #e8a204;
+          background: rgba(232, 162, 4, 0.1);
         }
 
         .outliner-obs-item.selected-obs {
