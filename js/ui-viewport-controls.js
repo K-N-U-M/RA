@@ -766,17 +766,34 @@
     }, { passive: true });
   }
 
+  function initSidebarAndA11yHandlers() {
+    const sidebar = document.getElementById('ra-sidebar');
+    if (sidebar && window.innerWidth > 1024) {
+      sidebar.classList.remove('collapsed');
+    }
+
+    document.addEventListener('keydown', function(e) {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      const target = e.target && e.target.closest ? e.target.closest('[role="button"]') : null;
+      if (!target || target.tagName === 'BUTTON') return;
+      if (e.key === ' ') e.preventDefault();
+      target.click();
+    });
+  }
+
   if (typeof document !== 'undefined') {
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', function() {
         initUniversalModalHandlers();
         initMobileResponsiveBehavior();
         initUniversalFloatingDraggables();
+        initSidebarAndA11yHandlers();
       });
     } else {
       initUniversalModalHandlers();
       initMobileResponsiveBehavior();
       initUniversalFloatingDraggables();
+      initSidebarAndA11yHandlers();
     }
   }
 

@@ -87,6 +87,13 @@ function _computeBuildingRenderSig(bld, isSel) {
     bld.edgeColor || '',
     bld.parapetHeight || 0,
     bld.parapetWidth || 0,
+    bld.overhang || 0,
+    bld.roofThickness || 0,
+    bld.skylightCount || 0,
+    bld.axisMode || '',
+    typeof bld.refEdgeIdx === 'number' ? bld.refEdgeIdx : -1,
+    bld.lParams ? JSON.stringify(bld.lParams) : '',
+    (isSel && typeof bldFootprintState !== 'undefined' && bldFootprintState) ? bldFootprintState.selectedVtxIdx : -1,
     ptStr
   ].join('|');
 }
@@ -144,9 +151,9 @@ function render3DBuildingsInCesium() {
     });
   }
   window._buildingEntities = [];
-  window._selectedVtxHandle = null; // [P2] ref al handle del vértice seleccionado (se recrea más abajo)
 
   if (bldList.length === 0) {
+    window._selectedVtxHandle = null;
     if (viewer && viewer.scene && typeof viewer.scene.requestRender === 'function') {
       viewer.scene.requestRender();
     }
@@ -160,6 +167,7 @@ function render3DBuildingsInCesium() {
       if (Array.isArray(bld._entities)) bld._entities.forEach(e => window._buildingEntities.push(e));
       return;
     }
+    window._selectedVtxHandle = null; // [P2] ref al handle del vértice seleccionado (se recrea más abajo)
     const _bldStartPrimIdx = window._buildingPrimitives.length;
     const _bldStartEntIdx = window._buildingEntities.length;
     const isSel = (bld && bld.id === curSelBldId);
@@ -1484,6 +1492,8 @@ function render3DBuildingsInCesium() {
         const obs = window.obstacles[i];
         if (!obs || obs.buildingId === bldId || (obs.planeId && obs.planeId.includes(bldId))) {
           window.obstacles.splice(i, 1);
+        } else if (typeof obs.planeIdx === 'number' && indexMap && indexMap.has(obs.planeIdx)) {
+          obs.planeIdx = indexMap.get(obs.planeIdx);
         }
       }
     }
@@ -2450,6 +2460,14 @@ function render3DBuildingsInCesium() {
     if (Array.isArray(WP.planes)) {
       for (let pi = WP.planes.length - 1; pi >= 0; pi--) {
         if (removedP.has(pi)) WP.planes.splice(pi, 1);
+      }
+    }
+    if (typeof window.obstacles !== 'undefined' && Array.isArray(window.obstacles)) {
+      for (let oi = 0; oi < window.obstacles.length; oi++) {
+        const obs = window.obstacles[oi];
+        if (obs && typeof obs.planeIdx === 'number' && pMap.has(obs.planeIdx)) {
+          obs.planeIdx = pMap.get(obs.planeIdx);
+        }
       }
     }
 

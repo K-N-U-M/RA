@@ -239,10 +239,11 @@
 
       // Atajo de teclado 'B' para toggle
       window.addEventListener('keydown', (e) => {
-        if (e.key === 'b' || e.key === 'B') {
+        if ((e.key === 'b' || e.key === 'B') && !(e.ctrlKey || e.metaKey || e.altKey)) {
           const tag = (document.activeElement && document.activeElement.tagName) || '';
-          if (tag !== 'INPUT' && tag !== 'TEXTAREA') {
+          if (tag !== 'INPUT' && tag !== 'TEXTAREA' && !(e.target && e.target.isContentEditable)) {
             this.toggle();
+            try { localStorage.setItem('ra_benchmark_visible', isEnabled ? '1' : '0'); } catch (err) {}
           }
         }
       });
@@ -263,7 +264,7 @@
           renderStartTime = performance.now();
           lastRenderCallTime = renderStartTime;
           isGpuSleeping = false;
-          if (!isExpanded && isEnabled) {
+          if (!isExpanded && isEnabled && hudContainer && hudContainer.style.display !== 'none') {
             if (_idleSleepTimer) clearTimeout(_idleSleepTimer);
             _idleSleepTimer = setTimeout(() => {
               _idleSleepTimer = null;
@@ -279,7 +280,7 @@
           if (renderStartTime > 0) {
             actualRenderDurationMs = now - renderStartTime;
           }
-          if (!isExpanded && isEnabled && (now - _lastPillUpdateTs > 250)) {
+          if (!isExpanded && isEnabled && hudContainer && hudContainer.style.display !== 'none' && (now - _lastPillUpdateTs > 250)) {
             _lastPillUpdateTs = now;
             if (performance && performance.memory) {
               memoryMb = Math.round(performance.memory.usedJSHeapSize / (1024 * 1024));

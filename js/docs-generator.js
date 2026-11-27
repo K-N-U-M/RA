@@ -764,7 +764,7 @@ function buildMonthlyProductionSvg(monthlyData) {
   const chartW = width - padLeft - padRight;
   const chartH = height - padTop - padBottom;
 
-  const values = monthlyData.map(m => (typeof m.kwh === 'number' ? m.kwh : 0));
+  const values = monthlyData.map(m => (typeof m.kWh === 'number' ? m.kWh : (typeof m.kwh === 'number' ? m.kwh : 0)));
   const maxVal = Math.max(...values, 100);
   const ceilMax = Math.ceil(maxVal / 100) * 100;
 
@@ -1205,7 +1205,7 @@ function generateMemoria(skipPricingModal, opt) {
       var vmpHotVal = d.Vmp_str_hot || (d.modsActual * d.Vmp * 0.88);
       var vmpOk = vmpHotVal >= vmpMinLimit;
 
-      var iscLimit = (d.inverter && d.inverter.maxInputCurrent) ? d.inverter.maxInputCurrent : 15.0;
+      var iscLimit = (d.inverter && (d.inverter.iMaxMppt || d.inverter.maxInputCurrent)) ? (d.inverter.iMaxMppt || d.inverter.maxInputCurrent) : 15.0;
       var iscOk = d.Isc <= iscLimit;
 
       var wTot = 12.5;
@@ -2044,8 +2044,8 @@ function buildUnifilarSvg(D) {
     ['Potencia Pico Campo FV:', D.P_dc_kW.toFixed(2) + ' kWp (' + D.numPanels + ' mód. ' + D.cfg_pot + 'W)'],
     ['Configuración del Generador:', D.numStrings + ' String(s) de ' + D.modsActual + ' módulos en serie'],
     ['Tensión Máx. Generador (Voc a -10°C):', D.Voc_str_cold.toFixed(1) + ' V CC (Límite: ' + (D.V_max_inv || 1000) + ' V)'],
-    ['Inversor de Conexión a Red:', (D.inverter ? D.inverter.fullName : (D.P_ac_kW.toFixed(2) + ' kW')) + ' (' + (D.monofasico ? 'Monofásico' : 'Trifásico') + ')'],
-    ['Sistema de Almacenamiento:', (D.hasBattery && D.battery) ? (D.battery.fullName + ' (' + D.battery.totalKwh.toFixed(1) + ' kWh LFP)') : 'Sin acumulación (Directo)'],
+    ['Inversor de Conexión a Red:', String(D.inverter ? D.inverter.fullName : (D.P_ac_kW.toFixed(2) + ' kW')).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + ' (' + (D.monofasico ? 'Monofásico' : 'Trifásico') + ')'],
+    ['Sistema de Almacenamiento:', (D.hasBattery && D.battery) ? (String(D.battery.fullName).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + ' (' + D.battery.totalKwh.toFixed(1) + ' kWh LFP)') : 'Sin acumulación (Directo)'],
     ['Generación Eólica Híbrida:', (typeof window !== 'undefined' && window.windParkSummary && window.windParkSummary.totalRatedKw > 0) ? (window.windParkSummary.totalRatedKw + ' kW Mini-Eólica (Freno Dump Load REBT)') : 'No instalada'],
     ['Corriente Nominal Salida AC:', iAcStr + ' A (Protección IGA: ' + D.I_iga + ' A)'],
     ['Línea Continua (DC):', 'Cable ZZ-F ' + D.S_str + 'mm² / ' + D.S_mdc + 'mm² (1.8/3kV)'],
@@ -2084,7 +2084,7 @@ function buildUnifilarSvg(D) {
   <!-- 1. CAMPO GENERADOR FOTOVOLTAICO -->
   <g id="campo_fv">
     <text x="${genX - 40}" y="${genY - 50}" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#0f172a">CAMPO GENERADOR FOTOVOLTAICO (CUBIERTA)</text>
-    <text x="${genX - 40}" y="${genY - 34}" font-family="Arial, sans-serif" font-size="9.5" fill="#475569">Potencia Pico Total: ${D.P_dc_kW.toFixed(2)} kWp (${D.numPanels} mód. ${D.cfg_pot} Wp - ${D.cfg_tec})</text>
+    <text x="${genX - 40}" y="${genY - 34}" font-family="Arial, sans-serif" font-size="9.5" fill="#475569">Potencia Pico Total: ${D.P_dc_kW.toFixed(2)} kWp (${D.numPanels} mód. ${D.cfg_pot} Wp - ${String(D.cfg_tec || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')})</text>
     ${stringsXml}
     <line x1="${busStartX}" y1="${colBusY}" x2="${busEndX}" y2="${colBusY}" stroke="#000" stroke-width="2.5"/>
     <line x1="${dcTrunkX}" y1="${colBusY}" x2="${dcTrunkX}" y2="${boxDcY}" stroke="#000" stroke-width="2"/>
@@ -2153,7 +2153,7 @@ function buildUnifilarSvg(D) {
 
     <rect x="${invX - 10}" y="${invY + invH + 85}" width="250" height="95" fill="#f0fdf4" stroke="#16a34a" stroke-width="2" rx="4"/>
     <text x="${invX + 115}" y="${invY + invH + 105}" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="#15803d" text-anchor="middle">-BAT1 · ALMACENAMIENTO LFP</text>
-    <text x="${invX + 115}" y="${invY + invH + 122}" font-family="Arial, sans-serif" font-size="9" font-weight="bold" fill="#0f172a" text-anchor="middle">${D.battery.fullName}</text>
+    <text x="${invX + 115}" y="${invY + invH + 122}" font-family="Arial, sans-serif" font-size="9" font-weight="bold" fill="#0f172a" text-anchor="middle">${String(D.battery.fullName || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</text>
     <text x="${invX + 115}" y="${invY + invH + 138}" font-family="Arial, sans-serif" font-size="8" fill="#334155" text-anchor="middle">Capacidad: ${D.battery.totalKwh.toFixed(1)} kWh útiles (DoD 90%)</text>
     <text x="${invX + 115}" y="${invY + invH + 152}" font-family="Arial, sans-serif" font-size="8" fill="#334155" text-anchor="middle">Tensión: ${D.battery.voltage || 400}V CC · BMS CAN/RS485</text>
     <text x="${invX + 115}" y="${invY + invH + 167}" font-family="Arial, sans-serif" font-size="7" fill="#64748b" text-anchor="middle">UNE-EN IEC 62619 / CEI 0-21</text>
@@ -2513,7 +2513,7 @@ function generatePlanoPlanta() {
     <canvas id="plantCanvas" width="1600" height="1131"></canvas>
 
     <script>
-      const D = ${JSON.stringify(payload)};
+      const D = ${JSON.stringify(payload).replace(/<\/script>/gi, '<\\/script>')};
       const cv = document.getElementById('plantCanvas');
       const ctx = cv.getContext('2d');
       const W = cv.width, H = cv.height;

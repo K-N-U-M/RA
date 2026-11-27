@@ -652,19 +652,8 @@
     if (!newMat4) return false;
     entry.primitive.modelMatrix = newMat4;
 
-    // Reconstruir en caliente las primitivas de anillos, cono de estela y sombra de suelo para reactividad continua
-    var viewer = _getViewer();
-    if (viewer && viewer.scene && viewer.scene.primitives) {
-      if (entry.ringsPrimitive && !entry.ringsPrimitive.isDestroyed()) {
-        try { viewer.scene.primitives.remove(entry.ringsPrimitive); } catch (eR) {}
-      }
-      var isSel = (turbineInstance.id === _selectedId);
-      try {
-        entry.ringsPrimitive = _buildOverlayRingsPrimitive(turbineInstance, newMat4, isSel);
-      } catch (errLive) {
-        entry.ringsPrimitive = null;
-        console.error('[RAWindVisualizer] Fallo actualizando anillos en vivo:', errLive);
-      }
+    if (entry.ringsPrimitive && !entry.ringsPrimitive.isDestroyed()) {
+      entry.ringsPrimitive.modelMatrix = newMat4;
     }
     _requestSceneRender();
     return true;

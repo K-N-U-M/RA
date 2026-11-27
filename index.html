@@ -130,68 +130,6 @@ window.RA_App = window.RA_App || {};
   <style>
     .icon-sm { width: 1.15em; height: 1.15em; vertical-align: -0.2em; stroke-width: 2.3; margin-right: 0.1em; }
     .lucide { width: 1.15em; height: 1.15em; vertical-align: -0.2em; stroke-width: 2.3; }
-  
-        #ra-hud-energy .tooltip-container:hover .tooltip-content {
-      opacity: 1 !important;
-      visibility: visible !important;
-      transform: translateY(-50%) translateX(0) !important;
-    }
-    #wp-step2-gen-tabs {
-      display: grid !important;
-      grid-template-columns: 1fr 1fr !important;
-      gap: 4px !important;
-      margin-bottom: 8px !important;
-      background: rgba(15, 23, 42, 0.9) !important;
-      padding: 3px !important;
-      border-radius: 8px !important;
-      border: 1px solid rgba(51, 65, 85, 0.8) !important;
-      box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5) !important;
-    }
-    #step2-tab-solar, #step2-tab-wind {
-      -webkit-appearance: none !important;
-      appearance: none !important;
-      border-radius: 6px !important;
-      padding: 7px 10px !important;
-      font-size: 11px !important;
-      display: flex !important;
-      align-items: center !important;
-      justify-content: center !important;
-      gap: 6px !important;
-      cursor: pointer !important;
-      transition: all 0.2s ease !important;
-    }
-    #step2-tab-solar.active {
-      background: rgba(245, 158, 11, 0.18) !important;
-      background-color: rgba(245, 158, 11, 0.18) !important;
-      color: #FBBF24 !important;
-      border: 1px solid rgba(245, 158, 11, 0.5) !important;
-      box-shadow: 0 0 12px rgba(245, 158, 11, 0.2) !important;
-      font-weight: 700 !important;
-    }
-    #step2-tab-solar:not(.active) {
-      background: transparent !important;
-      background-color: transparent !important;
-      color: #94A3B8 !important;
-      border: 1px solid transparent !important;
-      box-shadow: none !important;
-      font-weight: 600 !important;
-    }
-    #step2-tab-wind.active {
-      background: rgba(56, 189, 248, 0.18) !important;
-      background-color: rgba(56, 189, 248, 0.18) !important;
-      color: #38BDF8 !important;
-      border: 1px solid rgba(56, 189, 248, 0.5) !important;
-      box-shadow: 0 0 12px rgba(56, 189, 248, 0.2) !important;
-      font-weight: 700 !important;
-    }
-    #step2-tab-wind:not(.active) {
-      background: transparent !important;
-      background-color: transparent !important;
-      color: #94A3B8 !important;
-      border: 1px solid transparent !important;
-      box-shadow: none !important;
-      font-weight: 600 !important;
-    }
   </style>
 
   <link rel="stylesheet" href="css/theme-neumorphic.css?v=20261127_slate1">
@@ -228,17 +166,6 @@ window.RA_App = window.RA_App || {};
   <!-- VISOR CESIUM 3D -->
   <div id="cesiumContainer"></div>
 
-  <style>
-    #ra-hud-energy:hover #ra-hud-dropdown {
-      opacity: 1 !important;
-      pointer-events: auto !important;
-      transform: translateX(-50%) translateY(0) !important;
-    }
-    #ra-hud-energy:hover #ra-hud-pill {
-      background: rgba(30,41,59,0.95) !important;
-      border-color: rgba(16,185,129,0.8) !important;
-    }
-  </style>
   <div id="ra-hud-energy" style="display:none; position:absolute; top:16px; left:50%; transform:translateX(-50%); z-index:100; font-family:'Inter', sans-serif; pointer-events:auto; transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);">
     <!-- Pill (Always visible when active) -->
     <div id="ra-hud-pill" style="background:rgba(15,23,42,0.88); backdrop-filter:blur(8px); border:1px solid rgba(56,189,248,0.4); border-radius:24px; padding:6px 14px; color:#fff; display:flex; align-items:center; gap:7px; cursor:pointer; box-shadow:0 4px 12px rgba(0,0,0,0.5); transition:all 0.2s;">
@@ -4003,41 +3930,6 @@ window.RA_App = window.RA_App || {};
   <div id="ra-toast-container" style="position:fixed;bottom:20px;right:20px;z-index:2000000;display:flex;flex-direction:column;gap:8px;pointer-events:none;"></div>
 
   
-<style>
-  #ra-floating-settings-popover {
-    position: fixed;
-    bottom: 78px;
-    right: 20px;
-    z-index: 9500;
-    width: 320px;
-    background: rgba(15, 23, 42, 0.96);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    border-radius: 12px;
-    padding: 16px;
-    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.05);
-    max-height: calc(100vh - 120px);
-    overflow-y: auto;
-    transform-origin: bottom right;
-    transform: scale(0);
-    opacity: 0;
-    pointer-events: none;
-    transition: transform 300ms cubic-bezier(0.16, 1, 0.3, 1), opacity 300ms cubic-bezier(0.16, 1, 0.3, 1);
-  }
-  #ra-floating-settings-popover.open {
-    transform: scale(1);
-    opacity: 1;
-    pointer-events: auto;
-  }
-  #ra-floating-settings-btn {
-    transition: transform 300ms cubic-bezier(0.16, 1, 0.3, 1), background 300ms ease, box-shadow 300ms ease !important;
-  }
-  #ra-floating-settings-btn:hover {
-    background: rgba(30, 41, 59, 0.95) !important;
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5) !important;
-  }
-</style>
 
   <!-- ⚙️ BOTÓN FLOTANTE DE AJUSTES (RENDER & MOTOR) -->
   <div id="ra-floating-settings-popover">
@@ -4239,22 +4131,6 @@ window.RA_App = window.RA_App || {};
 
 
 <!-- [MODULARIZACION FASE 2 - BLOQUE 2.3] toggleSettingsPopover delegado canónicamente a js/ui-viewport-controls.js -->
-<script>
-  (function () {
-    const sidebar = document.getElementById('ra-sidebar');
-    if (sidebar && window.innerWidth > 1024) {
-      sidebar.classList.remove('collapsed');
-    }
-
-    document.addEventListener('keydown', function (e) {
-      if (e.key !== 'Enter' && e.key !== ' ') return;
-      const target = e.target && e.target.closest ? e.target.closest('[role="button"]') : null;
-      if (!target || target.tagName === 'BUTTON') return;
-      if (e.key === ' ') e.preventDefault();
-      target.click();
-    });
-  })();
-</script>
 
   <div id="ra-mobile-sidebar-backdrop"></div>
 </body>

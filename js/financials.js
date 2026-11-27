@@ -7296,7 +7296,23 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
     '3periodos':{ name: '3 Periodos PVPC',    horas: [0.10,0.10,0.10,0.10,0.10,0.10,0.11,0.12,0.17,0.19,0.22,0.26,0.27,0.26,0.24,0.23,0.25,0.28,0.30,0.27,0.22,0.17,0.13,0.11], compensacion: 0.07 },
     mercado:    { name: 'Precio Mercado 2024',horas: [0.085,0.077,0.072,0.068,0.070,0.078,0.095,0.115,0.128,0.135,0.142,0.155,0.162,0.158,0.148,0.139,0.151,0.172,0.196,0.214,0.238,0.247,0.231,0.205], compensacion: 0.05 }
   };
-  const tou = TOU_PROFILES[touTarifa] || TOU_PROFILES.plana;
+  const _rawTou = TOU_PROFILES[touTarifa] || TOU_PROFILES.plana;
+  const _billPriceEl = (typeof document !== 'undefined') ? document.getElementById('step3-bill-price-kwh') : null;
+  const _billPriceDom = (_billPriceEl && parseFloat(_billPriceEl.value) > 0) ? parseFloat(_billPriceEl.value) : 0;
+  const _customPriceKwh = (_ssotCfg && typeof _ssotCfg.precioMedioKWh === 'number' && _ssotCfg.precioMedioKWh > 0)
+    ? _ssotCfg.precioMedioKWh
+    : _billPriceDom;
+  const tou = (_customPriceKwh > 0)
+    ? (function () {
+        const baseAvg = _rawTou.horas.reduce((a, b) => a + b, 0) / _rawTou.horas.length;
+        const scale = baseAvg > 0 ? (_customPriceKwh / baseAvg) : 1;
+        return {
+          name: _rawTou.name,
+          horas: (touTarifa === 'plana') ? Array(24).fill(_customPriceKwh) : _rawTou.horas.map(v => v * scale),
+          compensacion: _rawTou.compensacion
+        };
+      })()
+    : _rawTou;
 
   const _hdRef = (typeof window !== 'undefined' && window.RAWind && window.RAWind.HybridDispatch) ? window.RAWind.HybridDispatch : null;
 
@@ -7505,7 +7521,6 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
         const space = maxBatCap - batSoC;
         const gridCharge = Math.min(space, pBatMaxKw * 1.0, load * 0.5);
         batSoC += gridCharge * batEffHalf;
-        monthCostGrid += gridCharge * price;
         monthGridChargeCost += gridCharge * price;
       }
 
@@ -7591,19 +7606,21 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
   const inflacion = 0.03; // Inflación luz 3%/año
 
   // ── INTEGRACIÓN CEL EN FLUJO DE CAJA Y CURVA DE AMORTIZACIÓN ──────────────
-  const _pssState = (typeof window !== 'undefined' && window.RAProposalStyleStudio && typeof window.RAProposalStyleStudio.getFullState === 'function')
-    ? window.RAProposalStyleStudio.getFullState()
+  const _pssState = (typeof window !== 'undefined' && window.RAProposalStyleStudio && typeof window.RAProposalStyleStudio.getFullStudioState === 'function')
+    ? window.RAProposalStyleStudio.getFullStudioState()
     : null;
   const _finStudioCfg = _pssState ? _pssState.activeConfig : (_studioCfg || ((typeof window !== 'undefined' && window.solarProposalStudioConfig) ? window.solarProposalStudioConfig : null));
   const _commCfg = (typeof RAPricing !== 'undefined' && typeof RAPricing.getCommercialConfig === 'function')
     ? RAPricing.getCommercialConfig()
     : null;
 
-  const isCelActive = Boolean(
-    (_finStudioCfg && _finStudioCfg.sectionsEnabled && _finStudioCfg.sectionsEnabled.cel) ||
-    (_finStudioCfg && _finStudioCfg.installationModality === 'grid_surplus_cel') ||
-    (_commCfg && _commCfg.includeCEL)
-  );
+  const isCelActive = (_commCfg && _commCfg.includeCEL === false)
+    ? false
+    : Boolean(
+        (_finStudioCfg && _finStudioCfg.sectionsEnabled && _finStudioCfg.sectionsEnabled.cel) ||
+        (_finStudioCfg && _finStudioCfg.installationModality === 'grid_surplus_cel') ||
+        (_commCfg && _commCfg.includeCEL)
+      );
 
   const celPriceEur = (_commCfg && typeof _commCfg.celPriceEur === 'number' && _commCfg.celPriceEur > 0)
     ? _commCfg.celPriceEur
@@ -8132,7 +8149,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
   function raBuildDocSnapshot(dOpt, mOpt) {
     const d = dOpt || (typeof getProjectCalcs === 'function' ? getProjectCalcs() : {});
     const m = mOpt || (typeof calculateFinancialModel === 'function' ? calculateFinancialModel({ d: d }) : null);
-    const eq = (typeof resolveActiveEquipmentSpec === 'function') ? resolveActiveEquipmentSpec() : {};
+    const eq = (typeof resolveEquipmentNames === 'function') ? resolveEquipmentNames() : {};
     const warranties = (typeof resolveEquipmentWarranties === 'function') ? resolveEquipmentWarranties() : {
       warPower: '25', warMod: '15', warInv: '12', warMo: '5', warBat: '10', isMicro: false, hasBat: !!(eq && eq.hasBat)
     };

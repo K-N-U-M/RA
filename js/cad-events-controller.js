@@ -107,9 +107,6 @@
         if (uTarget.type === 'polyline' && uTarget.rawObj) {
           const polyMove = uTarget.rawObj;
           const pIdxMove = uTarget.polyIdx;
-          if (window.RAundo && typeof window.RAundo.snapPolylines === 'function') {
-            window.RAundo.snapPolylines('Mover ' + (polyMove.name || 'Faldón'));
-          }
           const allObsMove = (typeof obstacles !== 'undefined' && Array.isArray(obstacles)) ? obstacles : [];
           universalGizmoState.movePolyObs = allObsMove.filter(obs => {
             if (!obs || !obs.cartesian) return false;
@@ -119,9 +116,6 @@
             }
             return false;
           });
-          if (universalGizmoState.movePolyObs.length > 0 && window.RAundo && typeof window.RAundo.snapObstacles === 'function') {
-            window.RAundo.snapObstacles('Mover obstáculos con ' + (polyMove.name || 'Faldón'));
-          }
           universalGizmoState.startPoints = Array.isArray(polyMove.points) ? polyMove.points.map(p => Cesium.Cartesian3.clone(p)) : [];
           universalGizmoState.startCenter = uTarget.pos ? Cesium.Cartesian3.clone(uTarget.pos) : null;
           universalGizmoState.startMovePolyObsPts = universalGizmoState.movePolyObs.map(o => o && o.cartesian ? Cesium.Cartesian3.clone(o.cartesian) : null);
@@ -850,7 +844,7 @@
         }
         if (typeof selectObstacle === 'function') selectObstacle(null);
         if (typeof selectElectricalObject === 'function') selectElectricalObject(null);
-        const isShift = !!(window._raIsShiftDown || (typeof window.event !== 'undefined' && window.event && window.event.shiftKey));
+        const isShift = !!(window._raShiftKeyDown || (typeof window.event !== 'undefined' && window.event && window.event.shiftKey));
         const pickedPan = (Array.isArray(window.allRenderedPanels) && window.allRenderedPanels[panelIdx]) ? window.allRenderedPanels[panelIdx] : null;
 
         if (pickedPan && pickedPan.isGhost) {
@@ -1174,7 +1168,7 @@
                 let deg = Cesium.Math.toDegrees(Math.atan2(cross * signedSide, dot));
                 if (deg < 0) deg += 360;
                 deg = Math.max(45, Math.min(165, deg));
-                const isShiftAng = !!(window._raIsShiftDown || (typeof window.event !== 'undefined' && window.event && window.event.shiftKey));
+                const isShiftAng = !!(window._raShiftKeyDown || (typeof window.event !== 'undefined' && window.event && window.event.shiftKey));
                 if (isShiftAng) deg = Math.round(deg / 5) * 5;
                 else deg = Math.round(deg);
                 window.RALBuilding.updateFromParams(uTarget.rawObj, { angleDeg: deg }, { skipRender: true });
@@ -1191,7 +1185,7 @@
           let deltaDeg = Cesium.Math.toDegrees(currentAngleRad - universalGizmoState.startAngleRad);
           let newRot = ((universalGizmoState.startRot + deltaDeg) % 360 + 360) % 360;
 
-          const isShift = !!(window._raIsShiftDown || (typeof window.event !== 'undefined' && window.event && window.event.shiftKey) || (movement && movement.shiftKey));
+          const isShift = !!(window._raShiftKeyDown || (typeof window.event !== 'undefined' && window.event && window.event.shiftKey) || (movement && movement.shiftKey));
           if (isShift) {
             newRot = Math.round(newRot / 15) * 15;
             deltaDeg = newRot - universalGizmoState.startRot;
@@ -1420,6 +1414,8 @@
       } else if (draggedTargetType === 'workplane') {
         if (typeof wpRenderActivePlaneGizmo === 'function') wpRenderActivePlaneGizmo();
         if (typeof wpRenderAllPolylines === 'function') wpRenderAllPolylines();
+        if (typeof recalculateLayoutAndObstacles === 'function') recalculateLayoutAndObstacles();
+        if (typeof render3DObstaclesInCesium === 'function') render3DObstaclesInCesium();
         if (typeof window.wpInvalidateHeatmap === 'function') window.wpInvalidateHeatmap('Plano de trabajo transformado');
         if (typeof showStatus === 'function') showStatus('<i data-lucide="compass" class="icon-sm"></i> PLANO DE TRABAJO TRANSFORMADO CON ÉXITO', 2500);
       } else if (draggedTargetType === 'workplane_vertex') {

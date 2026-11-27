@@ -328,8 +328,13 @@
         st.dcCableEntities = liveRefs.dcCableEntities;
 
         function _syncEqEntityAndLabel(ent, lbl2d, pos, labelPrefix) {
-          if (!pos) return;
+          if (!pos) {
+            if (ent) ent.show = false;
+            if (lbl2d) lbl2d.show = false;
+            return;
+          }
           if (ent && typeof Cesium !== 'undefined') {
+            ent.show = true;
             ent.position = new Cesium.ConstantPositionProperty(pos);
             if (ent.label && labelPrefix && Cesium.Cartographic) {
               var c = Cesium.Cartographic.fromCartesian(pos);
@@ -337,6 +342,7 @@
             }
           }
           if (lbl2d && typeof Cesium !== 'undefined' && Cesium.Cartesian3) {
+            lbl2d.show = true;
             lbl2d.position = Cesium.Cartesian3.clone(pos);
           }
         }
@@ -367,7 +373,7 @@
         for (var ck in revCr) global.cableRoutingState[ck] = revCr[ck];
       }
       if (typeof global.wpCalculateAndRenderInverterCables === 'function') global.wpCalculateAndRenderInverterCables();
-      if (global.RACableEngine && typeof global.RACableEngine.redrawAll === 'function') global.RACableEngine.redrawAll();
+      if (global.RACableEngine && typeof global.RACableEngine.renderAllCables === 'function') global.RACableEngine.renderAllCables();
       if (typeof global.wpUpdateStep4UI === 'function') global.wpUpdateStep4UI();
       if (typeof global.renderTriad2D === 'function') global.renderTriad2D();
       if (typeof global.renderUniversalGizmo2D === 'function') global.renderUniversalGizmo2D();
@@ -376,6 +382,7 @@
     }
 
     if (kind === 'wind_turbines') {
+      if (typeof window !== 'undefined' && !Array.isArray(window.windTurbines)) window.windTurbines = [];
       var wtArr = (typeof window !== 'undefined' && Array.isArray(window.windTurbines)) ? window.windTurbines : (global.windTurbines || []);
       var restoredWT = revive(data.windTurbines || []);
       wtArr.length = 0;
@@ -637,6 +644,7 @@
   function snapPolylines(label) { pushEntry('polylines', label || 'Faldones de cubierta'); }
   function snapPlanes(label) { pushEntry('planes', label || 'Planos de trabajo'); }
   function snapElectrical(label) { pushEntry('electrical', label || 'Infraestructura eléctrica'); }
+  function snapWindTurbines(label) { pushEntry('wind_turbines', label || 'Aerogeneradores'); }
   function snapProject(label) { pushEntry('project', label || 'Proyecto solar'); }
 
   // ── EXPORTACIÓN AL ENTORNO GLOBAL ─────────────────────────────────────────
@@ -650,6 +658,7 @@
     snapPolylines: snapPolylines,
     snapPlanes: snapPlanes,
     snapElectrical: snapElectrical,
+    snapWindTurbines: snapWindTurbines,
     snapProject: snapProject,
 
     // Transacciones de arrastre

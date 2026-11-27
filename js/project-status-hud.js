@@ -627,7 +627,7 @@
       }
     } else {
       if (row1El) {
-        row1El.innerHTML = `Teórico: <span id="ra-hud-theo-energy" style="color: #cbd5e1; font-weight: 700;">${s.theoreticalAnnualKWh > 0 ? Math.round(s.theoreticalAnnualKWh).toLocaleString('es-ES') + ' kWh/a' : '— kWh/a'}</span>`;
+        row1El.innerHTML = `Teórico: <span id="ra-hud-theo-energy" style="color: #382a21; font-weight: 700;">${s.theoreticalAnnualKWh > 0 ? Math.round(s.theoreticalAnnualKWh).toLocaleString('es-ES') + ' kWh/a' : '— kWh/a'}</span>`;
       }
       if (row2El) {
         const netColor = (s.hasSimulation && !s.isHeatmapDirty) ? '#10B981' : '#38BDF8';
@@ -642,7 +642,7 @@
           shadowDetailEl.style.color = '#34D399';
         } else {
           shadowDetailEl.textContent = 'Paso 3 para simular sombras';
-          shadowDetailEl.style.color = '#94a3b8';
+          shadowDetailEl.style.color = '#57606a';
         }
       }
     }

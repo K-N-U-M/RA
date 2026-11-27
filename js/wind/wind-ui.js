@@ -318,9 +318,9 @@
     if (t0 && t0.positionCartographic) {
       latDeg = t0.positionCartographic.latitudeRad * (180.0 / Math.PI);
       lonDeg = t0.positionCartographic.longitudeRad * (180.0 / Math.PI);
-    } else if (global.solarProjectConfig && typeof global.solarProjectConfig.latitude === 'number') {
-      latDeg = global.solarProjectConfig.latitude;
-      lonDeg = global.solarProjectConfig.longitude;
+    } else if (global.solarProjectConfig && typeof global.solarProjectConfig.lat === 'number') {
+      latDeg = global.solarProjectConfig.lat;
+      lonDeg = global.solarProjectConfig.lng;
     } else if (global.viewer && global.viewer.camera) {
       try {
         var carto = global.viewer.scene.globe.ellipsoid.cartesianToCartographic(global.viewer.camera.position);
@@ -1138,14 +1138,17 @@
     // Tarjeta 6: Parpadeo de Sombras (Shadow Flicker) sobre Paneles y Receptores
     if (global.RAWind && global.RAWind.ShadowFlicker && activeTurbine) {
       var solarTarget = null;
-      if (Array.isArray(global.allRenderedPanels) && global.allRenderedPanels.length > 0) {
-        var firstP = global.allRenderedPanels.find(function (p) { return p && !p.deleted && p.positionCartographic; });
-        if (firstP && firstP.positionCartographic) {
-          solarTarget = {
-            latDeg: firstP.positionCartographic.latitude * (180.0 / Math.PI),
-            lonDeg: firstP.positionCartographic.longitude * (180.0 / Math.PI),
-            altitudeM: firstP.positionCartographic.height || 0
-          };
+      if (Array.isArray(global.allRenderedPanels) && global.allRenderedPanels.length > 0 && global.Cesium) {
+        var firstP = global.allRenderedPanels.find(function (p) { return p && !p.deleted && p.center; });
+        if (firstP && firstP.center) {
+          var pCarto = global.Cesium.Cartographic.fromCartesian(firstP.center);
+          if (pCarto) {
+            solarTarget = {
+              latDeg: pCarto.latitude * (180.0 / Math.PI),
+              lonDeg: pCarto.longitude * (180.0 / Math.PI),
+              altitudeM: pCarto.height || 0
+            };
+          }
         }
       }
 
@@ -1166,10 +1169,10 @@
             solarFieldBounds: solarTarget,
             resourceConfig: (RAWind.Resource && RAWind.Resource.getConfig) ? RAWind.Resource.getConfig() : {}
           }, function (errF, resF) {
+            _uiCalcCache.flickerLoadingKey = '';
             if (!errF && resF) {
               _uiCalcCache.flicker = resF;
               _uiCalcCache.flickerKey = flKey;
-              _uiCalcCache.flickerLoadingKey = '';
               renderStep2Panel();
             }
           });

@@ -98,6 +98,9 @@ function azimuthFromLine(P1, P2) {
 }
 
 function solarAzimuthAtan2(latDeg, declDeg, haDeg) {
+  if (typeof global !== 'undefined' && global.RA && global.RA.Radiation && typeof global.RA.Radiation.solarAzimuthAtan2 === 'function') {
+    return global.RA.Radiation.solarAzimuthAtan2(latDeg, declDeg, haDeg);
+  }
   const phi = degToRad(latDeg);
   const delta = degToRad(declDeg);
   const omega = degToRad(haDeg);

@@ -138,7 +138,7 @@
       var faldonPanels = [];
       if (!isDisabled && renderedPanels && renderedPanels.length > 0) {
         faldonPanels = renderedPanels.filter(function (p) {
-          if (!p || p.deleted || p.disabled) return false;
+          if (!p || p.isGhost || p.deleted || p.disabled) return false;
           if (typeof p.polyIdx === 'number') return p.polyIdx === polyIdx;
           if (typeof p.faldonIndex === 'number') return p.faldonIndex === polyIdx;
           if (p.rawPanel && typeof p.rawPanel.polyIdx === 'number') return p.rawPanel.polyIdx === polyIdx;
@@ -148,15 +148,15 @@
 
       if (!isDisabled && faldonPanels.length === 0) {
         if (poly.roofInfo && Array.isArray(poly.roofInfo.panels)) {
-          faldonPanels = poly.roofInfo.panels.filter(function (p) { return p && !p.deleted && !p.disabled; });
+          faldonPanels = poly.roofInfo.panels.filter(function (p) { return p && !p.isGhost && !p.deleted && !p.disabled; });
         } else if (Array.isArray(poly.panels) && poly.panels.length > 0) {
-          faldonPanels = poly.panels.filter(function (p) { return p && !p.deleted && !p.disabled; });
+          faldonPanels = poly.panels.filter(function (p) { return p && !p.isGhost && !p.deleted && !p.disabled; });
         } else if (typeof window !== 'undefined' && typeof window.computeSinglePolylineRoofInfo === 'function' && Array.isArray(poly.points) && poly.points.length >= 3) {
           try {
             var freshRoofInfo = window.computeSinglePolylineRoofInfo(poly.points, poly);
             if (freshRoofInfo && Array.isArray(freshRoofInfo.panels)) {
               poly.roofInfo = freshRoofInfo;
-              faldonPanels = freshRoofInfo.panels.filter(function (p) { return p && !p.deleted && !p.disabled; });
+              faldonPanels = freshRoofInfo.panels.filter(function (p) { return p && !p.isGhost && !p.deleted && !p.disabled; });
             }
           } catch (eRec) {}
         }

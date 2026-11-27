@@ -191,6 +191,7 @@ function raExportProjectData() {
             azimuthDeg: p.azimuthDeg,
             stringId: p.stringId,
             isManual: !!p.isManual,
+            isGhost: !!p.isGhost,
             rot: p.rot || 0,
             panelId: p.panelId,
             hasMLPE: !!p.hasMLPE,
@@ -241,6 +242,7 @@ function raExportProjectData() {
           tiltDeg: p.tiltDeg,
           azimuthDeg: p.azimuthDeg,
           isManual: !!p.isManual,
+            isGhost: !!p.isGhost,
           rot: p.rot || 0,
           panelId: p.panelId,
           hasMLPE: !!p.hasMLPE,
@@ -970,9 +972,6 @@ async function raImportProjectData(projectData, options = {}) {
         cabling: null
       };
     }
-    if ((!options || !options.preserveUndoHistory) && window.RAundo && typeof window.RAundo.clear === 'function') {
-      window.RAundo.clear();
-    }
 
     // [AUDIT v2.6] Restaurar Equipos Personalizados en el Catálogo local TEMPRANO (antes de geometrías, 3D y selectores)
     if (projectData.customEquipment && typeof window !== 'undefined') {
@@ -1074,6 +1073,7 @@ async function raImportProjectData(projectData, options = {}) {
               azimuthDeg: p.azimuthDeg,
               stringId: p.stringId,
               isManual: !!p.isManual,
+            isGhost: !!p.isGhost,
               rot: p.rot || 0,
               panelId: p.panelId || ('pan_' + pIdx + '_' + pPanIdx),
               hasMLPE: !!p.hasMLPE,
@@ -1719,36 +1719,12 @@ async function raImportProjectData(projectData, options = {}) {
       } catch (ePhotos) { console.warn('[RA Storage] Error restaurando proposalPhotos:', ePhotos); }
     }
 
-    // [AUDIT v2.4] Restaurar Identidad Corporativa y Logotipo de Empresa
-    if (projectData.companyBranding && projectData.companyBranding.branding && typeof localStorage !== 'undefined') {
+    // [AUDIT-SEC] No sobrescribir localStorage persistente (ra_company_branding, ra_company_logo) al importar .raproject
+    if (projectData.companyBranding && typeof window !== "undefined" && window.RACompanyBranding) {
       try {
-        try {
-          localStorage.setItem('ra_company_branding', JSON.stringify(projectData.companyBranding.branding));
-        } catch (eQuota) {
-          console.warn('[RA Storage] No se pudo guardar branding en localStorage:', eQuota);
-          if (typeof window !== 'undefined' && typeof window.showToast === 'function') {
-            window.showToast('Espacio local lleno: no se pudo guardar la identidad corporativa.', 'warning');
-          }
-        }
-        if (projectData.companyBranding.logo) {
-          try {
-            localStorage.setItem('ra_company_logo', projectData.companyBranding.logo);
-          } catch (eLogoQuota) {
-            console.warn('[RA Storage] No se pudo guardar el logotipo en localStorage:', eLogoQuota);
-            if (typeof window !== 'undefined' && typeof window.showToast === 'function') {
-              window.showToast('Logotipo demasiado pesado para almacenamiento local.', 'warning');
-            }
-          }
-        }
-        if (typeof window !== 'undefined' && window.RACompanyBranding) {
-          if (typeof window.RACompanyBranding.loadCompanyBranding === 'function') {
-            window.RACompanyBranding.loadCompanyBranding();
-          }
-          if (typeof window.RACompanyBranding.updateLogoPreview === 'function') {
-            window.RACompanyBranding.updateLogoPreview();
-          }
-        }
-      } catch (eBrand) { console.warn('[RA Storage] Error restaurando companyBranding:', eBrand); }
+        if (typeof window.RACompanyBranding.loadCompanyBranding === "function") window.RACompanyBranding.loadCompanyBranding();
+        if (typeof window.RACompanyBranding.updateLogoPreview === "function") window.RACompanyBranding.updateLogoPreview();
+      } catch (eBrand) { console.warn("[RA Storage] Error refrescando companyBranding:", eBrand); }
     }
 
     // Navegar al paso correspondiente del proyecto
@@ -1837,6 +1813,9 @@ async function raImportProjectData(projectData, options = {}) {
       showToast('PROYECTO CARGADO', pName + ' cargado correctamente.', 'success', 3500);
     }
 
+    if ((!options || !options.preserveUndoHistory) && window.RAundo && typeof window.RAundo.clear === "function") {
+      window.RAundo.clear();
+    }
     return true;
   } catch (err) {
     raHideProjectLoadingHUD();
@@ -2517,6 +2496,14 @@ async function raNewProjectConfirm() {
       microinverters: { count: 0, autoCount: 0, isManual: false },
       batteries: { count: 0, autoCount: 0, isManual: false }
     };
+    window.solarProjectConfig.mpptManualConfig = null;
+    window.solarProjectConfig.calculatedLimits = null;
+    window.solarProjectConfig.inverters = [];
+    window.solarProjectConfig.selectedInverters = [];
+    window.solarProjectConfig.batteries = [];
+    window.solarProjectConfig.selectedBatteries = [];
+    window.solarProjectConfig.hasExternalLightningRod = false;
+    window.solarProjectConfig.mpptHomogeneity = null;
   }
   if (typeof populateStep3EquipmentSelectors === 'function') {
     try { populateStep3EquipmentSelectors(); } catch(_) {}

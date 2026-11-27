@@ -1450,7 +1450,7 @@
       // Agrupamos respetando el stringName y el orden exacto en que fueron serializados con [+ IN] y [- OUT]
       if (Array.isArray(global.allRenderedPanels) && global.allRenderedPanels.length > 0) {
         var activePanels = global.allRenderedPanels.filter(function (p) {
-          return p && (p.center || (p.corners && p.corners.length > 0));
+          return p && !p.isGhost && !p.deleted && !p.disabled && (p.center || (p.corners && p.corners.length > 0));
         });
         if (activePanels.length > 0) {
           var stringMap = {};
@@ -2438,10 +2438,7 @@
       sState.L_dc_trunk_measured = Math.round(ctx.maxTrunkLdc * 10) / 10;
       sState.L_dc_measured = Math.round((ctx.maxLdc + ctx.maxTrunkLdc) * 10) / 10;
 
-      // 8. Dimensionamiento Eléctrico REBT ITC-BT-40 y Actualización de Telemetría (SSOT)
-      this.updateElectricalSizingAndHUD(sState.L_dc_string_measured, sState.L_ac_measured);
-
-      // 9. Completar Telemetría REBT por String y Desglose de Materiales (BOM / Memoria Técnica)
+      // 8. Completar Telemetría REBT por String y Desglose de Materiales (BOM / Memoria Técnica)
       var modCfg = global.panelConfig || { potencia: 450, isc: 13.8, imp: 13.05, vmp: 34.5, voc: 41.5 };
       var vmpNom = modCfg.vmp || 34.5;
       var vocNom = modCfg.voc || (vmpNom * 1.20);
@@ -2547,6 +2544,9 @@
         mc4ConnectorPairs: (numStrings * 2) + (ctx.isParallelY ? Math.max(1, numStrings - 1) * 2 : 0) + (ctx.dcBoxPos ? numStrings * 2 : 0),
         fillFactorPct: Math.min(40, Math.round(((effTrayStrings * 2 * 35) / (trayWidthMm * 60)) * 100))
       };
+
+      // 9. Dimensionamiento Eléctrico REBT ITC-BT-40 y Actualización de Telemetría (SSOT)
+      this.updateElectricalSizingAndHUD(sState.L_dc_string_measured, sState.L_ac_measured);
 
       console.info('[RACableEngine] ⚡ Cables generados con éxito: ' + allStrings.length + ' string(s), maxLdc=' + ctx.maxLdc.toFixed(1) + 'm, Lac=' + (sState.L_ac_measured || 0).toFixed(1) + 'm');
 
@@ -2842,7 +2842,6 @@
               statRebtBadge0.style.borderColor = 'rgba(16,185,129,0.3)';
             }
           }
-          return;
         }
       }
 

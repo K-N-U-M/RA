@@ -47,7 +47,7 @@ function getProjectCalcs() {
   let numPanels = 0;
   let mlpeCount = 0;
   if (typeof window !== 'undefined' && Array.isArray(window.allRenderedPanels) && window.allRenderedPanels.length > 0) {
-    const activePanels = window.allRenderedPanels.filter(p => p && !p.deleted && !p.disabled);
+    const activePanels = window.allRenderedPanels.filter(p => p && !p.isGhost && !p.deleted && !p.disabled);
     numPanels = activePanels.length;
     mlpeCount = activePanels.filter(p => p.hasMLPE).length;
   } else if (typeof WP !== 'undefined' && WP && WP.polylines && WP.polylines.length > 0) {
@@ -55,14 +55,14 @@ function getProjectCalcs() {
       if (poly.panelsDisabled === true) return;
       const pInf = poly.roofInfo || (typeof computeSinglePolylineRoofInfo === 'function' ? computeSinglePolylineRoofInfo(poly.points, poly) : null);
       if (pInf && pInf.panels) {
-        const activeP = pInf.panels.filter(p => p && !p.deleted && !p.disabled);
+        const activeP = pInf.panels.filter(p => p && !p.isGhost && !p.deleted && !p.disabled);
         numPanels += activeP.length;
         mlpeCount += activeP.filter(p => p.hasMLPE).length;
       }
     });
   } else {
     const roofInfo = (typeof computeRoofPanelsData === 'function') ? computeRoofPanelsData() : null;
-    const activeRPanels = (roofInfo && roofInfo.panels) ? roofInfo.panels.filter(p => p && !p.deleted && !p.disabled) : [];
+    const activeRPanels = (roofInfo && roofInfo.panels) ? roofInfo.panels.filter(p => p && !p.isGhost && !p.deleted && !p.disabled) : [];
     numPanels = (activeRPanels.length > 0)
       ? activeRPanels.length
       : ((typeof simulatedPanelEntities !== 'undefined' && simulatedPanelEntities.length) || 0);
@@ -94,7 +94,7 @@ function getProjectCalcs() {
     else if (typeof _lastRI.azimuthDeg === 'number') azimutDeg = _lastRI.azimuthDeg;
   }
   if ((tiltDeg === null || azimutDeg === null) && typeof window !== 'undefined' && Array.isArray(window.allRenderedPanels) && window.allRenderedPanels.length > 0) {
-    const _firstP = window.allRenderedPanels.find(p => p && !p.deleted && !p.disabled);
+    const _firstP = window.allRenderedPanels.find(p => p && !p.isGhost && !p.deleted && !p.disabled);
     if (_firstP) {
       if (tiltDeg === null && typeof _firstP.tiltDeg === 'number') tiltDeg = _firstP.tiltDeg;
       if (azimutDeg === null && typeof _firstP.azimuthDeg === 'number') azimutDeg = _firstP.azimuthDeg;
@@ -262,6 +262,8 @@ function getProjectCalcs() {
   let pres_mon = 0; // Integrado en el inversor / sistema de conversión (sin partida fantasma)
   let pres_leg = _designCosts ? _designCosts.legPrice : _inputVal('cfg-pres-leg', 350);
 
+  let pres_wind = (_designCosts && typeof _designCosts.windPrice === 'number') ? _designCosts.windPrice : _inputVal('cfg-pres-wind', 0);
+
   if (_hasOverride) {
     if (typeof _effPricing.panelPrice === 'number' && _effPricing.panelPrice > 0) {
       if (!(_mb && _mb.isMultiModule && _designCosts && Math.abs(_effPricing.panelPrice - _designCosts.panelPrice) < 0.05)) {
@@ -278,12 +280,27 @@ function getProjectCalcs() {
     if (typeof _effPricing.cabPrice === 'number' && _effPricing.cabPrice >= 0) pres_cab = _effPricing.cabPrice;
     if (typeof _effPricing.moPrice === 'number' && _effPricing.moPrice >= 0) pres_mo = _effPricing.moPrice;
     if (typeof _effPricing.legPrice === 'number' && _effPricing.legPrice >= 0) pres_leg = _effPricing.legPrice;
+    if (typeof _effPricing.windPrice === 'number' && _effPricing.windPrice >= 0) pres_wind = _effPricing.windPrice;
   }
 
-  const _directCost = Math.round(pres_pan + pres_est + pres_inv + pres_bat + pres_cab + pres_mo + pres_leg);
+  const _commCfg = (typeof window !== 'undefined' && window.RAPricing && typeof window.RAPricing.getCommercialConfig === 'function')
+    ? window.RAPricing.getCommercialConfig()
+    : ((typeof window !== 'undefined' && window.commercialConfig) ? window.commercialConfig : {});
+  const _addonsTotal = Array.isArray(_commCfg.addons)
+    ? _commCfg.addons.reduce((acc, a) => acc + ((Number(a && a.price) || 0) * (Number(a && a.qty) || 1)), 0)
+    : 0;
+  const _directCost = Math.round(pres_pan + pres_est + pres_inv + pres_bat + pres_cab + pres_mo + pres_leg + pres_wind + _addonsTotal);
   const _marginPct = (_effPricing && typeof _effPricing.marginPct === 'number') ? _effPricing.marginPct : 20;
-  const subtotal = Math.round(_directCost * (1 + (_marginPct / 100.0)));
-  const iva = Math.round(subtotal * 0.21);
+  const _subtotalPreDiscount = _directCost * (1 + (_marginPct / 100.0));
+  let _discountEur = 0;
+  if (_commCfg && _commCfg.discountValue) {
+    _discountEur = (_commCfg.discountType === 'percent')
+      ? _subtotalPreDiscount * (Math.max(0, Number(_commCfg.discountValue) || 0) / 100.0)
+      : Math.max(0, Number(_commCfg.discountValue) || 0);
+  }
+  const subtotal = Math.max(100, Math.round(_subtotalPreDiscount - _discountEur));
+  const _ivaRate = (typeof _commCfg.ivaRate === 'number') ? _commCfg.ivaRate : ((_effPricing && typeof _effPricing.ivaRate === 'number') ? _effPricing.ivaRate : 0.21);
+  const iva = Math.round(subtotal * _ivaRate);
   const total_pres = subtotal + iva;
   let _cachedFin = (typeof window !== 'undefined' && window._lastFinModel && window._lastFinModel.numPanels === numPanels) ? window._lastFinModel : null;
   if (!_cachedFin && typeof window !== 'undefined' && typeof window.calculateFinancialModel === 'function' && !window._isComputingFinModel) {
@@ -434,9 +451,6 @@ function getProjectCalcs() {
     P_ac_kW: eng.P_ac_kW || eng.inv_kW,
     invCount: eng.invCount || 1,
     total_P_ac_kW: eng.total_P_ac_kW || (eng.inv_kW * (eng.invCount || 1)),
-    V_max_inv: eng.V_max_inv || 1000,
-    V_mppt_min: eng.V_mppt_min || 160,
-    V_mppt_max: eng.V_mppt_max || 850,
     I_ac_d: eng.I_ac_design,
     monofasico: eng.monofasico,
     numStrings: eng.numStrings,

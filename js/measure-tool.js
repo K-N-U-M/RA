@@ -557,7 +557,7 @@
 
     requestSceneRender();
 
-    if (typeof global.showToast === 'function') {
+    if (!_state._suppressToast && typeof global.showToast === 'function') {
       global.showToast('COTA FIJADA', 'Distancia 3D: ' + metrics.d3D.toFixed(2) + ' m (Horiz: ' + metrics.d2D.toFixed(2) + ' m)', 'info', 2200);
     }
   }
@@ -597,7 +597,7 @@
       '  <span>CINTA MÉTRICA 3D</span>',
       '</div>',
       '<div style="width:1px; height:18px; background:rgba(255,255,255,0.15);"></div>',
-      '<button id="ra-measure-snap-toggle-btn" type="button" style="background:rgba(16,185,129,0.22); border:1px solid #10B981; color:#34D399; font-weight:700; font-size:10px; padding:3px 10px; border-radius:12px; cursor:pointer; display:flex; align-items:center; gap:4px; transition:all 0.15s ease;" title="Conmutar atracción magnética (Atajo: S)">',
+      '<button id="ra-measure-snap-toggle-btn" type="button" style="background:rgba(16,185,129,0.22); border:1px solid #10B981; color:#34D399; font-weight:700; font-size:10px; padding:3px 10px; border-radius:12px; cursor:pointer; display:flex; align-items:center; gap:4px; transition:all 0.15s ease;" title="Conmutar atracción magnética (Atajo: X)">',
       '  <span>🧲 SNAP:</span> <span id="ra-measure-snap-badge-text">ON</span>',
       '</button>',
       '<div id="ra-measure-live-readout" style="font-family:var(--font-mono, monospace); font-size:11px; color:#F59E0B; font-weight:700; min-width:130px; text-align:center;">',
@@ -820,6 +820,7 @@
   function activate() {
     _state.active = true;
     _state.points = [];
+    _state.snapCandidates = null;
     ensurePolylineCollection();
     attachMouseHandler();
     updateHUDVisuals();
@@ -905,6 +906,10 @@
     if (_state.snapIndicatorEntity) {
       try { _state.snapIndicatorEntity.show = isVisible; } catch(e) {}
     }
+    if (_state.previewPinA) { try { _state.previewPinA.show = isVisible; } catch(e) {} }
+    if (_state.previewPinB) { try { _state.previewPinB.show = isVisible; } catch(e) {} }
+    if (_state.previewRing) { try { _state.previewRing.show = isVisible; } catch(e) {} }
+    if (_state.previewLabel) { try { _state.previewLabel.show = isVisible; } catch(e) {} }
     var hudEl = _state.hudElement || (typeof document !== 'undefined' ? document.getElementById('ra-measure-hud') : null);
     if (hudEl) {
       hudEl.style.visibility = (isVisible && _state.active) ? '' : 'hidden';
@@ -979,13 +984,18 @@
     if (!Array.isArray(dataArray) || !dataArray.length) return;
     if (typeof Cesium === 'undefined') return;
 
-    dataArray.forEach(function(item) {
-      if (!item || !item.ptA || !item.ptB) return;
-      if (!isFinite(item.ptA.x) || !isFinite(item.ptB.x)) return;
-      var pA = new Cesium.Cartesian3(item.ptA.x, item.ptA.y, item.ptA.z);
-      var pB = new Cesium.Cartesian3(item.ptB.x, item.ptB.y, item.ptB.z);
-      commitMeasurementSegment(pA, pB);
-    });
+    _state._suppressToast = true;
+    try {
+      dataArray.forEach(function(item) {
+        if (!item || !item.ptA || !item.ptB) return;
+        if (!isFinite(item.ptA.x) || !isFinite(item.ptB.x)) return;
+        var pA = new Cesium.Cartesian3(item.ptA.x, item.ptA.y, item.ptA.z);
+        var pB = new Cesium.Cartesian3(item.ptB.x, item.ptB.y, item.ptB.z);
+        commitMeasurementSegment(pA, pB);
+      });
+    } finally {
+      _state._suppressToast = false;
+    }
   }
 
   var RAMeasureTool = {
