@@ -1113,15 +1113,31 @@ body :is(
 }
 
 #ra-floating-tools-container button {
+  position: relative !important;
   width: 40px !important;
   height: 40px !important;
   min-width: 40px !important;
   padding: 0 !important;
   border-radius: 50% !important;
   justify-content: center !important;
-  background: rgba(255, 255, 255, 0.72) !important;
-  border: 1px solid rgba(255, 255, 255, 0.9) !important;
-  box-shadow: 0 2px 6px rgba(30, 36, 43, 0.08) !important;
+  background: rgba(255, 255, 255, 0.78) !important;
+  border: 1.5px solid rgba(255, 255, 255, 0.92) !important;
+  box-shadow: 0 2px 6px rgba(30, 36, 43, 0.1) !important;
+}
+
+#ra-floating-tools-container button:active {
+  transform: scale(0.88) !important;
+  box-shadow: inset 2px 2px 6px rgba(56, 42, 33, 0.24) !important;
+}
+
+#ra-floating-tools-container button[style*="059669"],
+#ra-floating-tools-container button[style*="38bdf8"],
+#ra-floating-tools-container button[style*="e8a204"],
+#ra-floating-tools-container button.active {
+  background: rgba(232, 162, 4, 0.16) !important;
+  border-color: var(--nm-accent, #e8a204) !important;
+  color: #c27d03 !important;
+  box-shadow: inset 1px 1px 4px rgba(232, 162, 4, 0.25), 0 0 10px rgba(232, 162, 4, 0.25) !important;
 }
 
 #ra-floating-tools-container button > span {

@@ -548,6 +548,7 @@
 
 body.ra-pre-reveal #ra-sidebar:not(.collapsed),
 body.ra-pre-reveal #ra-mobile-menu-btn,
+body.ra-pre-reveal #ra-floating-tools-container,
 body.ra-pre-reveal #ra-floating-tools-container button,
 body.ra-pre-reveal #ra-floating-settings-btn,
 body.ra-pre-reveal #ra-onboarding-empty-card,
@@ -622,13 +623,39 @@ body.ra-app-entering #ra-solar-fab-btn { animation: raHandlePopIn 0.72s var(--ra
 body.ra-app-entering #ra-outliner-fab-btn { animation: raHandlePopIn 0.72s var(--ra-ease-spring) 2.75s both; }
 body.ra-app-entering #ra-bom-fab-btn { animation: raHandlePopIn 0.72s var(--ra-ease-spring) 2.90s both; }
 
-body.ra-app-entering #ra-floating-tools-container button:nth-child(1) { animation: raFabSlideUp 0.62s var(--ra-ease-spring) 2.70s both; }
-body.ra-app-entering #ra-floating-tools-container button:nth-child(2) { animation: raFabSlideUp 0.62s var(--ra-ease-spring) 2.82s both; }
-body.ra-app-entering #ra-floating-tools-container button:nth-child(3) { animation: raFabSlideUp 0.62s var(--ra-ease-spring) 2.94s both; }
-body.ra-app-entering #ra-floating-tools-container button:nth-child(4) { animation: raFabSlideUp 0.62s var(--ra-ease-spring) 3.06s both; }
-body.ra-app-entering #ra-floating-tools-container button:nth-child(5) { animation: raFabSlideUp 0.62s var(--ra-ease-spring) 3.18s both; }
-body.ra-app-entering #ra-floating-tools-container button:nth-child(6) { animation: raFabSlideUp 0.62s var(--ra-ease-spring) 3.30s both; }
-body.ra-app-entering #ra-floating-tools-container button:nth-child(7) { animation: raFabSlideUp 0.62s var(--ra-ease-spring) 3.42s both; }
+@keyframes raDockSlideIn {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(42px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+@keyframes raButtonZoomFade {
+  0% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+body.ra-app-entering #ra-floating-tools-container {
+  animation: raDockSlideIn 0.65s var(--ra-ease-expo) 2.45s both;
+}
+
+body.ra-app-entering #ra-floating-tools-container button:nth-child(1) { animation: raButtonZoomFade 0.5s var(--ra-ease-spring) 2.75s both; }
+body.ra-app-entering #ra-floating-tools-container button:nth-child(2) { animation: raButtonZoomFade 0.5s var(--ra-ease-spring) 2.86s both; }
+body.ra-app-entering #ra-floating-tools-container button:nth-child(3) { animation: raButtonZoomFade 0.5s var(--ra-ease-spring) 2.97s both; }
+body.ra-app-entering #ra-floating-tools-container button:nth-child(4) { animation: raButtonZoomFade 0.5s var(--ra-ease-spring) 3.08s both; }
+body.ra-app-entering #ra-floating-tools-container button:nth-child(5) { animation: raButtonZoomFade 0.5s var(--ra-ease-spring) 3.19s both; }
+body.ra-app-entering #ra-floating-tools-container button:nth-child(6) { animation: raButtonZoomFade 0.5s var(--ra-ease-spring) 3.30s both; }
+body.ra-app-entering #ra-floating-tools-container button:nth-child(7) { animation: raButtonZoomFade 0.5s var(--ra-ease-spring) 3.41s both; }
 
 body.ra-app-entering #ra-floating-settings-btn {
   animation: raFabSlideUp 0.65s var(--ra-ease-spring) 3.38s both;
