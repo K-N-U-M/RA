@@ -1,0 +1,847 @@
+/* ============================================================================
+   RA — KINETIC MOTION & DISRUPTIVE EXPERIENCE LAYER
+   Fades · Spring Zooms · Amber Glows · Staggered Slides · Micro-interactions
+   Arquitectura 100% GPU-composited (transform / opacity / box-shadow / filter)
+   Excluye explícitamente el visor WebGL Cesium (#cesiumContainer / canvas)
+   ============================================================================ */
+
+:root {
+  --ra-ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ra-ease-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ra-ease-snap: cubic-bezier(0.22, 1, 0.36, 1);
+  --ra-glow-amber: 0 0 18px rgba(232, 162, 4, 0.42), 0 0 38px rgba(232, 162, 4, 0.18);
+  --ra-glow-amber-soft: 0 6px 20px rgba(232, 162, 4, 0.24), 0 0 0 1px rgba(232, 162, 4, 0.32);
+  --ra-glow-coral: 0 8px 24px rgba(214, 61, 27, 0.32), 0 0 18px rgba(232, 162, 4, 0.38);
+}
+
+/* ── 1. Keyframes Core ────────────────────────────────────────────────────── */
+@keyframes raStaggerEnter {
+  0% {
+    opacity: 0;
+    transform: translateY(16px) scale(0.96);
+    filter: blur(2px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes raStepFadeSlide {
+  0% {
+    opacity: 0;
+    transform: translateX(18px) scale(0.985);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+@keyframes raSubdockUnfold {
+  0% {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.975);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes raModalZoomSpring {
+  0% {
+    opacity: 0;
+    transform: scale(0.88) translateY(24px);
+    filter: blur(3px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+    filter: blur(0);
+  }
+}
+
+@keyframes raBackdropFade {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes raGlowBreath {
+  0%, 100% {
+    box-shadow:
+      inset 3px 3px 6px rgba(163, 177, 198, 0.42),
+      inset -3px -3px 6px rgba(255, 255, 255, 0.9),
+      0 0 10px rgba(232, 162, 4, 0.22);
+  }
+  50% {
+    box-shadow:
+      inset 3px 3px 6px rgba(163, 177, 198, 0.38),
+      inset -3px -3px 6px rgba(255, 255, 255, 0.95),
+      0 0 22px rgba(232, 162, 4, 0.50),
+      0 0 40px rgba(232, 162, 4, 0.20);
+  }
+}
+
+@keyframes raOrbitalGlow {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+    filter: drop-shadow(0 6px 16px rgba(232, 162, 4, 0.28));
+  }
+  50% {
+    transform: translateY(-5px) scale(1.025);
+    filter: drop-shadow(0 12px 28px rgba(232, 162, 4, 0.52));
+  }
+}
+
+@keyframes raProgressFlow {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 200% 50%;
+  }
+}
+
+@keyframes raShimmerSweep {
+  0% {
+    transform: translateX(-140%) skewX(-22deg);
+  }
+  100% {
+    transform: translateX(240%) skewX(-22deg);
+  }
+}
+
+@keyframes raFloatingToolReveal {
+  0% {
+    opacity: 0;
+    transform: translateY(22px) scale(0.84);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes raKpiBump {
+  0% {
+    transform: scale(1);
+  }
+  38% {
+    transform: scale(1.14);
+    color: #e8a204;
+    text-shadow: 0 0 14px rgba(232, 162, 4, 0.52);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes raRippleExpand {
+  0% {
+    opacity: 0.72;
+    transform: translate(-50%, -50%) scale(0.08);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(2.8);
+  }
+}
+
+@keyframes raBadgePulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(232, 162, 4, 0.35);
+  }
+  60% {
+    box-shadow: 0 0 0 6px rgba(232, 162, 4, 0);
+  }
+}
+
+@keyframes raToastSlideIn {
+  0% {
+    opacity: 0;
+    transform: translateX(36px) scale(0.94);
+  }
+  70% {
+    opacity: 1;
+    transform: translateX(-4px) scale(1.01);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+@keyframes raStatusReveal {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-16px) scale(0.92);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+}
+
+/* ── 2. Pantalla de Carga y Barras de Energía ─────────────────────────────── */
+#ra-loading .ld-logo-img,
+#ra-loading .ld-logo {
+  animation: raOrbitalGlow 3.6s ease-in-out infinite !important;
+}
+
+#ra-loading .ld-sub {
+  animation: raStaggerEnter 0.7s var(--ra-ease-expo) 0.12s both;
+}
+
+#ra-loading .ld-msg {
+  animation: raStaggerEnter 0.7s var(--ra-ease-expo) 0.24s both;
+}
+
+#ra-loading .ld-bar,
+#ra-load-hud-bar,
+#ra-project-loading-overlay [class*="bar"],
+#ra-loading-overlay [class*="bar"],
+.loading-overlay [class*="bar"] {
+  background: linear-gradient(90deg, #c27d03 0%, #e8a204 35%, #ffbe3b 50%, #f97316 70%, #e8a204 100%) !important;
+  background-size: 200% 100% !important;
+  animation: raProgressFlow 1.8s linear infinite !important;
+  box-shadow: 0 0 14px rgba(232, 162, 4, 0.55) !important;
+}
+
+#ra-project-loading-hud > div,
+#ra-project-loading-overlay > div,
+#ra-loading-overlay > div {
+  animation: raModalZoomSpring 0.45s var(--ra-ease-spring) both;
+}
+
+/* ── 3. Sidebar, Logo Cabecera y Tirador Lateral ──────────────────────────── */
+#ra-sidebar {
+  transition:
+    transform 0.42s var(--ra-ease-expo),
+    width 0.36s var(--ra-ease-expo),
+    box-shadow 0.35s ease !important;
+}
+
+.sb-brand-logo {
+  transition: transform 0.35s var(--ra-ease-spring), filter 0.35s ease !important;
+}
+
+.sb-brand-logo:hover {
+  transform: scale(1.06) rotate(-1deg);
+  filter: drop-shadow(0 4px 14px rgba(232, 162, 4, 0.55)) !important;
+}
+
+#ra-sidebar-toggle-btn {
+  transition:
+    transform 0.32s var(--ra-ease-spring),
+    box-shadow 0.28s ease,
+    color 0.22s ease,
+    background 0.25s ease !important;
+}
+
+#ra-sidebar-toggle-btn:hover {
+  transform: translateX(3px) scale(1.08) !important;
+  box-shadow: var(--ra-glow-amber) !important;
+  color: var(--nm-accent) !important;
+}
+
+#ra-sidebar-toggle-btn:active {
+  transform: scale(0.94) !important;
+}
+
+.sb-header-actions button {
+  transition:
+    transform 0.28s var(--ra-ease-spring),
+    box-shadow 0.25s ease,
+    border-color 0.22s ease !important;
+}
+
+.sb-header-actions button:hover {
+  transform: translateY(-2.5px) scale(1.08) !important;
+  box-shadow: var(--ra-glow-amber-soft) !important;
+  border-color: rgba(232, 162, 4, 0.45) !important;
+}
+
+.sb-header-actions button:hover svg {
+  transform: scale(1.12) rotate(-6deg);
+}
+
+/* ── 4. Stepper Cinético de 5 Pasos ───────────────────────────────────────── */
+.wp-step-btn {
+  position: relative;
+  overflow: hidden;
+  transition:
+    transform 0.3s var(--ra-ease-spring),
+    box-shadow 0.3s ease,
+    border-color 0.25s ease,
+    color 0.22s ease,
+    background 0.25s ease !important;
+}
+
+.wp-step-btn::after {
+  content: "";
+  position: absolute;
+  left: 18%;
+  right: 18%;
+  bottom: 3px;
+  height: 2.5px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #e8a204, #ff7b00);
+  transform: scaleX(0);
+  opacity: 0;
+  transition: transform 0.35s var(--ra-ease-spring), opacity 0.25s ease;
+}
+
+.wp-step-btn:not(.disabled):hover {
+  transform: translateY(-2.5px) scale(1.03);
+  border-color: rgba(232, 162, 4, 0.45) !important;
+  box-shadow: var(--nm-shadow-out), var(--ra-glow-amber-soft) !important;
+  color: var(--nm-text) !important;
+}
+
+.wp-step-btn:not(.disabled):active {
+  transform: translateY(1px) scale(0.95);
+}
+
+.wp-step-btn .wp-step-num {
+  transition: transform 0.32s var(--ra-ease-spring), box-shadow 0.3s ease, background 0.25s ease !important;
+}
+
+.wp-step-btn.active {
+  animation: raGlowBreath 3.2s ease-in-out infinite !important;
+  border-color: rgba(232, 162, 4, 0.5) !important;
+}
+
+.wp-step-btn.active::after {
+  transform: scaleX(1);
+  opacity: 1;
+}
+
+.wp-step-btn.active .wp-step-num {
+  transform: scale(1.14);
+  box-shadow: 0 0 12px rgba(232, 162, 4, 0.55) !important;
+}
+
+.wp-step-btn.active svg {
+  transform: scale(1.1);
+  transition: transform 0.35s var(--ra-ease-spring);
+}
+
+/* ── 5. Transiciones de Paso y Acordeones ─────────────────────────────────── */
+.ra-step-entering {
+  animation: raStepFadeSlide 0.38s var(--ra-ease-expo) both !important;
+}
+
+.ra-subdock-opening {
+  animation: raSubdockUnfold 0.34s var(--ra-ease-expo) both !important;
+}
+
+#ra-sidebar [id^="wp-subdock-hdr-"],
+#ra-sidebar .wp-subdock-hdr {
+  transition:
+    transform 0.26s var(--ra-ease-spring),
+    box-shadow 0.26s ease,
+    border-color 0.24s ease !important;
+}
+
+#ra-sidebar [id^="wp-subdock-hdr-"]:hover,
+#ra-sidebar .wp-subdock-hdr:hover {
+  transform: translateY(-1.5px);
+  border-color: rgba(232, 162, 4, 0.42) !important;
+  box-shadow: var(--nm-shadow-out), 0 4px 14px rgba(232, 162, 4, 0.16) !important;
+}
+
+#ra-sidebar [id^="wp-subdock-hdr-"].active,
+#ra-sidebar .wp-subdock-hdr.active {
+  border-color: rgba(232, 162, 4, 0.45) !important;
+  box-shadow: var(--nm-shadow-out-sm), 0 0 14px rgba(232, 162, 4, 0.18) !important;
+}
+
+.wp-subdock-chevron {
+  display: inline-block;
+  transition: transform 0.32s var(--ra-ease-spring), color 0.2s ease;
+}
+
+[id^="wp-subdock-hdr-"].active .wp-subdock-chevron {
+  color: var(--nm-accent);
+  transform: scale(1.15);
+}
+
+/* ── 6. Tarjetas Escalonadas, Hover 3D y Spotlight Magnético ──────────────── */
+.ra-anim-enter {
+  animation: raStaggerEnter 0.46s var(--ra-ease-expo) both;
+  animation-delay: calc(var(--ra-stagger-i, 0) * 42ms);
+}
+
+#ra-sidebar .wp-card,
+#ra-sidebar .ra-card,
+#ra-sidebar .ui-card,
+#ra-sidebar .cat-card,
+#ra-sidebar .eq-card,
+#ra-sidebar .doc-card,
+#ra-sidebar .solar-card,
+#ra-sidebar .wind-card,
+#ra-sidebar .faldon-card,
+#ra-sidebar .engine-card-opt,
+#faldon-edit-card,
+[id$="-modal"] .ui-card,
+[id$="-modal"] .cat-card,
+[id$="-modal"] .eq-card,
+[id$="-modal"] .doc-modal-section {
+  position: relative;
+  transition:
+    transform 0.3s var(--ra-ease-spring),
+    box-shadow 0.3s ease,
+    border-color 0.25s ease !important;
+}
+
+#ra-sidebar .wp-card:hover,
+#ra-sidebar .ra-card:hover,
+#ra-sidebar .ui-card:hover,
+#ra-sidebar .cat-card:hover,
+#ra-sidebar .eq-card:hover,
+#ra-sidebar .doc-card:hover,
+#ra-sidebar .solar-card:hover,
+#ra-sidebar .wind-card:hover,
+#ra-sidebar .faldon-card:hover,
+#ra-sidebar .engine-card-opt:hover,
+[id$="-modal"] .ui-card:hover,
+[id$="-modal"] .cat-card:hover,
+[id$="-modal"] .eq-card:hover,
+[id$="-modal"] .doc-modal-section:hover {
+  transform: translateY(-2.5px);
+  border-color: rgba(232, 162, 4, 0.45) !important;
+  box-shadow:
+    7px 7px 16px rgba(163, 177, 198, 0.48),
+    -5px -5px 14px rgba(255, 255, 255, 0.94),
+    0 6px 20px rgba(232, 162, 4, 0.14) !important;
+}
+
+/* Spotlight radial dinámico rastreado por JS */
+.ra-spotlight-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(
+    220px circle at var(--ra-mx, 50%) var(--ra-my, 50%),
+    rgba(232, 162, 4, 0.12),
+    transparent 68%
+  );
+  transition: opacity 0.28s ease;
+  z-index: 0;
+}
+
+.ra-spotlight-card:hover::before {
+  opacity: 1;
+}
+
+.ra-spotlight-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Tarjetas seleccionadas / activas con glow energético */
+.engine-card-opt.active,
+.dock-menu-opt.active {
+  border-color: var(--nm-accent) !important;
+  box-shadow: var(--nm-shadow-out-sm), 0 0 16px rgba(232, 162, 4, 0.28) !important;
+  transform: translateY(-1px) scale(1.01);
+}
+
+#ra-sidebar .step2-gen-tab-btn {
+  transition: transform 0.25s var(--ra-ease-spring), color 0.2s ease, box-shadow 0.25s ease !important;
+}
+
+#ra-sidebar .step2-gen-tab-btn.active {
+  transform: scale(1.02);
+  box-shadow: var(--nm-shadow-out-sm), 0 0 14px rgba(232, 162, 4, 0.22) !important;
+}
+
+/* ── 7. KPI Pills y Métricas Dinámicas ────────────────────────────────────── */
+.stat-pill,
+.kpi-box,
+#ra-sidebar .stat-pill,
+#ra-sidebar .bom-kpi {
+  transition: transform 0.28s var(--ra-ease-spring), box-shadow 0.28s ease, border-color 0.25s ease !important;
+}
+
+.stat-pill:hover,
+.kpi-box:hover,
+#ra-sidebar .stat-pill:hover,
+#ra-sidebar .bom-kpi:hover {
+  transform: translateY(-2px) scale(1.03);
+  border-color: rgba(232, 162, 4, 0.45) !important;
+  box-shadow: var(--nm-shadow-in), 0 0 14px rgba(232, 162, 4, 0.16) !important;
+}
+
+.ra-kpi-bump {
+  display: inline-block;
+  animation: raKpiBump 0.55s var(--ra-ease-spring) !important;
+}
+
+/* ── 8. Botones Primarios (Shimmer + Glow) y Botones Secundarios ──────────── */
+button.primary,
+.btn-primary,
+#ra-cred-save,
+#ra-bm-stress-btn,
+#ra-sidebar button.primary,
+#ra-sidebar button[style*="background:#0284c7"],
+#ra-sidebar button[style*="background: #0284c7"],
+#ra-sidebar button[style*="background:#2563eb"],
+#ra-sidebar button[style*="background: #2563eb"],
+#ra-sidebar button[style*="background:#e8a204"],
+#ra-sidebar button[style*="background: #e8a204"],
+#ra-sidebar button[style*="background: linear-gradient"],
+[id$="-modal"] button.primary,
+[role="dialog"] button.primary,
+[role="alertdialog"] button.primary {
+  position: relative;
+  overflow: hidden;
+  transition:
+    transform 0.28s var(--ra-ease-spring),
+    box-shadow 0.28s ease,
+    filter 0.22s ease !important;
+}
+
+button.primary::after,
+.btn-primary::after,
+#ra-cred-save::after,
+#ra-sidebar button.primary::after,
+[id$="-modal"] button.primary::after {
+  content: "";
+  position: absolute;
+  top: -20%;
+  left: 0;
+  width: 45%;
+  height: 140%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.48) 50%,
+    transparent 100%
+  );
+  transform: translateX(-160%) skewX(-22deg);
+  pointer-events: none;
+}
+
+button.primary:hover::after,
+.btn-primary:hover::after,
+#ra-cred-save:hover::after,
+#ra-sidebar button.primary:hover::after,
+[id$="-modal"] button.primary:hover::after {
+  animation: raShimmerSweep 0.75s var(--ra-ease-expo);
+}
+
+button.primary:hover,
+.btn-primary:hover,
+#ra-cred-save:hover,
+#ra-bm-stress-btn:hover,
+#ra-sidebar button.primary:hover,
+[id$="-modal"] button.primary:hover {
+  transform: translateY(-2.5px) scale(1.022) !important;
+  box-shadow: var(--ra-glow-coral) !important;
+  filter: brightness(1.05);
+}
+
+button.primary:active,
+.btn-primary:active,
+#ra-cred-save:active,
+#ra-sidebar button.primary:active,
+[id$="-modal"] button.primary:active {
+  transform: translateY(1px) scale(0.96) !important;
+  filter: brightness(0.96);
+}
+
+/* Botones secundarios neumórficos */
+#ra-sidebar button:not(.wp-step-btn):not(.primary),
+[id$="-modal"] button:not(.primary):not(.doc-modal-close),
+[role="dialog"] button:not(.primary):not(.doc-modal-close) {
+  transition:
+    transform 0.26s var(--ra-ease-spring),
+    box-shadow 0.26s ease,
+    color 0.2s ease,
+    border-color 0.2s ease !important;
+}
+
+#ra-sidebar button:not(.wp-step-btn):not(.primary):hover,
+[id$="-modal"] button:not(.primary):not(.doc-modal-close):hover,
+[role="dialog"] button:not(.primary):not(.doc-modal-close):hover {
+  transform: translateY(-2px) scale(1.015);
+  border-color: rgba(232, 162, 4, 0.45) !important;
+  box-shadow: var(--nm-shadow-out), var(--ra-glow-amber-soft) !important;
+}
+
+#ra-sidebar button:not(.wp-step-btn):not(.primary):active,
+[id$="-modal"] button:not(.primary):not(.doc-modal-close):active,
+[role="dialog"] button:not(.primary):not(.doc-modal-close):active {
+  transform: translateY(1px) scale(0.965);
+  box-shadow: var(--nm-shadow-in) !important;
+}
+
+#ra-sidebar button svg,
+#ra-floating-tools-container button svg {
+  transition: transform 0.28s var(--ra-ease-spring);
+}
+
+#ra-sidebar button:hover svg,
+#ra-floating-tools-container button:hover svg {
+  transform: scale(1.15) rotate(-5deg);
+}
+
+/* ── 9. Inputs, Focus Glows y Sliders ─────────────────────────────────────── */
+#ra-sidebar input[type="text"],
+#ra-sidebar input[type="number"],
+#ra-sidebar input[type="search"],
+#ra-sidebar select,
+#ra-sidebar textarea,
+[id$="-modal"] input,
+[id$="-modal"] select,
+[id$="-modal"] textarea,
+[role="dialog"] input,
+[role="dialog"] select,
+[role="dialog"] textarea {
+  transition:
+    box-shadow 0.25s ease,
+    border-color 0.25s ease,
+    transform 0.22s var(--ra-ease-snap) !important;
+}
+
+#ra-sidebar input:focus,
+#ra-sidebar select:focus,
+#ra-sidebar textarea:focus,
+[id$="-modal"] input:focus,
+[id$="-modal"] select:focus,
+[id$="-modal"] textarea:focus,
+[role="dialog"] input:focus,
+[role="dialog"] select:focus,
+[role="dialog"] textarea:focus {
+  outline: none !important;
+  border-color: var(--nm-accent) !important;
+  box-shadow: var(--nm-shadow-in), 0 0 0 3px rgba(232, 162, 4, 0.24) !important;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  transition: transform 0.22s var(--ra-ease-spring), box-shadow 0.22s ease;
+}
+
+input[type="range"]:hover::-webkit-slider-thumb,
+input[type="range"]:active::-webkit-slider-thumb {
+  transform: scale(1.24);
+  box-shadow: 0 0 14px rgba(232, 162, 4, 0.72), 0 2px 6px rgba(56, 42, 33, 0.25) !important;
+}
+
+/* Badges con pulso suave */
+#ra-sidebar [id$="-badge"],
+#ra-sidebar .badge,
+#ra-sidebar .card-tag {
+  transition: transform 0.25s var(--ra-ease-spring), box-shadow 0.25s ease;
+  animation: raBadgePulse 3.6s ease-in-out infinite;
+}
+
+/* ── 10. Barra de Herramientas Flotante y FABs ────────────────────────────── */
+#ra-floating-tools-container button {
+  animation: raFloatingToolReveal 0.5s var(--ra-ease-spring) both;
+  transition:
+    transform 0.3s var(--ra-ease-spring),
+    box-shadow 0.28s ease,
+    border-color 0.24s ease,
+    color 0.2s ease !important;
+}
+
+#ra-floating-tools-container button:nth-child(1) { animation-delay: 60ms; }
+#ra-floating-tools-container button:nth-child(2) { animation-delay: 110ms; }
+#ra-floating-tools-container button:nth-child(3) { animation-delay: 160ms; }
+#ra-floating-tools-container button:nth-child(4) { animation-delay: 210ms; }
+#ra-floating-tools-container button:nth-child(5) { animation-delay: 260ms; }
+#ra-floating-tools-container button:nth-child(6) { animation-delay: 310ms; }
+#ra-floating-tools-container button:nth-child(7) { animation-delay: 360ms; }
+
+#ra-floating-tools-container button:hover,
+#ra-solar-fab-btn:hover,
+#ra-outliner-fab-btn:hover,
+#ra-bom-fab-btn:hover,
+#ra-btn-compare-scenarios:hover {
+  transform: translateY(-4px) scale(1.07) !important;
+  border-color: rgba(232, 162, 4, 0.65) !important;
+  box-shadow: var(--nm-shadow-out), var(--ra-glow-amber) !important;
+}
+
+#ra-floating-tools-container button:active,
+#ra-solar-fab-btn:active,
+#ra-outliner-fab-btn:active,
+#ra-bom-fab-btn:active,
+#ra-btn-compare-scenarios:active {
+  transform: translateY(0) scale(0.93) !important;
+}
+
+#ra-floating-settings-btn {
+  animation: raFloatingToolReveal 0.55s var(--ra-ease-spring) 0.4s both;
+  transition:
+    transform 0.38s var(--ra-ease-spring),
+    box-shadow 0.28s ease,
+    border-color 0.25s ease !important;
+}
+
+#ra-floating-settings-btn:hover {
+  transform: rotate(38deg) scale(1.12) !important;
+  border-color: rgba(232, 162, 4, 0.7) !important;
+  box-shadow: var(--nm-shadow-out), var(--ra-glow-amber) !important;
+  color: var(--nm-accent) !important;
+}
+
+#ra-floating-settings-popover {
+  transition:
+    transform 0.34s var(--ra-ease-spring),
+    opacity 0.26s ease,
+    box-shadow 0.3s ease !important;
+}
+
+#ra-floating-settings-popover.open {
+  box-shadow:
+    12px 14px 32px rgba(163, 177, 198, 0.55),
+    -8px -8px 22px rgba(255, 255, 255, 0.92),
+    0 0 28px rgba(232, 162, 4, 0.16) !important;
+}
+
+.dock-popover {
+  animation: raModalZoomSpring 0.28s var(--ra-ease-spring) both !important;
+  box-shadow:
+    10px 12px 28px rgba(163, 177, 198, 0.5),
+    -6px -6px 18px rgba(255, 255, 255, 0.9),
+    0 0 22px rgba(232, 162, 4, 0.15) !important;
+}
+
+/* ── 11. HUD de Energía, Status Flotante y Barras Inferiores ────────────────── */
+#ra-hud-pill {
+  transition:
+    transform 0.28s var(--ra-ease-spring),
+    box-shadow 0.28s ease,
+    border-color 0.25s ease !important;
+}
+
+#ra-hud-energy:hover #ra-hud-pill {
+  transform: translateY(-2px) scale(1.03);
+  box-shadow: var(--nm-shadow-out), var(--ra-glow-amber-soft) !important;
+}
+
+#ra-hud-dropdown {
+  transition:
+    opacity 0.28s var(--ra-ease-expo),
+    transform 0.32s var(--ra-ease-spring) !important;
+}
+
+#ra-status.visible {
+  animation: raStatusReveal 0.34s var(--ra-ease-spring) both;
+  box-shadow: var(--nm-shadow-out), var(--ra-glow-amber) !important;
+  border-color: rgba(232, 162, 4, 0.55) !important;
+}
+
+#ra-project-status-hud,
+#ra-cad-outliner-panel,
+#ra-bom-tree-hud,
+#ra-solar-time-hud,
+#ra-benchmark-pill,
+#ra-benchmark-panel {
+  transition:
+    transform 0.32s var(--ra-ease-spring),
+    box-shadow 0.3s ease,
+    opacity 0.26s ease !important;
+}
+
+#ra-benchmark-pill:hover {
+  transform: translateY(-2px) scale(1.04);
+  box-shadow: var(--nm-shadow-out), var(--ra-glow-amber-soft) !important;
+}
+
+#ra-cad-status-bar {
+  animation: raStatusReveal 0.42s var(--ra-ease-expo) both;
+}
+
+#ra-onboarding-empty-card {
+  animation: raStatusReveal 0.48s var(--ra-ease-spring) both;
+  box-shadow: var(--nm-shadow-out), 0 0 26px rgba(232, 162, 4, 0.18) !important;
+}
+
+/* ── 12. Modales, Diálogos y Toasts ───────────────────────────────────────── */
+[role="dialog"]:not(#cesiumContainer):not(.cesium-viewer),
+[role="alertdialog"],
+#ra-credentials-gate,
+#ra-firebase-modal,
+#ra-cost-breakdown-modal,
+#ra-pricing-review-modal,
+#ra-equipment-catalog-modal,
+#ra-company-branding-modal,
+#ra-projects-modal,
+#ra-doc-modal,
+#ra-embedded-doc-modal,
+#ra-scenario-comparator-modal,
+#ra-a11y-modal,
+#ra-async-confirm-modal {
+  animation: raBackdropFade 0.24s ease-out both;
+}
+
+[id$="-modal"] > div,
+[role="dialog"]:not(#cesiumContainer):not(.cesium-viewer) > div,
+[role="alertdialog"] > div,
+#ra-credentials-gate > div,
+#ra-doc-modal .doc-modal-box,
+.ra-modal {
+  animation: raModalZoomSpring 0.36s var(--ra-ease-spring) both;
+}
+
+#ra-toast-container > div,
+.ra-toast,
+#ra-nonblocking-toast-host > div,
+#ra-a11y-toast {
+  animation: raToastSlideIn 0.38s var(--ra-ease-spring) both;
+  transition:
+    transform 0.28s var(--ra-ease-spring),
+    opacity 0.25s ease,
+    box-shadow 0.25s ease !important;
+}
+
+#ra-toast-container > div:hover,
+.ra-toast:hover {
+  transform: translateX(-4px) scale(1.02) !important;
+  box-shadow: var(--nm-shadow-out), var(--ra-glow-amber-soft) !important;
+}
+
+/* ── 13. Onda Táctil (Ripple) ─────────────────────────────────────────────── */
+.ra-ripple-host {
+  position: relative;
+  overflow: hidden;
+}
+
+.ra-ripple {
+  position: absolute;
+  width: 110px;
+  height: 110px;
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(
+    circle,
+    rgba(255, 255, 255, 0.72) 0%,
+    rgba(232, 162, 4, 0.38) 52%,
+    transparent 74%
+  );
+  transform: translate(-50%, -50%) scale(0);
+  animation: raRippleExpand 0.56s var(--ra-ease-expo) forwards;
+  z-index: 5;
+}
+
+/* ── 14. Accesibilidad (prefers-reduced-motion) ───────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
