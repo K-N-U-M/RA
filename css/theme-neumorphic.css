@@ -1130,14 +1130,34 @@ body :is(
   box-shadow: inset 2px 2px 6px rgba(56, 42, 33, 0.24) !important;
 }
 
-#ra-floating-tools-container button[style*="059669"],
-#ra-floating-tools-container button[style*="38bdf8"],
-#ra-floating-tools-container button[style*="e8a204"],
-#ra-floating-tools-container button.active {
-  background: rgba(232, 162, 4, 0.16) !important;
+#ra-floating-tools-container button:is(
+  .active,
+  [aria-pressed="true"],
+  [style*="059669"], [style*="5, 150, 105"],
+  [style*="10b981"], [style*="16, 185, 129"],
+  [style*="e8a204"], [style*="232, 162, 4"],
+  [style*="38bdf8"], [style*="56, 189, 248"],
+  :has([style*="059669"]), :has([style*="5, 150, 105"]),
+  :has([style*="16, 185, 129"]), :has([style*="52, 211, 153"])
+) {
+  background: rgba(232, 162, 4, 0.18) !important;
   border-color: var(--nm-accent, #e8a204) !important;
   color: #c27d03 !important;
-  box-shadow: inset 1px 1px 4px rgba(232, 162, 4, 0.25), 0 0 10px rgba(232, 162, 4, 0.25) !important;
+  box-shadow: inset 1px 1px 4px rgba(232, 162, 4, 0.25), 0 0 12px rgba(232, 162, 4, 0.32) !important;
+}
+
+#ra-floating-tools-container button:is(
+  .active,
+  [aria-pressed="true"],
+  [style*="059669"], [style*="5, 150, 105"],
+  [style*="10b981"], [style*="16, 185, 129"],
+  [style*="e8a204"], [style*="232, 162, 4"],
+  [style*="38bdf8"], [style*="56, 189, 248"],
+  :has([style*="059669"]), :has([style*="5, 150, 105"]),
+  :has([style*="16, 185, 129"]), :has([style*="52, 211, 153"])
+) svg {
+  color: #c27d03 !important;
+  stroke: #c27d03 !important;
 }
 
 #ra-floating-tools-container button > span {
