@@ -1583,4 +1583,15 @@ body[data-ra-step="3"] #btn-toggle-cable-audit {
   color: var(--nm-text-muted) !important;
 }
 
+/* ── 15. Barra de Estado CAD (#ra-cad-status-bar) Siempre Visible ────────── */
+#ra-cad-status-bar {
+  top: 22px !important;
+  left: 54px !important;
+  transition: left 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease !important;
+}
+
+body:has(#ra-sidebar:not(.collapsed)) #ra-cad-status-bar {
+  left: 514px !important;
+}
+
 /* Los breakpoints responsivos (<=1280px, <=1024px, <=768px, <=480px) residen en css/responsive.css */
