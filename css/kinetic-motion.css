@@ -553,66 +553,95 @@ body.ra-pre-reveal #ra-floating-settings-btn,
 body.ra-pre-reveal #ra-onboarding-empty-card,
 body.ra-pre-reveal #ra-cad-status-bar,
 body.ra-pre-reveal #ra-benchmark-pill,
+body.ra-pre-reveal #ra-project-status-hud,
+body.ra-pre-reveal #ra-rosa,
 body.ra-pre-reveal #ra-solar-fab-btn,
 body.ra-pre-reveal #ra-outliner-fab-btn,
 body.ra-pre-reveal #ra-bom-fab-btn,
-body.ra-pre-reveal #ra-btn-compare-scenarios {
+body.ra-pre-reveal #ra-btn-compare-scenarios,
+body.ra-pre-reveal #ra-sidebar .sb-header,
+body.ra-pre-reveal #ra-sidebar .wp-step-btn,
+body.ra-pre-reveal #ra-sidebar .sb-tab-content {
   opacity: 0 !important;
 }
 
+/* BLOQUE 1 (0.0s → 1.8s): Visor 3D + Deslizamiento del Panel Lateral */
 body.ra-app-entering #cesiumContainer {
-  animation: raViewportDepthIn 0.92s var(--ra-ease-expo) both;
-}
-
-body.ra-app-entering #ra-mobile-menu-btn {
-  animation: raStepCascadeIn 0.54s var(--ra-ease-spring) 0.16s both;
+  animation: raViewportDepthIn 1.8s var(--ra-ease-expo) 0s both;
 }
 
 body.ra-app-entering #ra-sidebar:not(.collapsed) {
-  animation: raSidebarSlideIn 0.72s var(--ra-ease-expo) both;
+  animation: raSidebarSlideIn 1.8s var(--ra-ease-expo) 0s both;
 }
 
+body.ra-app-entering #ra-mobile-menu-btn {
+  animation: raStepCascadeIn 1.2s var(--ra-ease-spring) 0.25s both;
+}
+
+/* BLOQUE 2 (0.8s → 2.6s · solape 1.0s): Cabecera, Acciones y Stepper 5 Pasos */
 body.ra-app-entering #ra-sidebar:not(.collapsed) .sb-header {
-  animation: raSlideDownHeader 0.55s var(--ra-ease-expo) 0.14s both;
+  animation: raSlideDownHeader 1.0s var(--ra-ease-expo) 0.8s both;
 }
 
-body.ra-app-entering #ra-sidebar:not(.collapsed) .sb-header-actions button:nth-child(1) { animation: raStepCascadeIn 0.48s var(--ra-ease-spring) 0.18s both; }
-body.ra-app-entering #ra-sidebar:not(.collapsed) .sb-header-actions button:nth-child(2) { animation: raStepCascadeIn 0.48s var(--ra-ease-spring) 0.23s both; }
-body.ra-app-entering #ra-sidebar:not(.collapsed) .sb-header-actions button:nth-child(3) { animation: raStepCascadeIn 0.48s var(--ra-ease-spring) 0.28s both; }
-body.ra-app-entering #ra-sidebar:not(.collapsed) .sb-header-actions button:nth-child(4) { animation: raStepCascadeIn 0.48s var(--ra-ease-spring) 0.33s both; }
-body.ra-app-entering #ra-sidebar:not(.collapsed) .sb-header-actions button:nth-child(n+5) { animation: raStepCascadeIn 0.48s var(--ra-ease-spring) 0.38s both; }
+body.ra-app-entering #ra-sidebar:not(.collapsed) .sb-header-actions button:nth-child(1) { animation: raStepCascadeIn 0.75s var(--ra-ease-spring) 1.00s both; }
+body.ra-app-entering #ra-sidebar:not(.collapsed) .sb-header-actions button:nth-child(2) { animation: raStepCascadeIn 0.75s var(--ra-ease-spring) 1.12s both; }
+body.ra-app-entering #ra-sidebar:not(.collapsed) .sb-header-actions button:nth-child(3) { animation: raStepCascadeIn 0.75s var(--ra-ease-spring) 1.24s both; }
+body.ra-app-entering #ra-sidebar:not(.collapsed) .sb-header-actions button:nth-child(4) { animation: raStepCascadeIn 0.75s var(--ra-ease-spring) 1.36s both; }
+body.ra-app-entering #ra-sidebar:not(.collapsed) .sb-header-actions button:nth-child(n+5) { animation: raStepCascadeIn 0.75s var(--ra-ease-spring) 1.48s both; }
 
-body.ra-app-entering .wp-step-btn:nth-child(1) { animation: raStepCascadeIn 0.52s var(--ra-ease-spring) 0.20s both; }
-body.ra-app-entering .wp-step-btn:nth-child(2) { animation: raStepCascadeIn 0.52s var(--ra-ease-spring) 0.26s both; }
-body.ra-app-entering .wp-step-btn:nth-child(3) { animation: raStepCascadeIn 0.52s var(--ra-ease-spring) 0.32s both; }
-body.ra-app-entering .wp-step-btn:nth-child(4) { animation: raStepCascadeIn 0.52s var(--ra-ease-spring) 0.38s both; }
-body.ra-app-entering .wp-step-btn:nth-child(5) { animation: raStepCascadeIn 0.52s var(--ra-ease-spring) 0.44s both; }
+body.ra-app-entering .wp-step-btn:nth-child(1) { animation: raStepCascadeIn 0.85s var(--ra-ease-spring) 1.05s both; }
+body.ra-app-entering .wp-step-btn:nth-child(2) { animation: raStepCascadeIn 0.85s var(--ra-ease-spring) 1.22s both; }
+body.ra-app-entering .wp-step-btn:nth-child(3) { animation: raStepCascadeIn 0.85s var(--ra-ease-spring) 1.39s both; }
+body.ra-app-entering .wp-step-btn:nth-child(4) { animation: raStepCascadeIn 0.85s var(--ra-ease-spring) 1.56s both; }
+body.ra-app-entering .wp-step-btn:nth-child(5) { animation: raStepCascadeIn 0.85s var(--ra-ease-spring) 1.73s both; }
 
 body.ra-app-entering #ra-sidebar-toggle-btn {
-  animation: raHandlePopIn 0.52s var(--ra-ease-spring) 0.46s both;
+  animation: raHandlePopIn 0.85s var(--ra-ease-spring) 1.75s both;
 }
 
-body.ra-app-entering #ra-onboarding-empty-card,
-body.ra-app-entering #ra-cad-status-bar,
+/* BLOQUE 3 (1.6s → 3.4s · solape 1.0s): Buscador y Tarjetas del Paso Activo */
+body.ra-app-entering #ra-sidebar:not(.collapsed) .sb-tab-content {
+  animation: raStepFadeSlide 1.0s var(--ra-ease-expo) 1.6s both;
+}
+
+body.ra-app-entering .ra-anim-enter {
+  animation: raStaggerEnter 0.88s var(--ra-ease-expo) both;
+  animation-delay: calc(1.65s + var(--ra-stagger-i, 0) * 145ms);
+}
+
+/* BLOQUE 4 (2.4s → 4.0s · solape 1.0s): Brújula, HUDs Superiores y Dock Flotante */
 body.ra-app-entering #ra-project-status-hud {
-  animation: raSlideDownBounce 0.65s var(--ra-ease-spring) 0.28s both;
+  animation: raSlideDownBounce 0.9s var(--ra-ease-spring) 2.4s both;
 }
 
-body.ra-app-entering #ra-floating-tools-container button:nth-child(1) { animation: raFabSlideUp 0.56s var(--ra-ease-spring) 0.32s both; }
-body.ra-app-entering #ra-floating-tools-container button:nth-child(2) { animation: raFabSlideUp 0.56s var(--ra-ease-spring) 0.37s both; }
-body.ra-app-entering #ra-floating-tools-container button:nth-child(3) { animation: raFabSlideUp 0.56s var(--ra-ease-spring) 0.42s both; }
-body.ra-app-entering #ra-floating-tools-container button:nth-child(4) { animation: raFabSlideUp 0.56s var(--ra-ease-spring) 0.47s both; }
-body.ra-app-entering #ra-floating-tools-container button:nth-child(5) { animation: raFabSlideUp 0.56s var(--ra-ease-spring) 0.52s both; }
-body.ra-app-entering #ra-floating-tools-container button:nth-child(6) { animation: raFabSlideUp 0.56s var(--ra-ease-spring) 0.57s both; }
-body.ra-app-entering #ra-floating-tools-container button:nth-child(7) { animation: raFabSlideUp 0.56s var(--ra-ease-spring) 0.62s both; }
+body.ra-app-entering #ra-rosa {
+  animation: raStepCascadeIn 0.85s var(--ra-ease-spring) 2.45s both;
+}
 
-body.ra-app-entering #ra-floating-settings-btn,
-body.ra-app-entering #ra-solar-fab-btn,
-body.ra-app-entering #ra-outliner-fab-btn,
-body.ra-app-entering #ra-bom-fab-btn,
+body.ra-app-entering #ra-solar-fab-btn { animation: raHandlePopIn 0.72s var(--ra-ease-spring) 2.60s both; }
+body.ra-app-entering #ra-outliner-fab-btn { animation: raHandlePopIn 0.72s var(--ra-ease-spring) 2.75s both; }
+body.ra-app-entering #ra-bom-fab-btn { animation: raHandlePopIn 0.72s var(--ra-ease-spring) 2.90s both; }
+
+body.ra-app-entering #ra-floating-tools-container button:nth-child(1) { animation: raFabSlideUp 0.62s var(--ra-ease-spring) 2.70s both; }
+body.ra-app-entering #ra-floating-tools-container button:nth-child(2) { animation: raFabSlideUp 0.62s var(--ra-ease-spring) 2.82s both; }
+body.ra-app-entering #ra-floating-tools-container button:nth-child(3) { animation: raFabSlideUp 0.62s var(--ra-ease-spring) 2.94s both; }
+body.ra-app-entering #ra-floating-tools-container button:nth-child(4) { animation: raFabSlideUp 0.62s var(--ra-ease-spring) 3.06s both; }
+body.ra-app-entering #ra-floating-tools-container button:nth-child(5) { animation: raFabSlideUp 0.62s var(--ra-ease-spring) 3.18s both; }
+body.ra-app-entering #ra-floating-tools-container button:nth-child(6) { animation: raFabSlideUp 0.62s var(--ra-ease-spring) 3.30s both; }
+body.ra-app-entering #ra-floating-tools-container button:nth-child(7) { animation: raFabSlideUp 0.62s var(--ra-ease-spring) 3.42s both; }
+
+body.ra-app-entering #ra-floating-settings-btn {
+  animation: raFabSlideUp 0.65s var(--ra-ease-spring) 3.38s both;
+}
+
+body.ra-app-entering #ra-cad-status-bar,
+body.ra-app-entering #ra-onboarding-empty-card {
+  animation: raFabSlideUp 0.75s var(--ra-ease-spring) 3.20s both;
+}
+
 body.ra-app-entering #ra-btn-compare-scenarios,
 body.ra-app-entering #ra-benchmark-pill {
-  animation: raFabSlideUp 0.58s var(--ra-ease-spring) 0.46s both;
+  animation: raFabSlideUp 0.72s var(--ra-ease-spring) 3.28s both;
 }
 
 /* ── 3. Sidebar, Logo Cabecera y Tirador Lateral ──────────────────────────── */

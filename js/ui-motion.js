@@ -304,17 +304,15 @@
 
     body.classList.add('ra-app-entering');
 
-    setTimeout(() => {
-      const firstActive = document.getElementById('wp-subdock-body-plane') || document.getElementById('wp-p1-plane-content');
-      if (firstActive) {
-        animateContainerEntrance(firstActive, null, 8);
-      }
-    }, 180);
+    const firstActive = document.getElementById('wp-p1-plane-content') || document.getElementById('wp-subdock-body-plane');
+    if (firstActive) {
+      animateContainerEntrance(firstActive, null, 7);
+    }
 
     setTimeout(() => {
       body.classList.remove('ra-app-entering');
       body.classList.add('ra-app-entered');
-    }, 1450);
+    }, 4250);
   }
 
   function setupGrandEntrance() {
