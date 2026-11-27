@@ -4,17 +4,17 @@
    ============================================================================ */
 
 :root {
-  --nm-bg: #e7eaee;
-  --nm-surface: #ebedf0;
-  --nm-surface-elevated: #f3f5f8;
-  --nm-surface-inset: #dfe3e8;
+  --nm-bg: #d5dce6;
+  --nm-surface: #dce2eb;
+  --nm-surface-elevated: #e4e9f0;
+  --nm-surface-inset: #cbd4e0;
   --nm-text: #382a21;
   --nm-text-muted: #57606a;
   --nm-accent: #e8a204;
   --nm-accent-soft: rgba(232, 162, 4, 0.12);
-  --nm-shadow-out: 5px 5px 12px rgba(163, 177, 198, 0.45), -5px -5px 12px rgba(255, 255, 255, 0.92);
-  --nm-shadow-out-sm: 3px 3px 7px rgba(163, 177, 198, 0.42), -3px -3px 7px rgba(255, 255, 255, 0.90);
-  --nm-shadow-in: inset 3px 3px 6px rgba(163, 177, 198, 0.45), inset -3px -3px 6px rgba(255, 255, 255, 0.90);
+  --nm-shadow-out: 6px 6px 14px rgba(132, 147, 168, 0.58), -5px -5px 12px rgba(244, 247, 251, 0.85);
+  --nm-shadow-out-sm: 4px 4px 9px rgba(132, 147, 168, 0.52), -3px -3px 7px rgba(244, 247, 251, 0.82);
+  --nm-shadow-in: inset 3px 3px 7px rgba(132, 147, 168, 0.58), inset -3px -3px 6px rgba(244, 247, 251, 0.82);
 
   /* Sobreescritura global de tokens base */
   --bg-card: var(--nm-surface);
@@ -336,7 +336,7 @@
 #ra-outliner-fab-btn,
 #ra-bom-fab-btn,
 #ra-btn-compare-scenarios {
-  background: rgba(243, 245, 248, 0.94) !important;
+  background: rgba(228, 233, 240, 0.94) !important;
   color: var(--nm-text) !important;
   border: 1px solid rgba(255, 255, 255, 0.78) !important;
   border-radius: 7px !important;
@@ -385,7 +385,7 @@
 #ra-cad-outliner-panel,
 #ra-bom-tree-hud,
 #ra-solar-time-hud {
-  background: rgba(235, 237, 240, 0.94) !important;
+  background: rgba(220, 226, 235, 0.94) !important;
   color: var(--nm-text) !important;
   border: 1px solid rgba(255, 255, 255, 0.85) !important;
   border-radius: 9px !important;
@@ -422,7 +422,7 @@
 #ra-scenario-comparator-modal,
 #ra-a11y-modal,
 #ra-async-confirm-modal {
-  background: rgba(231, 234, 238, 0.78) !important;
+  background: rgba(213, 220, 230, 0.78) !important;
   backdrop-filter: blur(10px) !important;
   -webkit-backdrop-filter: blur(10px) !important;
 }
@@ -503,7 +503,7 @@
 #ra-project-loading-hud,
 .loading-overlay {
   background: var(--nm-bg) !important;
-  background-image: radial-gradient(circle at 50% 35%, #f3f5f8 0%, #e7eaee 70%) !important;
+  background-image: radial-gradient(circle at 50% 35%, #e4e9f0 0%, #d5dce6 70%) !important;
   color: var(--nm-text) !important;
   backdrop-filter: blur(12px) !important;
   -webkit-backdrop-filter: blur(12px) !important;
@@ -576,7 +576,7 @@
 
 /* ── 2. Credenciales Gate, Toasts, A11y, Benchmark, Status & Confirm Bar ──── */
 #ra-credentials-gate {
-  background: rgba(231, 234, 238, 0.85) !important;
+  background: rgba(213, 220, 230, 0.85) !important;
   backdrop-filter: blur(12px) !important;
   -webkit-backdrop-filter: blur(12px) !important;
 }
@@ -638,7 +638,7 @@
 
 /* 3D Tiles Loading Pill & Benchmark HUD */
 #ra-3d-tiles-loading {
-  background: rgba(243, 245, 248, 0.94) !important;
+  background: rgba(228, 233, 240, 0.94) !important;
   color: var(--nm-text) !important;
   border: 1px solid rgba(232, 162, 4, 0.45) !important;
   box-shadow: 0 6px 18px rgba(30, 36, 43, 0.16), 0 1px 3px rgba(30, 36, 43, 0.1) !important;
@@ -656,7 +656,7 @@
 
 #ra-benchmark-pill,
 #ra-benchmark-panel {
-  background: rgba(243, 245, 248, 0.94) !important;
+  background: rgba(228, 233, 240, 0.94) !important;
   color: var(--nm-text) !important;
   border: 1px solid rgba(255, 255, 255, 0.8) !important;
   box-shadow: 0 6px 18px rgba(30, 36, 43, 0.16), 0 1px 3px rgba(30, 36, 43, 0.1) !important;
@@ -688,7 +688,7 @@
 
 /* Status flotante y Barra de Confirmación CAD */
 #ra-status {
-  background: rgba(243, 245, 248, 0.94) !important;
+  background: rgba(228, 233, 240, 0.94) !important;
   color: var(--nm-text) !important;
   border: 1px solid rgba(255, 255, 255, 0.9) !important;
   border-radius: 8px !important;
@@ -696,7 +696,7 @@
 }
 
 #ra-confirm-bar {
-  background: rgba(235, 237, 240, 0.96) !important;
+  background: rgba(220, 226, 235, 0.96) !important;
   color: var(--nm-text) !important;
   border: 1px solid rgba(255, 255, 255, 0.9) !important;
   border-radius: 9px !important;
@@ -712,7 +712,7 @@
 #ra-hud-pill,
 #ra-hud-dropdown,
 #ra-hud-energy .tooltip-content {
-  background: rgba(243, 245, 248, 0.96) !important;
+  background: rgba(228, 233, 240, 0.96) !important;
   color: var(--nm-text) !important;
   border: 1px solid rgba(255, 255, 255, 0.9) !important;
   box-shadow: var(--nm-shadow-out) !important;
@@ -975,7 +975,7 @@ body :is(
 
 /* ── 7. Rosa de los Vientos, FABs Derecha, Tooltips y Drop Overlay Claros ──── */
 #ra-rosa-rumbo {
-  background: rgba(243, 245, 248, 0.94) !important;
+  background: rgba(228, 233, 240, 0.94) !important;
   color: var(--nm-text) !important;
   border: 1px solid rgba(232, 162, 4, 0.4) !important;
   box-shadow: var(--nm-shadow-out-sm) !important;
@@ -987,14 +987,14 @@ body :is(
 #ra-solar-fab-btn,
 #ra-outliner-fab-btn,
 #ra-bom-fab-btn {
-  background: rgba(243, 245, 248, 0.94) !important;
+  background: rgba(228, 233, 240, 0.94) !important;
   color: var(--nm-text) !important;
   border: 1px solid rgba(255, 255, 255, 0.9) !important;
   box-shadow: var(--nm-shadow-out-sm) !important;
 }
 
 .ra-fab-tooltip {
-  background: rgba(243, 245, 248, 0.98) !important;
+  background: rgba(228, 233, 240, 0.98) !important;
   color: var(--nm-text) !important;
   border: 1px solid rgba(255, 255, 255, 0.9) !important;
   box-shadow: var(--nm-shadow-out) !important;
@@ -1005,7 +1005,7 @@ body :is(
 }
 
 #ra-drop-overlay {
-  background: rgba(231, 234, 238, 0.9) !important;
+  background: rgba(213, 220, 230, 0.9) !important;
   color: var(--nm-text) !important;
   border-color: var(--nm-accent) !important;
 }
@@ -1102,7 +1102,7 @@ body :is(
   right: auto !important;
   bottom: 18px !important;
   transform: translateX(-50%) !important;
-  background: rgba(243, 245, 248, 0.88) !important;
+  background: rgba(228, 233, 240, 0.88) !important;
   backdrop-filter: blur(14px) !important;
   -webkit-backdrop-filter: blur(14px) !important;
   border: 1px solid rgba(255, 255, 255, 0.85) !important;
@@ -1196,7 +1196,7 @@ body[data-ra-step="3"] #btn-toggle-cable-audit {
 
 /* ── 10. Buscador Autocompletado (#ra-results), Cursor Tip y Tirador ───────── */
 #ra-results {
-  background: rgba(243, 245, 248, 0.98) !important;
+  background: rgba(228, 233, 240, 0.98) !important;
   backdrop-filter: blur(16px) !important;
   -webkit-backdrop-filter: blur(16px) !important;
   border: 1px solid rgba(255, 255, 255, 0.9) !important;
@@ -1206,7 +1206,7 @@ body[data-ra-step="3"] #btn-toggle-cable-audit {
 
 .search-res-item {
   color: var(--nm-text) !important;
-  border-bottom: 1px solid #dfe3e8 !important;
+  border-bottom: 1px solid #cbd4e0 !important;
 }
 
 .search-res-item:hover,
@@ -1229,7 +1229,7 @@ body[data-ra-step="3"] #btn-toggle-cable-audit {
 .search-badge-osm      { background: rgba(217, 119, 6, 0.12) !important; color: #b45309 !important; border-color: rgba(217, 119, 6, 0.35) !important; }
 
 #ra-cursor-tip {
-  background: rgba(243, 245, 248, 0.96) !important;
+  background: rgba(228, 233, 240, 0.96) !important;
   color: var(--nm-text) !important;
   border: 1px solid rgba(255, 255, 255, 0.9) !important;
   box-shadow: 0 6px 18px rgba(30, 36, 43, 0.16) !important;
@@ -1245,7 +1245,7 @@ body[data-ra-step="3"] #btn-toggle-cable-audit {
 
 /* ── 11. Panel Simulación Solar & Raytracing (#ra-solar-time-hud) Unificado ─ */
 #ra-solar-time-hud {
-  background: rgba(243, 245, 248, 0.96) !important;
+  background: rgba(228, 233, 240, 0.96) !important;
   color: var(--nm-text) !important;
   border: 1px solid rgba(255, 255, 255, 0.92) !important;
   border-radius: 11px !important;
@@ -1264,7 +1264,7 @@ body[data-ra-step="3"] #btn-toggle-cable-audit {
   flex-direction: column !important;
   align-items: stretch !important;
   gap: 10px !important;
-  border-bottom: 1px solid #dfe3e8 !important;
+  border-bottom: 1px solid #cbd4e0 !important;
   padding-bottom: 10px !important;
   position: relative;
 }
@@ -1477,7 +1477,7 @@ body[data-ra-step="3"] #btn-toggle-cable-audit {
   pointer-events: none;
   max-width: min(290px, calc(100vw - 24px));
   padding: 7px 11px;
-  background: rgba(243, 245, 248, 0.96);
+  background: rgba(228, 233, 240, 0.96);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   color: var(--nm-text, #382a21);
@@ -1548,7 +1548,7 @@ body[data-ra-step="3"] #btn-toggle-cable-audit {
 
 /* ── 14. Popover de Ajustes 3D (#ra-floating-settings-popover) ─────────────── */
 #ra-floating-settings-popover {
-  background: rgba(243, 245, 248, 0.97) !important;
+  background: rgba(228, 233, 240, 0.97) !important;
   color: var(--nm-text) !important;
   border: 1px solid rgba(255, 255, 255, 0.92) !important;
   border-radius: 11px !important;
@@ -1556,7 +1556,7 @@ body[data-ra-step="3"] #btn-toggle-cable-audit {
 }
 
 #ra-floating-settings-popover > div:first-child {
-  border-bottom-color: #dfe3e8 !important;
+  border-bottom-color: #cbd4e0 !important;
 }
 
 #ra-floating-settings-popover > div:first-child span {
