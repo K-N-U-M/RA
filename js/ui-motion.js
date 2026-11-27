@@ -285,18 +285,76 @@
     }
   }
 
+  // ── 5. Gran Entrada Sincronizada de la Pantalla Principal ──────────────────
+  let _revealTriggered = false;
+
+  function triggerAppReveal() {
+    if (_revealTriggered) return;
+    _revealTriggered = true;
+
+    const body = document.body;
+    if (!body) return;
+
+    body.classList.remove('ra-pre-reveal');
+
+    if (REDUCED_MOTION) {
+      body.classList.add('ra-app-entered');
+      return;
+    }
+
+    body.classList.add('ra-app-entering');
+
+    setTimeout(() => {
+      const firstActive = document.getElementById('wp-subdock-body-plane') || document.getElementById('wp-p1-plane-content');
+      if (firstActive) {
+        animateContainerEntrance(firstActive, null, 8);
+      }
+    }, 180);
+
+    setTimeout(() => {
+      body.classList.remove('ra-app-entering');
+      body.classList.add('ra-app-entered');
+    }, 1450);
+  }
+
+  function setupGrandEntrance() {
+    const ldScreen = document.getElementById('ra-loading');
+    const isSplashActive = !!(ldScreen && !ldScreen.classList.contains('fade-out'));
+
+    if (isSplashActive && document.body && !REDUCED_MOTION) {
+      document.body.classList.add('ra-pre-reveal');
+    }
+
+    global.addEventListener('ra:app-reveal', triggerAppReveal, { once: true });
+
+    if (ldScreen && typeof MutationObserver !== 'undefined') {
+      const splashObs = new MutationObserver(() => {
+        if (!document.body.contains(ldScreen) || ldScreen.classList.contains('fade-out')) {
+          splashObs.disconnect();
+          triggerAppReveal();
+        }
+      });
+      splashObs.observe(ldScreen, { attributes: true, attributeFilter: ['class'] });
+      if (ldScreen.parentNode) {
+        splashObs.observe(ldScreen.parentNode, { childList: true });
+      }
+    }
+
+    if (!isSplashActive) {
+      triggerAppReveal();
+    } else {
+      // Fallback de seguridad garantizado: nunca dejar la UI oculta
+      setTimeout(triggerAppReveal, 8500);
+    }
+  }
+
   function init() {
     decorateExistingCards(document);
     setupRippleHandler();
     setupSpotlightTracker();
     setupVisibilityAndKpiObservers();
     setupWorkflowHook();
-
-    // Cascada inicial del contenido visible del Paso 1
-    const firstActive = document.getElementById('wp-subdock-body-plane') || document.getElementById('wp-p1-plane-content');
-    if (firstActive) {
-      animateContainerEntrance(firstActive, null, 8);
-    }
+    setupGrandEntrance();
   }
 
   if (document.readyState === 'loading') {
@@ -307,6 +365,7 @@
 
   global.RAUIMotion = {
     animateContainerEntrance,
-    decorateExistingCards
+    decorateExistingCards,
+    triggerAppReveal
   };
 })(typeof window !== 'undefined' ? window : this);

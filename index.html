@@ -32,7 +32,7 @@ window.RA_App = window.RA_App || {};
   <link href="https://cesium.com/downloads/cesiumjs/releases/1.118/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
 
   <script defer src="js/procedural-skybox.js?v=20261117_c2"></script>
-  <script defer src="js/ui-viewport-controls.js?v=20261118_t1b"></script>
+  <script defer src="js/ui-viewport-controls.js?v=20261126_dyn2"></script>
   <script defer src="js/error-handler.js"></script>
 <script defer src="js/sanitizer.js?v=20261119_ent_fix1"></script>
   <script defer src="js/project-config.js?v=20261123_mppt_matrix2"></script>
@@ -124,7 +124,7 @@ window.RA_App = window.RA_App || {};
   <script defer src="js/mppt-window-chart.js"></script>
   <script defer src="js/onboarding-empty.js"></script>
   <script defer src="js/scenario-comparator.js"></script>
-  <script defer src="js/ui-motion.js?v=20261126_dyn1"></script>
+  <script defer src="js/ui-motion.js?v=20261126_dyn2"></script>
   <script defer src="js/app-main.js?v=20261123_mppt_perf3"></script>
   <link rel="stylesheet" href="css/styles.css?v=20261118_t1b">
   <style>
@@ -195,18 +195,33 @@ window.RA_App = window.RA_App || {};
   </style>
 
   <link rel="stylesheet" href="css/theme-neumorphic.css?v=20261126_txt">
-  <link rel="stylesheet" href="css/kinetic-motion.css?v=20261126_dyn1">
+  <link rel="stylesheet" href="css/kinetic-motion.css?v=20261126_dyn2">
 </head>
 <body>
 
   <!-- PANTALLA DE CARGA -->
   <div id="ra-loading">
-    <div class="ld-brand-box">
-      <img src="assets/ra-logo.png?v=20261105b" alt="RA Renewal Architecture" class="ld-logo-img">
-      <div class="ld-sub">Visor Planetario 3D · Suite Fotovoltaica</div>
+    <div class="ld-ambient-layer" aria-hidden="true">
+      <div class="ld-grid-bg"></div>
+      <div class="ld-orb ld-orb-1"></div>
+      <div class="ld-orb ld-orb-2"></div>
     </div>
-    <div class="ld-track"><div class="ld-bar" id="ld-bar"></div></div>
-    <div class="ld-msg" id="ld-msg">Iniciando visor 3D...</div>
+    <div class="ld-stage-card">
+      <div class="ld-kicker">INGENIERÍA SOLAR 3D · FOTOGRAMETRÍA EN VIVO</div>
+      <div class="ld-brand-box">
+        <div class="ld-orbit-wrap">
+          <span class="ld-orbit-ring ring-1" aria-hidden="true"></span>
+          <span class="ld-orbit-ring ring-2" aria-hidden="true"><span class="ld-orbit-dot"></span></span>
+          <img src="assets/ra-logo.png?v=20261105b" alt="RA Renewal Architecture" class="ld-logo-img">
+        </div>
+        <div class="ld-sub">Visor Planetario 3D · Suite Fotovoltaica</div>
+      </div>
+      <div class="ld-track"><div class="ld-bar" id="ld-bar"></div></div>
+      <div class="ld-status-row">
+        <span class="ld-pulse-dot" aria-hidden="true"></span>
+        <div class="ld-msg" id="ld-msg">Iniciando visor 3D...</div>
+      </div>
+    </div>
   </div>
 
   <!-- VISOR CESIUM 3D -->

@@ -138,12 +138,17 @@
   function hideLoading() {
     if (loadingHidden) return;
     loadingHidden = true;
+    try {
+      if (typeof global.dispatchEvent === 'function' && typeof CustomEvent === 'function') {
+        global.dispatchEvent(new CustomEvent('ra:app-reveal'));
+      }
+    } catch (_) {}
     const ldScreen = document.getElementById('ra-loading');
     if (ldScreen) {
       ldScreen.classList.add('fade-out');
       setTimeout(() => {
         if (ldScreen.parentNode) ldScreen.remove();
-      }, 2100);
+      }, 950);
     }
   }
 
