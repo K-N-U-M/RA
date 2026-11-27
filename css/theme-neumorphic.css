@@ -1510,4 +1510,61 @@ body[data-ra-step="3"] #btn-toggle-cable-audit {
   color: #c27d03 !important;
 }
 
+/* ── 14. Popover de Ajustes 3D (#ra-floating-settings-popover) ─────────────── */
+#ra-floating-settings-popover {
+  background: rgba(243, 245, 248, 0.97) !important;
+  color: var(--nm-text) !important;
+  border: 1px solid rgba(255, 255, 255, 0.92) !important;
+  border-radius: 22px !important;
+  box-shadow: 0 16px 40px rgba(30, 36, 43, 0.2), 0 2px 8px rgba(30, 36, 43, 0.08) !important;
+}
+
+#ra-floating-settings-popover > div:first-child {
+  border-bottom-color: #dfe3e8 !important;
+}
+
+#ra-floating-settings-popover > div:first-child span {
+  color: var(--nm-text) !important;
+}
+
+#ra-floating-settings-popover > div:first-child button {
+  background: var(--nm-surface) !important;
+  color: var(--nm-text) !important;
+  border: 1px solid rgba(255, 255, 255, 0.85) !important;
+  border-radius: 8px !important;
+  width: 28px !important;
+  height: 28px !important;
+}
+
+#ra-floating-settings-popover .engine-card-opt {
+  background: var(--nm-surface) !important;
+  border: 1px solid rgba(255, 255, 255, 0.85) !important;
+  border-radius: 12px !important;
+  box-shadow: var(--nm-shadow-out-sm) !important;
+  color: var(--nm-text) !important;
+}
+
+#ra-floating-settings-popover .engine-card-opt:hover {
+  background: var(--nm-surface-elevated) !important;
+  border-color: rgba(232, 162, 4, 0.45) !important;
+}
+
+#ra-floating-settings-popover .engine-card-opt.active {
+  background: rgba(232, 162, 4, 0.12) !important;
+  border-color: var(--nm-accent) !important;
+}
+
+#ra-floating-settings-popover .engine-card-title,
+#ra-floating-settings-popover .engine-card-title span:first-child {
+  color: var(--nm-text) !important;
+}
+
+#ra-floating-settings-popover .engine-card-opt.active .engine-card-title span:first-child {
+  color: #c27d03 !important;
+}
+
+#ra-floating-settings-popover .engine-card-desc {
+  color: var(--nm-text-muted) !important;
+}
+
 /* Los breakpoints responsivos (<=1280px, <=1024px, <=768px, <=480px) residen en css/responsive.css */
