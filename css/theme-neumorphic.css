@@ -118,7 +118,7 @@
   background-image: none !important;
   color: var(--nm-text) !important;
   border: 1px solid rgba(255, 255, 255, 0.85) !important;
-  border-radius: 16px !important;
+  border-radius: 8px !important;
   box-shadow: var(--nm-shadow-out-sm) !important;
 }
 
@@ -157,7 +157,7 @@
 #wp-step2-gen-tabs {
   background: var(--nm-surface-inset) !important;
   border: 1px solid rgba(255, 255, 255, 0.75) !important;
-  border-radius: 12px !important;
+  border-radius: 6px !important;
   box-shadow: var(--nm-shadow-in) !important;
 }
 
@@ -195,7 +195,7 @@
   background-image: none !important;
   color: var(--nm-text) !important;
   border: 1px solid rgba(255, 255, 255, 0.78) !important;
-  border-radius: 12px !important;
+  border-radius: 6px !important;
   box-shadow: var(--nm-shadow-in) !important;
 }
 
@@ -229,7 +229,7 @@
   background-image: none !important;
   color: var(--nm-text) !important;
   border: 1px solid rgba(232, 162, 4, 0.35) !important;
-  border-radius: 14px !important;
+  border-radius: 7px !important;
   box-shadow: var(--nm-shadow-out-sm) !important;
 }
 
@@ -248,7 +248,7 @@
   background: var(--nm-surface) !important;
   color: var(--nm-text) !important;
   border: 1px solid rgba(255, 255, 255, 0.8) !important;
-  border-radius: 14px !important;
+  border-radius: 7px !important;
   box-shadow: var(--nm-shadow-out-sm) !important;
 }
 
@@ -282,7 +282,7 @@
   background: var(--nm-surface) !important;
   color: var(--nm-text-muted) !important;
   border: 1px solid rgba(255, 255, 255, 0.8) !important;
-  border-radius: 14px !important;
+  border-radius: 7px !important;
   box-shadow: var(--nm-shadow-out-sm) !important;
   transition: all 0.2s ease !important;
 }
@@ -313,7 +313,7 @@
   background: var(--nm-surface-inset) !important;
   color: var(--nm-text) !important;
   border: 1px solid rgba(255, 255, 255, 0.65) !important;
-  border-radius: 12px !important;
+  border-radius: 6px !important;
   box-shadow: var(--nm-shadow-in) !important;
 }
 
@@ -326,7 +326,7 @@
   background: var(--nm-surface-elevated) !important;
   color: var(--nm-text) !important;
   border: 1px solid rgba(255, 255, 255, 0.85) !important;
-  border-radius: 14px !important;
+  border-radius: 7px !important;
   box-shadow: var(--nm-shadow-out-sm) !important;
 }
 
@@ -339,7 +339,7 @@
   background: rgba(243, 245, 248, 0.94) !important;
   color: var(--nm-text) !important;
   border: 1px solid rgba(255, 255, 255, 0.78) !important;
-  border-radius: 14px !important;
+  border-radius: 7px !important;
   box-shadow: 0 6px 18px rgba(30, 36, 43, 0.16), 0 1px 3px rgba(30, 36, 43, 0.1) !important;
 }
 
@@ -388,7 +388,7 @@
   background: rgba(235, 237, 240, 0.94) !important;
   color: var(--nm-text) !important;
   border: 1px solid rgba(255, 255, 255, 0.85) !important;
-  border-radius: 18px !important;
+  border-radius: 9px !important;
   box-shadow: var(--nm-shadow-out) !important;
   backdrop-filter: blur(10px) !important;
 }
@@ -444,7 +444,7 @@
   background-image: none !important;
   color: var(--nm-text) !important;
   border: 1px solid rgba(255, 255, 255, 0.88) !important;
-  border-radius: 22px !important;
+  border-radius: 11px !important;
   box-shadow: 12px 12px 28px rgba(163, 177, 198, 0.52), -10px -10px 24px rgba(255, 255, 255, 0.92) !important;
 }
 
@@ -460,7 +460,7 @@
 [id$="-modal"] .doc-modal-section {
   background: var(--nm-surface-elevated) !important;
   border: 1px solid rgba(255, 255, 255, 0.85) !important;
-  border-radius: 16px !important;
+  border-radius: 8px !important;
   box-shadow: var(--nm-shadow-out-sm) !important;
 }
 
@@ -473,7 +473,7 @@
   background: var(--nm-surface-inset) !important;
   color: var(--nm-text) !important;
   border: 1px solid rgba(255, 255, 255, 0.7) !important;
-  border-radius: 12px !important;
+  border-radius: 6px !important;
   box-shadow: var(--nm-shadow-in) !important;
 }
 
@@ -483,7 +483,7 @@
   background: var(--nm-surface-elevated) !important;
   color: var(--nm-text) !important;
   border: 1px solid rgba(255, 255, 255, 0.85) !important;
-  border-radius: 12px !important;
+  border-radius: 6px !important;
   box-shadow: var(--nm-shadow-out-sm) !important;
 }
 
@@ -517,7 +517,7 @@
   background-image: none !important;
   color: var(--nm-text) !important;
   border: 1px solid rgba(255, 255, 255, 0.9) !important;
-  border-radius: 22px !important;
+  border-radius: 11px !important;
   box-shadow: 12px 12px 28px rgba(163, 177, 198, 0.5), -10px -10px 24px rgba(255, 255, 255, 0.95) !important;
 }
 
@@ -585,7 +585,7 @@
   background: var(--nm-surface-elevated) !important;
   color: var(--nm-text) !important;
   border: 1px solid rgba(255, 255, 255, 0.9) !important;
-  border-radius: 22px !important;
+  border-radius: 11px !important;
   box-shadow: 12px 12px 28px rgba(163, 177, 198, 0.52), -10px -10px 24px rgba(255, 255, 255, 0.95) !important;
 }
 
@@ -602,7 +602,7 @@
   background: var(--nm-surface-inset) !important;
   color: var(--nm-text) !important;
   border: 1px solid rgba(255, 255, 255, 0.75) !important;
-  border-radius: 12px !important;
+  border-radius: 6px !important;
   box-shadow: var(--nm-shadow-in) !important;
 }
 
@@ -624,7 +624,7 @@
   background-image: none !important;
   color: var(--nm-text) !important;
   border: 1px solid rgba(255, 255, 255, 0.9) !important;
-  border-radius: 16px !important;
+  border-radius: 8px !important;
   box-shadow: var(--nm-shadow-out) !important;
 }
 
@@ -667,7 +667,7 @@
 }
 
 #ra-benchmark-panel {
-  border-radius: 18px !important;
+  border-radius: 9px !important;
 }
 
 #ra-benchmark-pill span:not(#ra-bm-fps):not(#ra-bm-state),
@@ -691,7 +691,7 @@
   background: rgba(243, 245, 248, 0.94) !important;
   color: var(--nm-text) !important;
   border: 1px solid rgba(255, 255, 255, 0.9) !important;
-  border-radius: 16px !important;
+  border-radius: 8px !important;
   box-shadow: var(--nm-shadow-out) !important;
 }
 
@@ -699,7 +699,7 @@
   background: rgba(235, 237, 240, 0.96) !important;
   color: var(--nm-text) !important;
   border: 1px solid rgba(255, 255, 255, 0.9) !important;
-  border-radius: 18px !important;
+  border-radius: 9px !important;
   box-shadow: var(--nm-shadow-out) !important;
 }
 
@@ -1200,7 +1200,7 @@ body[data-ra-step="3"] #btn-toggle-cable-audit {
   backdrop-filter: blur(16px) !important;
   -webkit-backdrop-filter: blur(16px) !important;
   border: 1px solid rgba(255, 255, 255, 0.9) !important;
-  border-radius: 14px !important;
+  border-radius: 7px !important;
   box-shadow: 0 14px 32px rgba(30, 36, 43, 0.16), 0 2px 6px rgba(30, 36, 43, 0.08) !important;
 }
 
@@ -1248,7 +1248,7 @@ body[data-ra-step="3"] #btn-toggle-cable-audit {
   background: rgba(243, 245, 248, 0.96) !important;
   color: var(--nm-text) !important;
   border: 1px solid rgba(255, 255, 255, 0.92) !important;
-  border-radius: 22px !important;
+  border-radius: 11px !important;
   padding: 16px 18px !important;
   gap: 12px !important;
   box-shadow: 0 14px 36px rgba(30, 36, 43, 0.18), 0 2px 8px rgba(30, 36, 43, 0.08) !important;
@@ -1325,7 +1325,7 @@ body[data-ra-step="3"] #btn-toggle-cable-audit {
   background: var(--nm-surface-inset) !important;
   border: 1px solid rgba(255, 255, 255, 0.78) !important;
   box-shadow: var(--nm-shadow-in) !important;
-  border-radius: 12px !important;
+  border-radius: 6px !important;
   padding: 7px 10px !important;
   display: flex !important;
   flex-direction: column !important;
@@ -1353,7 +1353,7 @@ body[data-ra-step="3"] #btn-toggle-cable-audit {
   background: var(--nm-surface-inset) !important;
   border: 1px solid rgba(255, 255, 255, 0.75) !important;
   box-shadow: var(--nm-shadow-in) !important;
-  border-radius: 14px !important;
+  border-radius: 7px !important;
   padding: 5px !important;
 }
 
@@ -1432,7 +1432,7 @@ body[data-ra-step="3"] #btn-toggle-cable-audit {
 #ra-solar-time-hud .solar-play-btn {
   background: linear-gradient(135deg, #e8a204, #d63d1b) !important;
   border: none !important;
-  border-radius: 12px !important;
+  border-radius: 6px !important;
   color: #ffffff !important;
   font-size: 12px !important;
   font-weight: 800 !important;
@@ -1551,7 +1551,7 @@ body[data-ra-step="3"] #btn-toggle-cable-audit {
   background: rgba(243, 245, 248, 0.97) !important;
   color: var(--nm-text) !important;
   border: 1px solid rgba(255, 255, 255, 0.92) !important;
-  border-radius: 22px !important;
+  border-radius: 11px !important;
   box-shadow: 0 16px 40px rgba(30, 36, 43, 0.2), 0 2px 8px rgba(30, 36, 43, 0.08) !important;
 }
 
@@ -1575,7 +1575,7 @@ body[data-ra-step="3"] #btn-toggle-cable-audit {
 #ra-floating-settings-popover .engine-card-opt {
   background: var(--nm-surface) !important;
   border: 1px solid rgba(255, 255, 255, 0.85) !important;
-  border-radius: 12px !important;
+  border-radius: 6px !important;
   box-shadow: var(--nm-shadow-out-sm) !important;
   color: var(--nm-text) !important;
 }

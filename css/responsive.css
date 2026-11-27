@@ -87,7 +87,7 @@
   #ra-hud-energy,
   #ra-project-status-hud {
     max-width: calc(100vw - 420px) !important;
-    border-radius: 16px !important;
+    border-radius: 8px !important;
     font-size: 12px !important;
   }
 
@@ -178,7 +178,7 @@
     left: 12px !important;
     width: 52px !important;
     height: 52px !important;
-    border-radius: 16px !important;
+    border-radius: 8px !important;
     background: var(--nm-surface-elevated, #f3f5f8) !important;
     backdrop-filter: blur(12px) !important;
     -webkit-backdrop-filter: blur(12px) !important;
@@ -293,7 +293,7 @@
   .wp-step-btn {
     min-height: 52px !important;
     padding: 7px 4px !important;
-    border-radius: 14px !important;
+    border-radius: 7px !important;
     gap: 3px !important;
   }
 
@@ -328,7 +328,7 @@
   #ra-sidebar .ui-card,
   #ra-sidebar .wp-subdock,
   #ra-sidebar [id^="wp-subdock-body-"] > div {
-    border-radius: 18px !important;
+    border-radius: 9px !important;
     padding: 14px !important;
     gap: 10px !important;
   }
@@ -372,7 +372,7 @@
 
   #ra-sidebar .stat-pill {
     padding: 10px 10px !important;
-    border-radius: 14px !important;
+    border-radius: 7px !important;
   }
 
   #ra-sidebar .stat-pill-label {
@@ -388,7 +388,7 @@
     min-height: 48px !important;
     font-size: 14.5px !important;
     font-weight: 700 !important;
-    border-radius: 14px !important;
+    border-radius: 7px !important;
     white-space: normal !important;
     line-height: 1.28 !important;
     padding: 10px 14px !important;
@@ -586,7 +586,7 @@
     bottom: max(76px, calc(env(safe-area-inset-bottom) + 64px)) !important;
     max-height: 76dvh !important;
     padding: 16px !important;
-    border-radius: 22px !important;
+    border-radius: 11px !important;
     font-size: 14px !important;
   }
 
@@ -708,7 +708,7 @@
     max-height: 95dvh !important;
     overflow-y: auto !important;
     -webkit-overflow-scrolling: touch !important;
-    border-radius: 22px !important;
+    border-radius: 11px !important;
     padding: 16px !important;
   }
 
@@ -790,7 +790,7 @@
   /* Presentación (#ra-loading) grande y cómoda en pantallas pequeñas */
   #ra-loading .ld-stage-card {
     padding: 30px 24px 26px !important;
-    border-radius: 24px !important;
+    border-radius: 12px !important;
     gap: 16px !important;
   }
 
