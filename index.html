@@ -32,7 +32,7 @@ window.RA_App = window.RA_App || {};
   <link href="https://cesium.com/downloads/cesiumjs/releases/1.118/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
 
   <script defer src="js/procedural-skybox.js?v=20261117_c2"></script>
-  <script defer src="js/ui-viewport-controls.js?v=20261126_resp2"></script>
+  <script defer src="js/ui-viewport-controls.js?v=20261126_audit1"></script>
   <script defer src="js/error-handler.js"></script>
 <script defer src="js/sanitizer.js?v=20261119_ent_fix1"></script>
   <script defer src="js/project-config.js?v=20261123_mppt_matrix2"></script>
@@ -124,9 +124,9 @@ window.RA_App = window.RA_App || {};
   <script defer src="js/mppt-window-chart.js"></script>
   <script defer src="js/onboarding-empty.js"></script>
   <script defer src="js/scenario-comparator.js"></script>
-  <script defer src="js/ui-motion.js?v=20261126_dyn2"></script>
+  <script defer src="js/ui-motion.js?v=20261126_audit1"></script>
   <script defer src="js/app-main.js?v=20261123_mppt_perf3"></script>
-  <link rel="stylesheet" href="css/styles.css?v=20261118_t1b">
+  <link rel="stylesheet" href="css/styles.css?v=20261126_audit1">
   <style>
     .icon-sm { width: 1.15em; height: 1.15em; vertical-align: -0.2em; stroke-width: 2.3; margin-right: 0.1em; }
     .lucide { width: 1.15em; height: 1.15em; vertical-align: -0.2em; stroke-width: 2.3; }
@@ -194,9 +194,9 @@ window.RA_App = window.RA_App || {};
     }
   </style>
 
-  <link rel="stylesheet" href="css/theme-neumorphic.css?v=20261126_resp2">
-  <link rel="stylesheet" href="css/responsive.css?v=20261126_resp2">
-  <link rel="stylesheet" href="css/kinetic-motion.css?v=20261126_resp2">
+  <link rel="stylesheet" href="css/theme-neumorphic.css?v=20261126_audit1">
+  <link rel="stylesheet" href="css/responsive.css?v=20261126_audit1">
+  <link rel="stylesheet" href="css/kinetic-motion.css?v=20261126_audit1">
 </head>
 <body>
 
@@ -395,9 +395,9 @@ window.RA_App = window.RA_App || {};
   </div>
 
   <!-- BOTÓN FLOTANTE 1: SIMULACIÓN SOLAR (REDONDO CON TOOLTIP) -->
-  <button id="ra-solar-fab-btn" class="ra-round-fab-btn solar-fab-btn" onclick="toggleSolarHUD(true)" aria-label="Simulación Solar" style="top:148px;right:20px;border-color:rgba(245,158,11,0.55);box-shadow:0 8px 24px rgba(0,0,0,0.65),0 0 16px rgba(245,158,11,0.25);">
-    <span id="solar-fab-sun-icon" class="solar-fab-sun" style="display:flex;align-items:center;justify-content:center;color:#F59E0B;filter:drop-shadow(0 0 6px rgba(245,158,11,0.6));">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+  <button id="ra-solar-fab-btn" class="ra-round-fab-btn solar-fab-btn" onclick="toggleSolarHUD(true)" aria-label="Simulación Solar" style="top:148px;right:20px;background:#f3f5f8;border:1px solid rgba(255,255,255,0.88);box-shadow:4px 4px 10px rgba(163,177,198,0.45),-4px -4px 10px rgba(255,255,255,0.9);">
+    <span id="solar-fab-sun-icon" class="solar-fab-sun" style="display:flex;align-items:center;justify-content:center;color:#c27d03;">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#c27d03" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <circle cx="12" cy="12" r="5"></circle>
         <line x1="12" y1="1" x2="12" y2="3"></line>
         <line x1="12" y1="21" x2="12" y2="23"></line>
@@ -416,9 +416,9 @@ window.RA_App = window.RA_App || {};
   </button>
 
   <!-- BOTÓN FLOTANTE 2: ÁRBOL DE PROYECTO (REDONDO CON TOOLTIP) -->
-  <button id="ra-outliner-fab-btn" class="ra-round-fab-btn outliner-fab-btn" onclick="if (typeof UIOutliner !== 'undefined') { UIOutliner.toggle(); }" aria-label="Árbol de Proyecto" style="top:200px;right:20px;border-color:rgba(56,189,248,0.55);box-shadow:0 8px 24px rgba(0,0,0,0.65),0 0 16px rgba(56,189,248,0.25);">
-    <span style="display:flex;align-items:center;justify-content:center;filter:drop-shadow(0 0 6px rgba(56,189,248,0.6));">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#38BDF8" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+  <button id="ra-outliner-fab-btn" class="ra-round-fab-btn outliner-fab-btn" onclick="if (typeof UIOutliner !== 'undefined') { UIOutliner.toggle(); }" aria-label="Árbol de Proyecto" style="top:200px;right:20px;background:#f3f5f8;border:1px solid rgba(255,255,255,0.88);box-shadow:4px 4px 10px rgba(163,177,198,0.45),-4px -4px 10px rgba(255,255,255,0.9);">
+    <span style="display:flex;align-items:center;justify-content:center;color:#0284c7;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
         <polyline points="2 17 12 22 22 17"></polyline>
         <polyline points="2 12 12 17 22 12"></polyline>
@@ -431,9 +431,9 @@ window.RA_App = window.RA_App || {};
   </button>
 
   <!-- BOTÓN FLOTANTE 3: ÁRBOL DE MEDICIONES (REDONDO CON TOOLTIP) -->
-  <button id="ra-bom-fab-btn" class="ra-round-fab-btn bom-fab-btn" onclick="if (typeof BOMTreeEngine !== 'undefined') { BOMTreeEngine.toggleVisibility(); }" aria-label="Árbol de Mediciones" style="top:252px;right:20px;border-color:rgba(16,185,129,0.55);box-shadow:0 8px 24px rgba(0,0,0,0.65),0 0 16px rgba(16,185,129,0.25);">
-    <span style="display:flex;align-items:center;justify-content:center;filter:drop-shadow(0 0 6px rgba(16,185,129,0.6));">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#34D399" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+  <button id="ra-bom-fab-btn" class="ra-round-fab-btn bom-fab-btn" onclick="if (typeof BOMTreeEngine !== 'undefined') { BOMTreeEngine.toggleVisibility(); }" aria-label="Árbol de Mediciones" style="top:252px;right:20px;background:#f3f5f8;border:1px solid rgba(255,255,255,0.88);box-shadow:4px 4px 10px rgba(163,177,198,0.45),-4px -4px 10px rgba(255,255,255,0.9);">
+    <span style="display:flex;align-items:center;justify-content:center;color:#059669;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <rect x="4" y="2" width="16" height="20" rx="2"></rect>
         <line x1="8" y1="6" x2="16" y2="6"></line>
         <line x1="16" y1="14" x2="16" y2="18"></line>
@@ -455,24 +455,24 @@ window.RA_App = window.RA_App || {};
   <!-- ROSA DE LOS VIENTOS (gira con la cámara, N siempre al norte real) -->
   <div id="ra-rosa" title="Rosa de los vientos — clic para orientar al norte">
     <svg id="ra-rosa-svg" viewBox="-110 -110 220 220" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <circle r="100" fill="rgba(15,23,42,0.55)" stroke="rgba(245,158,11,0.5)" stroke-width="1.5"/>
-      <circle r="74" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
+      <circle r="100" fill="rgba(243,245,248,0.92)" stroke="rgba(232,162,4,0.55)" stroke-width="1.5"/>
+      <circle r="74" fill="none" stroke="rgba(56,42,33,0.14)" stroke-width="1"/>
       <polygon points="0,-96 14,-30 -14,-30" fill="#E63946" opacity="0.95"/>
-      <polygon points="0,96 14,30 -14,30" fill="rgba(226,232,240,0.75)"/>
-      <polygon points="96,0 30,14 30,-14" fill="rgba(226,232,240,0.75)"/>
-      <polygon points="-96,0 -30,14 -30,-14" fill="rgba(226,232,240,0.75)"/>
-      <circle cx="52.5" cy="-52.5" r="7" fill="rgba(226,232,240,0.55)"/>
-      <circle cx="52.5" cy="52.5" r="7" fill="rgba(226,232,240,0.55)"/>
-      <circle cx="-52.5" cy="-52.5" r="7" fill="rgba(226,232,240,0.55)"/>
-      <circle cx="-52.5" cy="52.5" r="7" fill="rgba(226,232,240,0.55)"/>
-      <text x="0" y="-64" text-anchor="middle" fill="#F7A520" font-size="26" font-weight="900" font-family="sans-serif">N</text>
-      <text x="64" y="6" text-anchor="middle" fill="#E2E8F0" font-size="19" font-weight="700" font-family="sans-serif">E</text>
-      <text x="0" y="82" text-anchor="middle" fill="#E2E8F0" font-size="19" font-weight="700" font-family="sans-serif">S</text>
-      <text x="-64" y="6" text-anchor="middle" fill="#E2E8F0" font-size="19" font-weight="700" font-family="sans-serif">O</text>
-      <text x="62" y="-56" text-anchor="middle" fill="rgba(226,232,240,0.7)" font-size="12" font-weight="700" font-family="sans-serif">NE</text>
-      <text x="62" y="70" text-anchor="middle" fill="rgba(226,232,240,0.7)" font-size="12" font-weight="700" font-family="sans-serif">SE</text>
-      <text x="-62" y="70" text-anchor="middle" fill="rgba(226,232,240,0.7)" font-size="12" font-weight="700" font-family="sans-serif">SO</text>
-      <text x="-62" y="-56" text-anchor="middle" fill="rgba(226,232,240,0.7)" font-size="12" font-weight="700" font-family="sans-serif">NO</text>
+      <polygon points="0,96 14,30 -14,30" fill="rgba(87,96,106,0.55)"/>
+      <polygon points="96,0 30,14 30,-14" fill="rgba(87,96,106,0.55)"/>
+      <polygon points="-96,0 -30,14 -30,-14" fill="rgba(87,96,106,0.55)"/>
+      <circle cx="52.5" cy="-52.5" r="7" fill="rgba(87,96,106,0.45)"/>
+      <circle cx="52.5" cy="52.5" r="7" fill="rgba(87,96,106,0.45)"/>
+      <circle cx="-52.5" cy="-52.5" r="7" fill="rgba(87,96,106,0.45)"/>
+      <circle cx="-52.5" cy="52.5" r="7" fill="rgba(87,96,106,0.45)"/>
+      <text x="0" y="-64" text-anchor="middle" fill="#c27d03" font-size="26" font-weight="900" font-family="sans-serif">N</text>
+      <text x="64" y="6" text-anchor="middle" fill="#382a21" font-size="19" font-weight="700" font-family="sans-serif">E</text>
+      <text x="0" y="82" text-anchor="middle" fill="#382a21" font-size="19" font-weight="700" font-family="sans-serif">S</text>
+      <text x="-64" y="6" text-anchor="middle" fill="#382a21" font-size="19" font-weight="700" font-family="sans-serif">O</text>
+      <text x="62" y="-56" text-anchor="middle" fill="#57606a" font-size="12" font-weight="700" font-family="sans-serif">NE</text>
+      <text x="62" y="70" text-anchor="middle" fill="#57606a" font-size="12" font-weight="700" font-family="sans-serif">SE</text>
+      <text x="-62" y="70" text-anchor="middle" fill="#57606a" font-size="12" font-weight="700" font-family="sans-serif">SO</text>
+      <text x="-62" y="-56" text-anchor="middle" fill="#57606a" font-size="12" font-weight="700" font-family="sans-serif">NO</text>
     </svg>
     <div id="ra-rosa-rumbo">RUMBO 0°</div>
   </div>
@@ -482,7 +482,7 @@ window.RA_App = window.RA_App || {};
 
   <!-- BOTÓN FLOTANTE MENÚ HAMBURGUESA INDEPENDIENTE (SÓLO MÓVIL <= 768px) -->
   <button type="button" id="ra-mobile-menu-btn" onclick="toggleSidebarCollapse()" title="Abrir Menú de Diseño Fotovoltaico" aria-label="Abrir menú de diseño">
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#c27d03" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
       <line x1="4" y1="6" x2="20" y2="6"></line>
       <line x1="4" y1="12" x2="20" y2="12"></line>
       <line x1="4" y1="18" x2="20" y2="18"></line>

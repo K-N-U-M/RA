@@ -1003,26 +1003,26 @@ Normas estrictas:
     if (modal) return modal;
 
     const modalHTML = `
-      <div id="ra-bill-auditor-modal" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(5,10,20,0.85);backdrop-filter:blur(10px);z-index:999999;align-items:center;justify-content:center;font-family:var(--font-sans, system-ui, -apple-system, sans-serif);">
-        <div style="width:960px;max-width:96vw;max-height:94vh;background:linear-gradient(135deg, rgba(15,23,42,0.98) 0%, rgba(30,41,59,0.96) 100%);border:1px solid rgba(245,158,11,0.35);box-shadow:0 25px 60px rgba(0,0,0,0.7), 0 0 35px rgba(245,158,11,0.18);border-radius:14px;overflow:hidden;display:flex;flex-direction:column;color:#fff;">
+      <div id="ra-bill-auditor-modal" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(231,234,238,0.82);backdrop-filter:blur(10px);z-index:150000;align-items:center;justify-content:center;font-family:var(--font-sans, system-ui, -apple-system, sans-serif);">
+        <div style="width:960px;max-width:96vw;max-height:94vh;background:#ebedf0;border:1px solid rgba(255,255,255,0.88);box-shadow:14px 14px 32px rgba(163,177,198,0.52),-10px -10px 26px rgba(255,255,255,0.94);border-radius:22px;overflow:hidden;display:flex;flex-direction:column;color:#382a21;">
           
           <!-- Header -->
-          <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 24px;border-bottom:1px solid rgba(255,255,255,0.08);background:rgba(0,0,0,0.3);">
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 24px;border-bottom:1px solid #dfe3e8;background:#f3f5f8;">
             <div style="display:flex;align-items:center;gap:12px;">
               <div style="width:38px;height:38px;border-radius:9px;background:linear-gradient(135deg,#f59e0b,#d97706);display:flex;align-items:center;justify-content:center;box-shadow:0 0 14px rgba(245,158,11,0.45);">
                 <span style="font-size:20px;">📄</span>
               </div>
               <div>
-                <h3 style="margin:0;font-size:15px;font-weight:800;letter-spacing:-0.3px;color:#fff;text-transform:uppercase;">Auditoría de Factura Eléctrica &amp; Comparativa de Ahorro</h3>
-                <span style="font-size:10.5px;color:rgba(255,255,255,0.65);font-weight:600;">Doble motor: IA Multimodal (PDF / Fotos) + Motor Local Offline (CSV / Reglas)</span>
+                <h3 style="margin:0;font-size:15px;font-weight:800;letter-spacing:-0.3px;color:#382a21;text-transform:uppercase;">Auditoría de Factura Eléctrica &amp; Comparativa de Ahorro</h3>
+                <span style="font-size:10.5px;color:#57606a;font-weight:600;">Doble motor: IA Multimodal (PDF / Fotos) + Motor Local Offline (CSV / Reglas)</span>
               </div>
             </div>
             <div style="display:flex;align-items:center;gap:10px;">
               <div id="bill-ai-key-pill" style="display:flex;align-items:center;gap:6px;background:rgba(168,85,247,0.15);border:1px solid rgba(168,85,247,0.35);padding:4px 10px;border-radius:20px;font-size:10px;cursor:pointer;transition:all 0.2s;">
                 <span id="bill-ai-key-dot" style="width:7px;height:7px;border-radius:50%;background:#a855f7;"></span>
-                <span id="bill-ai-key-text" style="color:#d8b4fe;font-weight:700;">IA Gemini</span>
+                <span id="bill-ai-key-text" style="color:#7c3aed;font-weight:700;">IA Gemini</span>
               </div>
-              <button id="btn-close-bill-modal" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#fff;width:32px;height:32px;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;transition:all 0.2s;">✕</button>
+              <button id="btn-close-bill-modal" style="background:#ebedf0;border:1px solid rgba(255,255,255,0.85);color:#382a21;width:32px;height:32px;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;transition:all 0.2s;">✕</button>
             </div>
           </div>
 
@@ -1035,17 +1035,17 @@ Normas estrictas:
               <!-- Selector de Motor (Tabs Segmentados) -->
               <div style="display:flex;flex-direction:column;gap:6px;">
                 <div style="display:flex;justify-content:space-between;align-items:center;">
-                  <span style="font-size:10px;font-weight:800;color:rgba(255,255,255,0.7);text-transform:uppercase;letter-spacing:0.5px;">Motor de Procesamiento:</span>
+                  <span style="font-size:10px;font-weight:800;color:#57606a;text-transform:uppercase;letter-spacing:0.5px;">Motor de Procesamiento:</span>
                   <span id="engine-hint-label" style="font-size: 10px;color:#a855f7;font-weight:700;">Recomendado para PDFs y fotos</span>
                 </div>
-                <div style="display:grid;grid-template-columns:1.2fr 1.3fr 1.1fr;gap:6px;background:rgba(0,0,0,0.35);padding:4px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);">
-                  <button id="engine-tab-auto" type="button" style="background:rgba(245,158,11,0.25);border:1px solid #f59e0b;color:#fbbf24;font-size:10px;font-weight:800;padding:6px;border-radius:6px;cursor:pointer;transition:all 0.2s;">
+                <div style="display:grid;grid-template-columns:1.2fr 1.3fr 1.1fr;gap:6px;background:#f3f5f8;padding:4px;border-radius:8px;border:1px solid #dfe3e8;">
+                  <button id="engine-tab-auto" type="button" style="background:rgba(245,158,11,0.25);border:1px solid #f59e0b;color:#b45309;font-size:10px;font-weight:800;padding:6px;border-radius:6px;cursor:pointer;transition:all 0.2s;">
                     🔄 Auto (Inteligente)
                   </button>
-                  <button id="engine-tab-ai" type="button" style="background:transparent;border:1px solid transparent;color:rgba(255,255,255,0.6);font-size:10px;font-weight:700;padding:6px;border-radius:6px;cursor:pointer;transition:all 0.2s;">
+                  <button id="engine-tab-ai" type="button" style="background:transparent;border:1px solid transparent;color:#57606a;font-size:10px;font-weight:700;padding:6px;border-radius:6px;cursor:pointer;transition:all 0.2s;">
                     🧠 Motor IA (Gemini)
                   </button>
-                  <button id="engine-tab-local" type="button" style="background:transparent;border:1px solid transparent;color:rgba(255,255,255,0.6);font-size:10px;font-weight:700;padding:6px;border-radius:6px;cursor:pointer;transition:all 0.2s;">
+                  <button id="engine-tab-local" type="button" style="background:transparent;border:1px solid transparent;color:#57606a;font-size:10px;font-weight:700;padding:6px;border-radius:6px;cursor:pointer;transition:all 0.2s;">
                     ⚡ Local (CSV/Reglas)
                   </button>
                 </div>
@@ -1054,15 +1054,15 @@ Normas estrictas:
               <!-- Mini Diálogo de Configuración de API Key (Oculto por defecto) -->
               <div id="bill-api-key-box" style="display:none;background:rgba(168,85,247,0.12);border:1px solid rgba(168,85,247,0.35);border-radius:8px;padding:10px;flex-direction:column;gap:6px;">
                 <div style="display:flex;justify-content:space-between;align-items:center;">
-                  <span style="font-size:10px;font-weight:800;color:#d8b4fe;">🔑 Configuración de Google Gemini API Key</span>
-                  <button id="btn-close-key-box" type="button" style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:11px;">✕</button>
+                  <span style="font-size:10px;font-weight:800;color:#7c3aed;">🔑 Configuración de Google Gemini API Key</span>
+                  <button id="btn-close-key-box" type="button" style="background:none;border:none;color:#57606a;cursor:pointer;font-size:11px;">✕</button>
                 </div>
-                <div style="font-size: 10px;color:rgba(255,255,255,0.75);">
+                <div style="font-size: 10px;color:#57606a;">
                   Introduce tu clave para habilitar la extracción multimodal (PDFs y fotos):
                 </div>
                 <div style="display:flex;gap:6px;">
-                  <input type="password" id="bill-gemini-key-input" placeholder="AIzaSy..." style="flex:1;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.15);color:#fff;font-size:10px;padding:5px 8px;border-radius:4px;">
-                  <button id="btn-save-bill-gemini-key" type="button" style="background:#a855f7;border:none;color:#fff;font-size:10px;font-weight:800;padding:5px 12px;border-radius:4px;cursor:pointer;">Guardar</button>
+                  <input type="password" id="bill-gemini-key-input" placeholder="AIzaSy..." style="flex:1;background:#ffffff;border:1px solid #cbd5e1;color:#382a21;font-size:10px;padding:5px 8px;border-radius:4px;">
+                  <button id="btn-save-bill-gemini-key" type="button" style="background:#a855f7;border:none;color:#382a21;font-size:10px;font-weight:800;padding:5px 12px;border-radius:4px;cursor:pointer;">Guardar</button>
                 </div>
               </div>
 
@@ -1072,80 +1072,80 @@ Normas estrictas:
                 
                 <div id="dropzone-idle-content" style="display:flex;flex-direction:column;align-items:center;gap:6px;">
                   <span style="font-size:28px;">📄⚡</span>
-                  <span style="font-size:12px;font-weight:800;color:#f59e0b;">Arrastra tu factura aquí o haz clic para subir</span>
-                  <span style="font-size: 10px;color:rgba(255,255,255,0.7);">Soporta: <b>PDF oficial</b> · <b>Fotos del móvil (JPG/PNG)</b> · <b>CSV Datadis</b> · <b>TXT</b></span>
+                  <span style="font-size:12px;font-weight:800;color:#c27d03;">Arrastra tu factura aquí o haz clic para subir</span>
+                  <span style="font-size: 10px;color:#57606a;">Soporta: <b>PDF oficial</b> · <b>Fotos del móvil (JPG/PNG)</b> · <b>CSV Datadis</b> · <b>TXT</b></span>
                 </div>
 
                 <div id="dropzone-loading-content" style="display:none;flex-direction:column;align-items:center;gap:10px;padding:6px 0;">
                   <div style="width:26px;height:26px;border:3px solid rgba(168,85,247,0.3);border-top-color:#c084fc;border-radius:50%;animation:billSpin 0.8s linear infinite;"></div>
-                  <span id="dropzone-loading-msg" style="font-size:11.5px;font-weight:800;color:#d8b4fe;">Analizando factura con IA de Google Gemini...</span>
-                  <span style="font-size: 10px;color:rgba(255,255,255,0.65);">Extrayendo CUPS, potencias contratadas, consumos horarios y términos económicos...</span>
+                  <span id="dropzone-loading-msg" style="font-size:11.5px;font-weight:800;color:#7c3aed;">Analizando factura con IA de Google Gemini...</span>
+                  <span style="font-size: 10px;color:#57606a;">Extrayendo CUPS, potencias contratadas, consumos horarios y términos económicos...</span>
                 </div>
               </div>
 
               <!-- Pegar texto directo opcional -->
               <div style="display:flex;flex-direction:column;gap:6px;">
                 <div style="display:flex;justify-content:space-between;align-items:center;">
-                  <span style="font-size:10px;font-weight:700;color:rgba(255,255,255,0.7);text-transform:uppercase;">O pega el texto copiado de la factura:</span>
+                  <span style="font-size:10px;font-weight:700;color:#57606a;text-transform:uppercase;">O pega el texto copiado de la factura:</span>
                   <div style="display:flex;gap:6px;">
-                    <button id="btn-parse-pasted-local" type="button" style="font-size: 10px;background:rgba(245,158,11,0.18);border:1px solid #f59e0b;color:#fbbf24;padding:2px 8px;border-radius:4px;cursor:pointer;font-weight:700;">⚡ Analizar Local</button>
-                    <button id="btn-parse-pasted-ai" type="button" style="font-size: 10px;background:rgba(168,85,247,0.22);border:1px solid #a855f7;color:#d8b4fe;padding:2px 8px;border-radius:4px;cursor:pointer;font-weight:800;">🧠 Analizar con IA</button>
+                    <button id="btn-parse-pasted-local" type="button" style="font-size: 10px;background:rgba(245,158,11,0.18);border:1px solid #f59e0b;color:#b45309;padding:2px 8px;border-radius:4px;cursor:pointer;font-weight:700;">⚡ Analizar Local</button>
+                    <button id="btn-parse-pasted-ai" type="button" style="font-size: 10px;background:rgba(168,85,247,0.22);border:1px solid #a855f7;color:#7c3aed;padding:2px 8px;border-radius:4px;cursor:pointer;font-weight:800;">🧠 Analizar con IA</button>
                   </div>
                 </div>
-                <textarea id="bill-raw-textarea" rows="2" placeholder="Pega aquí el texto copiado de tu factura (Endesa, Iberdrola, Naturgy, etc.)..." style="width:100%;background:rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.1);border-radius:6px;color:#fff;font-size: 10px;font-family:monospace;padding:8px;resize:none;box-sizing:border-box;"></textarea>
+                <textarea id="bill-raw-textarea" rows="2" placeholder="Pega aquí el texto copiado de tu factura (Endesa, Iberdrola, Naturgy, etc.)..." style="width:100%;background:#ffffff;border:1px solid #cbd5e1;border-radius:6px;color:#382a21;font-size: 10px;font-family:monospace;padding:8px;resize:none;box-sizing:border-box;"></textarea>
               </div>
 
               <!-- Formulario de Campos Auditados / Editables -->
-              <div style="background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:12px;display:flex;flex-direction:column;gap:8px;">
-                <div style="font-size:10px;font-weight:800;color:#f59e0b;text-transform:uppercase;border-bottom:1px solid rgba(255,255,255,0.08);padding-bottom:6px;display:flex;justify-content:space-between;align-items:center;">
+              <div style="background:#f3f5f8;border:1px solid #dfe3e8;border-radius:8px;padding:12px;display:flex;flex-direction:column;gap:8px;">
+                <div style="font-size:10px;font-weight:800;color:#c27d03;text-transform:uppercase;border-bottom:1px solid #dfe3e8;padding-bottom:6px;display:flex;justify-content:space-between;align-items:center;">
                   <span>Datos Extraídos de la Factura</span>
                   <div style="display:flex;align-items:center;gap:6px;">
-                    <span id="bill-detected-source-badge" style="display:none;background:rgba(16,185,129,0.2);border:1px solid #10b981;color:#34d399;font-size: 10px;font-weight:800;padding:1px 6px;border-radius:4px;">🧠 IA</span>
-                    <span id="bill-detected-company" style="color:#38bdf8;font-weight:700;">Sin factura</span>
+                    <span id="bill-detected-source-badge" style="display:none;background:rgba(16,185,129,0.2);border:1px solid #10b981;color:#059669;font-size: 10px;font-weight:800;padding:1px 6px;border-radius:4px;">🧠 IA</span>
+                    <span id="bill-detected-company" style="color:#0284c7;font-weight:700;">Sin factura</span>
                   </div>
                 </div>
 
                 <!-- Datos del Titular / Cliente detectados (vista previa editable → documentación) -->
                 <div id="bill-titular-block" style="display:none;background:rgba(56,189,248,0.08);border:1px solid rgba(56,189,248,0.28);border-radius:6px;padding:8px 10px;">
-                  <div style="font-size: 10px;font-weight:800;color:#7dd3fc;text-transform:uppercase;margin-bottom:6px;">Datos del Titular / Cliente (se aplican a la documentación si están vacíos)</div>
+                  <div style="font-size: 10px;font-weight:800;color:#0284c7;text-transform:uppercase;margin-bottom:6px;">Datos del Titular / Cliente (se aplican a la documentación si están vacíos)</div>
                   <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
-                    <input type="text" id="bill-edit-tit-nombre" placeholder="Nombre / Razón social" style="width:100%;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.15);color:#fff;font-size:10px;padding:4px 6px;border-radius:4px;box-sizing:border-box;">
-                    <input type="text" id="bill-edit-tit-nif" placeholder="NIF / CIF" style="width:100%;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.15);color:#fff;font-size:10px;padding:4px 6px;border-radius:4px;box-sizing:border-box;">
-                    <input type="text" id="bill-edit-tit-tel" placeholder="Teléfono" style="width:100%;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.15);color:#fff;font-size:10px;padding:4px 6px;border-radius:4px;box-sizing:border-box;">
-                    <input type="text" id="bill-edit-tit-email" placeholder="Email" style="width:100%;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.15);color:#fff;font-size:10px;padding:4px 6px;border-radius:4px;box-sizing:border-box;">
-                    <input type="text" id="bill-edit-tit-dir" placeholder="Dirección de suministro" style="grid-column:1 / -1;width:100%;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.15);color:#fff;font-size:10px;padding:4px 6px;border-radius:4px;box-sizing:border-box;">
-                    <input type="text" id="bill-edit-tit-cp" placeholder="C.P." style="width:100%;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.15);color:#fff;font-size:10px;padding:4px 6px;border-radius:4px;box-sizing:border-box;">
-                    <input type="text" id="bill-edit-tit-mun" placeholder="Municipio" style="width:100%;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.15);color:#fff;font-size:10px;padding:4px 6px;border-radius:4px;box-sizing:border-box;">
-                    <input type="text" id="bill-edit-tit-prov" placeholder="Provincia" style="grid-column:1 / -1;width:100%;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.15);color:#fff;font-size:10px;padding:4px 6px;border-radius:4px;box-sizing:border-box;">
+                    <input type="text" id="bill-edit-tit-nombre" placeholder="Nombre / Razón social" style="width:100%;background:#ffffff;border:1px solid #cbd5e1;color:#382a21;font-size:10px;padding:4px 6px;border-radius:4px;box-sizing:border-box;">
+                    <input type="text" id="bill-edit-tit-nif" placeholder="NIF / CIF" style="width:100%;background:#ffffff;border:1px solid #cbd5e1;color:#382a21;font-size:10px;padding:4px 6px;border-radius:4px;box-sizing:border-box;">
+                    <input type="text" id="bill-edit-tit-tel" placeholder="Teléfono" style="width:100%;background:#ffffff;border:1px solid #cbd5e1;color:#382a21;font-size:10px;padding:4px 6px;border-radius:4px;box-sizing:border-box;">
+                    <input type="text" id="bill-edit-tit-email" placeholder="Email" style="width:100%;background:#ffffff;border:1px solid #cbd5e1;color:#382a21;font-size:10px;padding:4px 6px;border-radius:4px;box-sizing:border-box;">
+                    <input type="text" id="bill-edit-tit-dir" placeholder="Dirección de suministro" style="grid-column:1 / -1;width:100%;background:#ffffff;border:1px solid #cbd5e1;color:#382a21;font-size:10px;padding:4px 6px;border-radius:4px;box-sizing:border-box;">
+                    <input type="text" id="bill-edit-tit-cp" placeholder="C.P." style="width:100%;background:#ffffff;border:1px solid #cbd5e1;color:#382a21;font-size:10px;padding:4px 6px;border-radius:4px;box-sizing:border-box;">
+                    <input type="text" id="bill-edit-tit-mun" placeholder="Municipio" style="width:100%;background:#ffffff;border:1px solid #cbd5e1;color:#382a21;font-size:10px;padding:4px 6px;border-radius:4px;box-sizing:border-box;">
+                    <input type="text" id="bill-edit-tit-prov" placeholder="Provincia" style="grid-column:1 / -1;width:100%;background:#ffffff;border:1px solid #cbd5e1;color:#382a21;font-size:10px;padding:4px 6px;border-radius:4px;box-sizing:border-box;">
                   </div>
                 </div>
 
                 <!-- Tarjeta de Diagnóstico Inteligente IA -->
-                <div id="bill-ai-diag-card" style="display:none;background:linear-gradient(135deg, rgba(168,85,247,0.15), rgba(99,102,241,0.1));border:1px solid rgba(168,85,247,0.35);border-radius:6px;padding:8px 10px;gap:6px;align-items:flex-start;">
+                <div id="bill-ai-diag-card" style="display:none;background:#f3f5f8;border:1px solid rgba(168,85,247,0.35);border-radius:6px;padding:8px 10px;gap:6px;align-items:flex-start;">
                   <span style="font-size:14px;">💡</span>
                   <div style="display:flex;flex-direction:column;gap:2px;">
-                    <span style="font-size: 10px;font-weight:800;color:#d8b4fe;text-transform:uppercase;">Diagnóstico Inteligente:</span>
-                    <span id="bill-ai-diag-text" style="font-size: 10px;color:rgba(255,255,255,0.9);line-height:1.35;">-</span>
+                    <span style="font-size: 10px;font-weight:800;color:#7c3aed;text-transform:uppercase;">Diagnóstico Inteligente:</span>
+                    <span id="bill-ai-diag-text" style="font-size: 10px;color:#382a21;line-height:1.35;">-</span>
                   </div>
                 </div>
 
                 <!-- Tarjeta Transparente de Trazabilidad del Consumo Anual de Red -->
-                <div id="bill-ai-history-card" style="display:none;flex-direction:column;gap:6px;background:linear-gradient(135deg, rgba(14,165,233,0.14), rgba(16,185,129,0.08));border:1px solid rgba(14,165,233,0.35);border-radius:7px;padding:8px 10px;">
+                <div id="bill-ai-history-card" style="display:none;flex-direction:column;gap:6px;background:#f3f5f8;border:1px solid rgba(14,165,233,0.35);border-radius:7px;padding:8px 10px;">
                   <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap;">
                     <div style="display:flex;align-items:center;gap:6px;">
                       <span style="font-size:12px;">📊</span>
-                      <span style="font-size:10px;font-weight:800;color:#e0f2fe;">Consumo Anual Acumulado:</span>
-                      <span id="bill-annual-source-pill" style="font-size:9px;font-weight:800;padding:1px 6px;border-radius:4px;background:rgba(56,189,248,0.2);border:1px solid rgba(56,189,248,0.45);color:#7dd3fc;">--</span>
+                      <span style="font-size:10px;font-weight:800;color:#382a21;">Consumo Anual Acumulado:</span>
+                      <span id="bill-annual-source-pill" style="font-size:9px;font-weight:800;padding:1px 6px;border-radius:4px;background:rgba(56,189,248,0.2);border:1px solid rgba(56,189,248,0.45);color:#0284c7;">--</span>
                     </div>
-                    <span id="bill-ai-history-kwh" style="font-size:12px;font-weight:900;color:#38bdf8;">0 kWh/año</span>
+                    <span id="bill-ai-history-kwh" style="font-size:12px;font-weight:900;color:#0284c7;">0 kWh/año</span>
                   </div>
-                  <div id="bill-annual-formula-text" style="font-size:9.5px;color:#cbd5e1;line-height:1.35;">--</div>
-                  <div id="bill-annual-discrepancy-alert" style="display:none;background:rgba(245,158,11,0.14);border:1px solid rgba(245,158,11,0.45);border-radius:5px;padding:5px 8px;font-size:9.5px;color:#fde68a;line-height:1.35;"></div>
+                  <div id="bill-annual-formula-text" style="font-size:9.5px;color:#382a21;line-height:1.35;">--</div>
+                  <div id="bill-annual-discrepancy-alert" style="display:none;background:rgba(245,158,11,0.14);border:1px solid rgba(245,158,11,0.45);border-radius:5px;padding:5px 8px;font-size:9.5px;color:#b45309;line-height:1.35;"></div>
                   <div id="bill-annual-mode-switch" style="display:none;flex-wrap:wrap;gap:4px;"></div>
-                  <div id="bill-monthly-bars-wrap" style="display:none;flex-direction:column;gap:4px;border-top:1px dashed rgba(255,255,255,0.14);padding-top:6px;">
-                    <div style="display:flex;justify-content:space-between;align-items:center;font-size:9px;color:#94a3b8;font-weight:700;">
+                  <div id="bill-monthly-bars-wrap" style="display:none;flex-direction:column;gap:4px;border-top:1px dashed #cbd5e1;padding-top:6px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;font-size:9px;color:#57606a;font-weight:700;">
                       <span>MESES EXTRAÍDOS DEL GRÁFICO (EDITABLES EN kWh):</span>
-                      <span id="bill-monthly-bars-sum" style="color:#38bdf8;font-weight:800;">0 kWh</span>
+                      <span id="bill-monthly-bars-sum" style="color:#0284c7;font-weight:800;">0 kWh</span>
                     </div>
                     <div id="bill-monthly-bars-strip" style="display:grid;grid-template-columns:repeat(6, minmax(0, 1fr));gap:4px;"></div>
                   </div>
@@ -1153,49 +1153,49 @@ Normas estrictas:
 
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
                   <div>
-                    <label style="font-size: 10px;color:rgba(255,255,255,0.6);display:block;margin-bottom:2px;">CUPS:</label>
-                    <input type="text" id="bill-edit-cups" value="" placeholder="ES0021..." style="width:100%;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.15);color:#fff;font-size:10px;padding:4px 6px;border-radius:4px;box-sizing:border-box;">
+                    <label style="font-size: 10px;color:#57606a;display:block;margin-bottom:2px;">CUPS:</label>
+                    <input type="text" id="bill-edit-cups" value="" placeholder="ES0021..." style="width:100%;background:#ffffff;border:1px solid #cbd5e1;color:#382a21;font-size:10px;padding:4px 6px;border-radius:4px;box-sizing:border-box;">
                   </div>
                   <div>
-                    <label style="font-size: 10px;color:rgba(255,255,255,0.6);display:block;margin-bottom:2px;">Tarifa Acceso:</label>
-                    <input type="text" id="bill-edit-tarifa" value="2.0TD" style="width:100%;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.15);color:#fff;font-size:10px;padding:4px 6px;border-radius:4px;box-sizing:border-box;">
+                    <label style="font-size: 10px;color:#57606a;display:block;margin-bottom:2px;">Tarifa Acceso:</label>
+                    <input type="text" id="bill-edit-tarifa" value="2.0TD" style="width:100%;background:#ffffff;border:1px solid #cbd5e1;color:#382a21;font-size:10px;padding:4px 6px;border-radius:4px;box-sizing:border-box;">
                   </div>
                 </div>
 
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
                   <div>
-                    <label style="font-size: 10px;color:rgba(255,255,255,0.6);display:block;margin-bottom:2px;">Importe Factura (€):</label>
-                    <input type="number" id="bill-edit-total" value="125.00" step="1" style="width:100%;background:rgba(0,0,0,0.5);border:1px solid rgba(245,158,11,0.5);color:#f59e0b;font-weight:800;font-size:11px;padding:4px 6px;border-radius:4px;box-sizing:border-box;">
+                    <label style="font-size: 10px;color:#57606a;display:block;margin-bottom:2px;">Importe Factura (€):</label>
+                    <input type="number" id="bill-edit-total" value="125.00" step="1" style="width:100%;background:#ffffff;border:1px solid rgba(245,158,11,0.5);color:#c27d03;font-weight:800;font-size:11px;padding:4px 6px;border-radius:4px;box-sizing:border-box;">
                   </div>
                   <div>
-                    <label style="font-size: 10px;color:rgba(255,255,255,0.6);display:block;margin-bottom:2px;">Consumo Facturado (kWh):</label>
-                    <input type="number" id="bill-edit-kwh" value="450" step="10" style="width:100%;background:rgba(0,0,0,0.5);border:1px solid rgba(14,165,233,0.5);color:#38bdf8;font-weight:800;font-size:11px;padding:4px 6px;border-radius:4px;box-sizing:border-box;">
+                    <label style="font-size: 10px;color:#57606a;display:block;margin-bottom:2px;">Consumo Facturado (kWh):</label>
+                    <input type="number" id="bill-edit-kwh" value="450" step="10" style="width:100%;background:#ffffff;border:1px solid rgba(14,165,233,0.5);color:#0284c7;font-weight:800;font-size:11px;padding:4px 6px;border-radius:4px;box-sizing:border-box;">
                   </div>
                 </div>
 
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
                   <div>
-                    <label style="font-size: 10px;color:rgba(255,255,255,0.6);display:block;margin-bottom:2px;">Días Facturados:</label>
-                    <input type="number" id="bill-edit-days" value="30" step="1" style="width:100%;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.15);color:#fff;font-size:10px;padding:4px 6px;border-radius:4px;box-sizing:border-box;">
+                    <label style="font-size: 10px;color:#57606a;display:block;margin-bottom:2px;">Días Facturados:</label>
+                    <input type="number" id="bill-edit-days" value="30" step="1" style="width:100%;background:#ffffff;border:1px solid #cbd5e1;color:#382a21;font-size:10px;padding:4px 6px;border-radius:4px;box-sizing:border-box;">
                   </div>
                   <div>
-                    <label style="font-size: 10px;color:rgba(255,255,255,0.6);display:block;margin-bottom:2px;">Potencia P1 / P2 (kW):</label>
-                    <input type="text" id="bill-edit-pot" value="4.6 kW" style="width:100%;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.15);color:#fff;font-size:10px;padding:4px 6px;border-radius:4px;box-sizing:border-box;">
+                    <label style="font-size: 10px;color:#57606a;display:block;margin-bottom:2px;">Potencia P1 / P2 (kW):</label>
+                    <input type="text" id="bill-edit-pot" value="4.6 kW" style="width:100%;background:#ffffff;border:1px solid #cbd5e1;color:#382a21;font-size:10px;padding:4px 6px;border-radius:4px;box-sizing:border-box;">
                   </div>
                 </div>
 
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
                   <div>
-                    <label style="font-size: 10px;color:rgba(255,255,255,0.6);display:block;margin-bottom:2px;">Precio Energía P1 (€/kWh):</label>
-                    <input type="number" id="bill-edit-price-p1" value="0.20" step="0.01" style="width:100%;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.15);color:#fff;font-size:10px;padding:4px 6px;border-radius:4px;box-sizing:border-box;">
+                    <label style="font-size: 10px;color:#57606a;display:block;margin-bottom:2px;">Precio Energía P1 (€/kWh):</label>
+                    <input type="number" id="bill-edit-price-p1" value="0.20" step="0.01" style="width:100%;background:#ffffff;border:1px solid #cbd5e1;color:#382a21;font-size:10px;padding:4px 6px;border-radius:4px;box-sizing:border-box;">
                   </div>
                   <div>
-                    <label style="font-size: 10px;color:rgba(255,255,255,0.6);display:block;margin-bottom:2px;">Precio Energía Valle P3 (€/kWh):</label>
-                    <input type="number" id="bill-edit-price-p3" value="0.11" step="0.01" style="width:100%;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.15);color:#fff;font-size:10px;padding:4px 6px;border-radius:4px;box-sizing:border-box;">
+                    <label style="font-size: 10px;color:#57606a;display:block;margin-bottom:2px;">Precio Energía Valle P3 (€/kWh):</label>
+                    <input type="number" id="bill-edit-price-p3" value="0.11" step="0.01" style="width:100%;background:#ffffff;border:1px solid #cbd5e1;color:#382a21;font-size:10px;padding:4px 6px;border-radius:4px;box-sizing:border-box;">
                   </div>
                 </div>
 
-                <button id="btn-recalculate-bill" style="background:rgba(245,158,11,0.2);border:1px solid #f59e0b;color:#fbbf24;font-size:10px;font-weight:800;padding:6px;border-radius:5px;cursor:pointer;margin-top:2px;">
+                <button id="btn-recalculate-bill" style="background:rgba(245,158,11,0.2);border:1px solid #f59e0b;color:#b45309;font-size:10px;font-weight:800;padding:6px;border-radius:5px;cursor:pointer;margin-top:2px;">
                   🔄 Actualizar Comparativa de Ahorro
                 </button>
               </div>
@@ -1206,24 +1206,24 @@ Normas estrictas:
             <div style="display:flex;flex-direction:column;gap:12px;">
               
               <!-- Tarjeta de Resumen de Impacto -->
-              <div style="background:linear-gradient(135deg, rgba(16,185,129,0.12), rgba(5,150,105,0.05));border:1px solid rgba(16,185,129,0.35);border-radius:10px;padding:14px;display:flex;justify-content:space-between;align-items:center;">
+              <div style="background:#f3f5f8;border:1px solid rgba(16,185,129,0.35);border-radius:10px;padding:14px;display:flex;justify-content:space-between;align-items:center;">
                 <div>
-                  <div style="font-size: 10px;color:rgba(255,255,255,0.7);font-weight:700;text-transform:uppercase;">Ahorro Anual Estimado</div>
-                  <div id="bill-resumen-ahorro-anual" style="font-size:22px;font-weight:900;color:#10b981;">0 € / año</div>
-                  <div id="bill-resumen-ahorro-mes" style="font-size:11px;color:#34d399;font-weight:700;">0 € / mes de reducción</div>
+                  <div style="font-size: 10px;color:#57606a;font-weight:700;text-transform:uppercase;">Ahorro Anual Estimado</div>
+                  <div id="bill-resumen-ahorro-anual" style="font-size:22px;font-weight:900;color:#059669;">0 € / año</div>
+                  <div id="bill-resumen-ahorro-mes" style="font-size:11px;color:#059669;font-weight:700;">0 € / mes de reducción</div>
                 </div>
                 <div style="text-align:right;">
-                  <div style="font-size: 10px;color:rgba(255,255,255,0.7);font-weight:700;text-transform:uppercase;">Reducción en Factura</div>
-                  <div id="bill-resumen-pct-ahorro" style="font-size:24px;font-weight:900;color:#fbbf24;">-0%</div>
-                  <div id="bill-resumen-autarquia" style="font-size:10px;color:rgba(255,255,255,0.8);font-weight:600;">Autarquía: 0%</div>
+                  <div style="font-size: 10px;color:#57606a;font-weight:700;text-transform:uppercase;">Reducción en Factura</div>
+                  <div id="bill-resumen-pct-ahorro" style="font-size:24px;font-weight:900;color:#b45309;">-0%</div>
+                  <div id="bill-resumen-autarquia" style="font-size:10px;color:#382a21;font-weight:600;">Autarquía: 0%</div>
                 </div>
               </div>
 
               <!-- Gráfico SVG Comparativo: Factura Actual vs Con Solar -->
-              <div style="background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:12px;">
+              <div style="background:#f3f5f8;border:1px solid #dfe3e8;border-radius:8px;padding:12px;">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-                  <span style="font-size:10px;font-weight:800;color:#fff;text-transform:uppercase;">Comparativa Mensual (€/mes)</span>
-                  <span style="font-size: 10px;color:#10b981;font-weight:700;">Antes vs Después</span>
+                  <span style="font-size:10px;font-weight:800;color:#382a21;text-transform:uppercase;">Comparativa Mensual (€/mes)</span>
+                  <span style="font-size: 10px;color:#059669;font-weight:700;">Antes vs Después</span>
                 </div>
                 <div id="bill-comparison-chart-wrap" style="height:140px;width:100%;position:relative;">
                   <!-- SVG Inyectado dinámicamente -->
@@ -1231,38 +1231,38 @@ Normas estrictas:
               </div>
 
               <!-- Desglose Comparativo en Tabla -->
-              <div style="background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:10px;font-size:10px;">
+              <div style="background:#f3f5f8;border:1px solid #dfe3e8;border-radius:8px;padding:10px;font-size:10px;">
                 <table style="width:100%;border-collapse:collapse;">
                   <thead>
-                    <tr style="border-bottom:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.6);">
+                    <tr style="border-bottom:1px solid #dfe3e8;color:#57606a;">
                       <th style="text-align:left;padding:4px;">Concepto</th>
                       <th style="text-align:right;padding:4px;color:#ef4444;">Sin Solar</th>
-                      <th style="text-align:right;padding:4px;color:#10b981;">Con RA</th>
+                      <th style="text-align:right;padding:4px;color:#059669;">Con RA</th>
                     </tr>
                   </thead>
                   <tbody>
-                    <tr style="border-bottom:1px solid rgba(255,255,255,0.04);">
+                    <tr style="border-bottom:1px solid #dfe3e8;">
                       <td style="padding:4px;">Gasto Mensual Medio</td>
                       <td id="table-val-gasto-sin" style="text-align:right;padding:4px;font-weight:700;">125 €</td>
-                      <td id="table-val-gasto-con" style="text-align:right;padding:4px;font-weight:700;color:#10b981;">35 €</td>
+                      <td id="table-val-gasto-con" style="text-align:right;padding:4px;font-weight:700;color:#059669;">35 €</td>
                     </tr>
-                    <tr style="border-bottom:1px solid rgba(255,255,255,0.04);">
+                    <tr style="border-bottom:1px solid #dfe3e8;">
                       <td style="padding:4px;">Gasto Anual Acumulado</td>
                       <td id="table-val-anual-sin" style="text-align:right;padding:4px;font-weight:700;">1.500 €</td>
-                      <td id="table-val-anual-con" style="text-align:right;padding:4px;font-weight:700;color:#10b981;">420 €</td>
+                      <td id="table-val-anual-con" style="text-align:right;padding:4px;font-weight:700;color:#059669;">420 €</td>
                     </tr>
-                    <tr style="border-bottom:1px solid rgba(255,255,255,0.04);">
+                    <tr style="border-bottom:1px solid #dfe3e8;">
                       <td style="padding:4px;">
                         <div>Consumo Red (kWh/año)</div>
-                        <div id="table-val-kwh-source" style="font-size:8.5px;color:#7dd3fc;opacity:0.85;">--</div>
+                        <div id="table-val-kwh-source" style="font-size:8.5px;color:#0284c7;opacity:0.85;">--</div>
                       </td>
                       <td id="table-val-kwh-sin" style="text-align:right;padding:4px;">5.450 kWh</td>
-                      <td id="table-val-kwh-con" style="text-align:right;padding:4px;color:#38bdf8;">1.635 kWh</td>
+                      <td id="table-val-kwh-con" style="text-align:right;padding:4px;color:#0284c7;">1.635 kWh</td>
                     </tr>
                     <tr>
                       <td style="padding:4px;">Balance Neto (con cuota fin.)</td>
-                      <td style="text-align:right;padding:4px;color:rgba(255,255,255,0.5);">-</td>
-                      <td id="table-val-balance-fin" style="text-align:right;padding:4px;font-weight:800;color:#fbbf24;">+38 €/mes</td>
+                      <td style="text-align:right;padding:4px;color:#57606a;">-</td>
+                      <td id="table-val-balance-fin" style="text-align:right;padding:4px;font-weight:800;color:#b45309;">+38 €/mes</td>
                     </tr>
                   </tbody>
                 </table>
@@ -1273,15 +1273,15 @@ Normas estrictas:
           </div>
 
           <!-- Footer Acciones -->
-          <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 24px;border-top:1px solid rgba(255,255,255,0.08);background:rgba(0,0,0,0.3);">
-            <div style="font-size: 10px;color:rgba(255,255,255,0.5);">
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 24px;border-top:1px solid #dfe3e8;background:#f3f5f8;">
+            <div style="font-size: 10px;color:#57606a;">
               Los datos auditados se aplican automáticamente al modelo financiero y a la propuesta PDF.
             </div>
             <div style="display:flex;gap:10px;">
-              <button id="btn-cancel-bill-modal" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#fff;font-size:11px;font-weight:700;padding:8px 16px;border-radius:6px;cursor:pointer;">
+              <button id="btn-cancel-bill-modal" style="background:#ebedf0;border:1px solid rgba(255,255,255,0.85);color:#382a21;font-size:11px;font-weight:700;padding:8px 16px;border-radius:6px;cursor:pointer;">
                 Cerrar
               </button>
-              <button id="btn-apply-bill-data" style="background:linear-gradient(135deg,#10b981,#059669);border:1px solid #10b981;color:#fff;font-size:11px;font-weight:800;padding:8px 20px;border-radius:6px;cursor:pointer;box-shadow:0 0 12px rgba(16,185,129,0.35);">
+              <button id="btn-apply-bill-data" style="background:linear-gradient(135deg,#e8a204,#d63d1b);border:none;color:#ffffff;font-size:11px;font-weight:800;padding:8px 20px;border-radius:6px;cursor:pointer;box-shadow:0 0 12px rgba(16,185,129,0.35);">
                 ✓ Aplicar Datos Reales al Presupuesto
               </button>
             </div>
@@ -1308,7 +1308,7 @@ Normas estrictas:
     if (!wrap) return;
 
     if (!comp) {
-      wrap.innerHTML = '<div style="height:100%;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,0.4);font-size:11px;">Sube una factura para generar el gráfico comparativo</div>';
+      wrap.innerHTML = '<div style="height:100%;display:flex;align-items:center;justify-content:center;color:#57606a;font-size:11px;">Sube una factura para generar el gráfico comparativo</div>';
       return;
     }
 
@@ -1321,24 +1321,24 @@ Normas estrictas:
 
     const svgHTML = `
       <svg viewBox="0 0 380 130" style="width:100%;height:100%;overflow:visible;">
-        <line x1="40" y1="20" x2="360" y2="20" stroke="rgba(255,255,255,0.06)" stroke-dasharray="3,3" />
-        <line x1="40" y1="65" x2="360" y2="65" stroke="rgba(255,255,255,0.06)" stroke-dasharray="3,3" />
-        <line x1="40" y1="110" x2="360" y2="110" stroke="rgba(255,255,255,0.15)" />
+        <line x1="40" y1="20" x2="360" y2="20" stroke="#dfe3e8" stroke-dasharray="3,3" />
+        <line x1="40" y1="65" x2="360" y2="65" stroke="#dfe3e8" stroke-dasharray="3,3" />
+        <line x1="40" y1="110" x2="360" y2="110" stroke="#cbd5e1" />
 
         <g>
           <rect x="90" y="${110 - barHeightSin}" width="65" height="${barHeightSin}" rx="4" fill="url(#gradSinSolar)" />
-          <text x="122.5" y="${102 - barHeightSin}" fill="#f87171" font-size="11" font-weight="900" text-anchor="middle">${sin} €/mes</text>
-          <text x="122.5" y="124" fill="rgba(255,255,255,0.7)" font-size="9" font-weight="700" text-anchor="middle">FACTURA ACTUAL</text>
+          <text x="122.5" y="${102 - barHeightSin}" fill="#dc2626" font-size="11" font-weight="900" text-anchor="middle">${sin} €/mes</text>
+          <text x="122.5" y="124" fill="#57606a" font-size="9" font-weight="700" text-anchor="middle">FACTURA ACTUAL</text>
         </g>
 
         <g>
           <rect x="225" y="${110 - barHeightCon}" width="65" height="${barHeightCon}" rx="4" fill="url(#gradConSolar)" />
-          <text x="257.5" y="${102 - barHeightCon}" fill="#34d399" font-size="11" font-weight="900" text-anchor="middle">${con} €/mes</text>
-          <text x="257.5" y="124" fill="#10b981" font-size="9" font-weight="800" text-anchor="middle">CON RA</text>
+          <text x="257.5" y="${102 - barHeightCon}" fill="#059669" font-size="11" font-weight="900" text-anchor="middle">${con} €/mes</text>
+          <text x="257.5" y="124" fill="#059669" font-size="9" font-weight="800" text-anchor="middle">CON RA</text>
         </g>
 
-        <path d="M 160 50 Q 190 35 220 50" fill="none" stroke="#fbbf24" stroke-width="2" stroke-dasharray="2,2" />
-        <text x="190" y="32" fill="#fbbf24" font-size="9.5" font-weight="800" text-anchor="middle">-${comp.porcentajeAhorro}%</text>
+        <path d="M 160 50 Q 190 35 220 50" fill="none" stroke="#c27d03" stroke-width="2" stroke-dasharray="2,2" />
+        <text x="190" y="32" fill="#c27d03" font-size="9.5" font-weight="800" text-anchor="middle">-${comp.porcentajeAhorro}%</text>
 
         <defs>
           <linearGradient id="gradSinSolar" x1="0%" y1="0%" x2="0%" y2="100%">

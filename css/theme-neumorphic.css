@@ -884,4 +884,192 @@ progress::-moz-progress-bar {
   border-radius: 999px !important;
 }
 
+/* ── 5. Aislamiento Total de Modales (Zero Elementos Encima) ──────────────── */
+.ra-modal,
+div[id$="-modal"],
+[role="dialog"]:not(#cesiumContainer):not(.cesium-viewer),
+[role="alertdialog"] {
+  z-index: 150000 !important;
+}
+
+body.ra-modal-open #ra-floating-tools-container,
+body.ra-modal-open #ra-floating-settings-btn,
+body.ra-modal-open #ra-floating-settings-popover,
+body.ra-modal-open #ra-benchmark-hud,
+body.ra-modal-open #ra-btn-compare-scenarios,
+body.ra-modal-open #ra-cad-status-bar,
+body.ra-modal-open #ra-project-status-hud,
+body.ra-modal-open #ra-rosa,
+body.ra-modal-open #ra-solar-fab-btn,
+body.ra-modal-open #ra-outliner-fab-btn,
+body.ra-modal-open #ra-bom-fab-btn,
+body.ra-modal-open #ra-hud-energy,
+body.ra-modal-open #ra-onboarding-empty-card,
+body.ra-modal-open #ra-capture-mode-btn,
+body.ra-modal-open #ra-mobile-menu-btn,
+body.ra-modal-open #ra-solar-time-hud,
+body.ra-modal-open #ra-cad-outliner-panel,
+body.ra-modal-open #ra-bom-tree-hud {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+/* Fallback CSS puro mediante :has() por si un modal se abre síncronamente */
+body:has(div[id$="-modal"].open) #ra-floating-tools-container,
+body:has(div[id$="-modal"].open) #ra-floating-settings-btn,
+body:has(div[id$="-modal"].open) #ra-benchmark-hud,
+body:has(div[id$="-modal"].open) #ra-btn-compare-scenarios,
+body:has(div[id$="-modal"].open) #ra-project-status-hud,
+body:has(div[id$="-modal"].open) #ra-rosa,
+body:has(div[id$="-modal"].open) #ra-solar-fab-btn,
+body:has(div[id$="-modal"].open) #ra-outliner-fab-btn,
+body:has(div[id$="-modal"].open) #ra-bom-fab-btn {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+/* ── 6. Purga Global de Degradados Oscuros (#0f172a / #1e293b) en Cabeceras ─ */
+body :is(
+  [style*="linear-gradient"][style*="0f172a"],
+  [style*="linear-gradient"][style*="0F172A"],
+  [style*="linear-gradient"][style*="1e293b"],
+  [style*="linear-gradient"][style*="1E293B"],
+  [style*="linear-gradient"][style*="020617"],
+  [style*="linear-gradient"][style*="111827"],
+  [style*="linear-gradient"][style*="15, 23, 42"],
+  [style*="linear-gradient"][style*="15,23,42"],
+  [style*="linear-gradient"][style*="30, 41, 59"],
+  [style*="linear-gradient"][style*="30,41,59"]
+):not(#cesiumContainer):not(#cesiumContainer *):not(.cesium-viewer):not(button.primary):not(.btn-primary) {
+  background: var(--nm-surface-elevated) !important;
+  background-image: none !important;
+  color: var(--nm-text) !important;
+  border-color: rgba(163, 177, 198, 0.45) !important;
+}
+
+/* ── 7. Rosa de los Vientos, FABs Derecha, Tooltips y Drop Overlay Claros ──── */
+#ra-rosa-rumbo {
+  background: rgba(243, 245, 248, 0.94) !important;
+  color: var(--nm-text) !important;
+  border: 1px solid rgba(232, 162, 4, 0.4) !important;
+  box-shadow: var(--nm-shadow-out-sm) !important;
+  font-family: 'JetBrains Mono', ui-monospace, monospace !important;
+  font-weight: 800 !important;
+}
+
+.ra-round-fab-btn,
+#ra-solar-fab-btn,
+#ra-outliner-fab-btn,
+#ra-bom-fab-btn {
+  background: rgba(243, 245, 248, 0.94) !important;
+  color: var(--nm-text) !important;
+  border: 1px solid rgba(255, 255, 255, 0.9) !important;
+  box-shadow: var(--nm-shadow-out-sm) !important;
+}
+
+.ra-fab-tooltip {
+  background: rgba(243, 245, 248, 0.98) !important;
+  color: var(--nm-text) !important;
+  border: 1px solid rgba(255, 255, 255, 0.9) !important;
+  box-shadow: var(--nm-shadow-out) !important;
+}
+
+.ra-fab-tooltip-desc {
+  color: var(--nm-text-muted) !important;
+}
+
+#ra-drop-overlay {
+  background: rgba(231, 234, 238, 0.9) !important;
+  color: var(--nm-text) !important;
+  border-color: var(--nm-accent) !important;
+}
+
+/* ── 8. Coherencia Tipográfica, Fuentes y Legibilidad en Fondos Claros ────── */
+#ra-sidebar,
+#ra-floating-tools-container,
+#ra-hud-energy,
+#ra-status,
+#ra-cad-status-bar,
+#ra-project-status-hud,
+[id$="-modal"],
+[role="dialog"]:not(#cesiumContainer):not(.cesium-viewer) {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+}
+
+/* Convertir colores neón/pastel oscuros sobre blanco a variantes legibles WCAG AA */
+body :is(
+  [style*="color:#38bdf8"], [style*="color: #38bdf8"],
+  [style*="color:#38BDF8"], [style*="color: #38BDF8"],
+  [style*="color:#7dd3fc"], [style*="color: #7dd3fc"],
+  [style*="color:#7DD3FC"], [style*="color: #7DD3FC"]
+):not(#cesiumContainer):not(#cesiumContainer *):not(button.primary):not(.btn-primary):not(#pss-live-preview-box *) {
+  color: #0284c7 !important;
+}
+
+body :is(
+  [style*="color:#34d399"], [style*="color: #34d399"],
+  [style*="color:#34D399"], [style*="color: #34D399"],
+  [style*="color:#4ade80"], [style*="color: #4ade80"]
+):not(#cesiumContainer):not(#cesiumContainer *):not(button.primary):not(.btn-primary):not(#pss-live-preview-box *) {
+  color: #059669 !important;
+}
+
+body :is(
+  [style*="color:#fbbf24"], [style*="color: #fbbf24"],
+  [style*="color:#FBBF24"], [style*="color: #FBBF24"],
+  [style*="color:#f59e0b"], [style*="color: #f59e0b"],
+  [style*="color:#F59E0B"], [style*="color: #F59E0B"],
+  [style*="color:#fde68a"], [style*="color: #fde68a"]
+):not(#cesiumContainer):not(#cesiumContainer *):not(button.primary):not(.btn-primary):not(#pss-live-preview-box *) {
+  color: #b45309 !important;
+}
+
+body :is(
+  [style*="color:#fca5a5"], [style*="color: #fca5a5"],
+  [style*="color:#f87171"], [style*="color: #f87171"]
+):not(#cesiumContainer):not(#cesiumContainer *):not(button.primary):not(.btn-primary):not(#pss-live-preview-box *) {
+  color: #dc2626 !important;
+}
+
+body :is(
+  [style*="color:#d8b4fe"], [style*="color: #d8b4fe"],
+  [style*="color:#c4b5fd"], [style*="color: #c4b5fd"],
+  [style*="color:#a78bfa"], [style*="color: #a78bfa"]
+):not(#cesiumContainer):not(#cesiumContainer *):not(button.primary):not(.btn-primary):not(#pss-live-preview-box *) {
+  color: #7c3aed !important;
+}
+
+/* Suelo mínimo de legibilidad para etiquetas, selects e inputs en sidebar y modales */
+#ra-sidebar select,
+#ra-sidebar input[type="text"],
+#ra-sidebar input[type="number"],
+#ra-sidebar input[type="search"],
+[id$="-modal"] select,
+[id$="-modal"] input[type="text"],
+[id$="-modal"] input[type="number"],
+[id$="-modal"] textarea {
+  font-size: 12px !important;
+  line-height: 1.35 !important;
+}
+
+#ra-sidebar .ui-card-head,
+[id$="-modal"] .ui-card-head {
+  font-size: 11.5px !important;
+  letter-spacing: 0.04em !important;
+}
+
+#ra-sidebar [style*="font-size:8"],
+#ra-sidebar [style*="font-size: 8"],
+#ra-sidebar [style*="font-size:9px"],
+#ra-sidebar [style*="font-size: 9px"],
+[id$="-modal"] [style*="font-size:8"],
+[id$="-modal"] [style*="font-size: 8"],
+[id$="-modal"] [style*="font-size:9px"],
+[id$="-modal"] [style*="font-size: 9px"] {
+  font-size: 10.5px !important;
+  line-height: 1.35 !important;
+}
+
 /* Los breakpoints responsivos (<=1280px, <=1024px, <=768px, <=480px) residen en css/responsive.css */

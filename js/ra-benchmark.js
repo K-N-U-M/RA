@@ -47,9 +47,9 @@
       const hasCustomPos = savedPos && Number.isFinite(savedPos.left) && Number.isFinite(savedPos.top);
       hudContainer.style.cssText = `
         position: fixed;
-        ${hasCustomPos ? `top: ${savedPos.top}px; left: ${savedPos.left}px;` : 'bottom: 78px; right: 20px;'}
-        z-index: 9600;
-        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        ${hasCustomPos ? `top: ${savedPos.top}px; left: ${savedPos.left}px;` : 'bottom: 120px; right: 20px;'}
+        z-index: 9300;
+        font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
         font-size: 11px;
         user-select: none;
         pointer-events: auto;
@@ -64,72 +64,72 @@
           display: flex;
           align-items: center;
           gap: 7px;
-          background: rgba(15, 23, 42, 0.90);
+          background: rgba(243, 245, 248, 0.94);
           backdrop-filter: blur(12px);
           -webkit-backdrop-filter: blur(12px);
-          border: 1px solid rgba(56, 189, 248, 0.4);
+          border: 1px solid rgba(255, 255, 255, 0.9);
           padding: 6px 14px;
           border-radius: 9999px;
-          color: #f8fafc;
-          box-shadow: 0 4px 16px rgba(0, 0, 0, 0.55);
+          color: #382a21;
+          box-shadow: 5px 5px 12px rgba(163, 173, 188, 0.45), -5px -5px 12px rgba(255, 255, 255, 0.88);
           cursor: grab;
           transition: border-color 0.2s, box-shadow 0.2s;
         " title="⠿ Arrastra para mover a cualquier parte / Clic para detalles [B]">
-          <span style="color:#64748b;font-size:10px;cursor:grab;" title="Tirador de arrastre">⠿</span>
-          <span style="color:#38bdf8;font-weight:bold;">⚡</span>
-          <span id="ra-bm-fps" style="font-weight:bold;color:#4ade80;">60 FPS</span>
-          <span style="color:#64748b;">·</span>
-          <span id="ra-bm-frametime" style="color:#94a3b8;">0.0 ms</span>
-          <span style="color:#64748b;">·</span>
-          <span id="ra-bm-state" style="padding:1px 6px;border-radius:4px;font-size: 10px;background:rgba(56,189,248,0.15);color:#38bdf8;font-weight:bold;">💤 SLEEP (0% GPU)</span>
-          <span style="color:#64748b;">·</span>
-          <span id="ra-bm-mem" style="color:#cbd5e1;">-- MB</span>
+          <span style="color:#57606a;font-size:10px;cursor:grab;" title="Tirador de arrastre">⠿</span>
+          <span style="color:#c27d03;font-weight:bold;">⚡</span>
+          <span id="ra-bm-fps" style="font-weight:800;color:#059669;">60 FPS</span>
+          <span style="color:#9ca3af;">·</span>
+          <span id="ra-bm-frametime" style="color:#57606a;">0.0 ms</span>
+          <span style="color:#9ca3af;">·</span>
+          <span id="ra-bm-state" style="padding:2px 7px;border-radius:6px;font-size:10px;background:rgba(232,162,4,0.14);color:#b45309;font-weight:800;">💤 SLEEP (0% GPU)</span>
+          <span style="color:#9ca3af;">·</span>
+          <span id="ra-bm-mem" style="color:#382a21;font-weight:600;">-- MB</span>
         </div>
 
         <div id="ra-benchmark-panel" style="
           display: none;
           width: 270px;
-          background: rgba(15, 23, 42, 0.95);
+          background: rgba(243, 245, 248, 0.96);
           backdrop-filter: blur(16px);
           -webkit-backdrop-filter: blur(16px);
-          border: 1px solid rgba(56, 189, 248, 0.4);
-          border-radius: 12px;
+          border: 1px solid rgba(255, 255, 255, 0.9);
+          border-radius: 16px;
           padding: 12px 14px;
-          color: #f8fafc;
-          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+          color: #382a21;
+          box-shadow: 10px 10px 24px rgba(163, 173, 188, 0.5), -8px -8px 20px rgba(255, 255, 255, 0.92);
           flex-direction: column;
           gap: 8px;
         ">
-          <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(255,255,255,0.1);padding-bottom:6px;">
-            <span style="font-weight:bold;color:#38bdf8;font-size:11px;">TELEMETRÍA HIPERESPACIAL</span>
-            <span style="font-size:10px;color:#94a3b8;" id="ra-bm-panels-count">0 placas</span>
+          <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #dfe3e8;padding-bottom:6px;">
+            <span style="font-weight:800;color:#c27d03;font-size:11px;">TELEMETRÍA EN VIVO</span>
+            <span style="font-size:10px;color:#57606a;" id="ra-bm-panels-count">0 placas</span>
           </div>
 
-          <div style="display:flex;justify-content:space-between;font-size:10px;">
-            <span style="color:#94a3b8;">Motor gráfico:</span>
-            <span id="ra-bm-draw-mode" style="color:#34d399;font-weight:bold;">ON-DEMAND (PINTOR PEREZOSO)</span>
+          <div style="display:flex;justify-content:space-between;font-size:10.5px;">
+            <span style="color:#57606a;">Motor gráfico:</span>
+            <span id="ra-bm-draw-mode" style="color:#059669;font-weight:700;">ON-DEMAND</span>
           </div>
 
           <!-- Historial gráfico de FPS -->
           <div style="margin-top:4px;">
-            <div style="display:flex;justify-content:space-between;font-size: 10px;color:#64748b;margin-bottom:2px;">
+            <div style="display:flex;justify-content:space-between;font-size:10px;color:#57606a;margin-bottom:2px;">
               <span>ESTABILIDAD DE FRAMES (30 MUESTRAS)</span>
-              <span id="ra-bm-fps-avg">60 FPS</span>
+              <span id="ra-bm-fps-avg" style="font-weight:700;color:#382a21;">60 FPS</span>
             </div>
-            <div id="ra-bm-sparkline" style="display:flex;align-items:flex-end;gap:2px;height:24px;background:rgba(0,0,0,0.3);padding:2px;border-radius:4px;">
+            <div id="ra-bm-sparkline" style="display:flex;align-items:flex-end;gap:2px;height:24px;background:#dfe3e8;padding:2px;border-radius:6px;">
             </div>
           </div>
 
           <div style="display:flex;gap:6px;margin-top:6px;">
             <button id="ra-bm-stress-btn" type="button" style="
               flex: 1;
-              background: linear-gradient(135deg, #0284c7, #2563eb);
+              background: linear-gradient(135deg, #e8a204, #d63d1b);
               border: none;
               color: white;
               font-weight: bold;
-              font-size: 10px;
+              font-size: 10.5px;
               padding: 7px;
-              border-radius: 6px;
+              border-radius: 10px;
               cursor: pointer;
               transition: all 0.2s ease;
             ">🚀 TEST DE ESTRÉS (360°)</button>

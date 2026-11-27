@@ -348,6 +348,47 @@
     }
   }
 
+  // ── 6. Aislamiento de Foco al Abrir Cualquier Modal (Oculta HUDs flotantes) ──
+  const MODAL_SELECTOR = 'div[id$="-modal"], [role="dialog"]:not(#cesiumContainer):not(.cesium-viewer), [role="alertdialog"], .ra-modal';
+
+  function syncModalOpenClass() {
+    if (!document.body) return;
+    let hasOpen = false;
+    try {
+      const candidates = document.querySelectorAll(MODAL_SELECTOR);
+      for (let i = 0; i < candidates.length; i++) {
+        const el = candidates[i];
+        if (!el || el.tagName === 'BUTTON' || el.id === 'ra-floating-settings-popover') continue;
+        const cs = global.getComputedStyle ? global.getComputedStyle(el) : null;
+        if (!cs || cs.position !== 'fixed') continue;
+        if (el.classList && el.classList.contains('open')) {
+          hasOpen = true;
+          break;
+        }
+        if (cs.display !== 'none' && cs.visibility !== 'hidden' && cs.opacity !== '0') {
+          hasOpen = true;
+          break;
+        }
+      }
+    } catch (_) {}
+    document.body.classList.toggle('ra-modal-open', hasOpen);
+  }
+
+  function setupModalFocusIsolation() {
+    syncModalOpenClass();
+    if (typeof MutationObserver === 'undefined' || !document.body) return;
+
+    const modalObserver = new MutationObserver(() => {
+      syncModalOpenClass();
+    });
+    modalObserver.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['style', 'class', 'aria-hidden']
+    });
+  }
+
   function init() {
     decorateExistingCards(document);
     setupRippleHandler();
@@ -355,6 +396,7 @@
     setupVisibilityAndKpiObservers();
     setupWorkflowHook();
     setupGrandEntrance();
+    setupModalFocusIsolation();
   }
 
   if (document.readyState === 'loading') {
@@ -366,6 +408,7 @@
   global.RAUIMotion = {
     animateContainerEntrance,
     decorateExistingCards,
-    triggerAppReveal
+    triggerAppReveal,
+    syncModalOpenClass
   };
 })(typeof window !== 'undefined' ? window : this);

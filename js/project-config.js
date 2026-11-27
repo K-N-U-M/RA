@@ -2969,7 +2969,7 @@ function wpOpenRoofOverrideModal(polyIdx) {
   if (!modalEl) {
     modalEl = document.createElement('div');
     modalEl.id = 'step4-roof-override-modal';
-    modalEl.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.75);z-index:99999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(3px);';
+    modalEl.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(231,234,238,0.82);z-index:150000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(8px);';
     document.body.appendChild(modalEl);
   }
 
@@ -2980,25 +2980,25 @@ function wpOpenRoofOverrideModal(polyIdx) {
   `).join('');
 
   modalEl.innerHTML = `
-    <div style="background:#0F172A;border:1px solid rgba(245,158,11,0.4);border-radius:10px;padding:18px;max-width:440px;width:92%;box-shadow:0 12px 32px rgba(0,0,0,0.8);font-family:sans-serif;color:#E2E8F0;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;border-bottom:1px solid rgba(255,255,255,0.1);padding-bottom:8px;">
-        <span style="font-size:12px;font-weight:900;color:#FBBF24;display:flex;align-items:center;gap:6px;">
+    <div style="background:#f3f5f8;border:1px solid rgba(255,255,255,0.88);border-radius:18px;padding:18px;max-width:440px;width:92%;box-shadow:12px 12px 28px rgba(163,177,198,0.5),-10px -10px 24px rgba(255,255,255,0.94);font-family:Inter,system-ui,sans-serif;color:#382a21;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;border-bottom:1px solid #dfe3e8;padding-bottom:8px;">
+        <span style="font-size:12.5px;font-weight:900;color:#c27d03;display:flex;align-items:center;gap:6px;">
           <i data-lucide="sliders" class="icon-sm"></i> AJUSTE QUIRÚRGICO: FALDÓN ${polyIdx + 1}
         </span>
-        <button type="button" onclick="document.getElementById('step4-roof-override-modal').style.display='none'" style="background:transparent;border:none;color:#94A3B8;cursor:pointer;font-size:14px;font-weight:bold;">✕</button>
+        <button type="button" onclick="document.getElementById('step4-roof-override-modal').style.display='none'" style="background:#ebedf0;border:1px solid rgba(255,255,255,0.8);border-radius:8px;width:28px;height:28px;color:#57606a;cursor:pointer;font-size:14px;font-weight:bold;">✕</button>
       </div>
 
-      <div style="display:flex;flex-direction:column;gap:10px;font-size:11px;">
+      <div style="display:flex;flex-direction:column;gap:10px;font-size:11.5px;">
         <div>
-          <label style="color:#94A3B8;display:block;margin-bottom:4px;font-weight:700;">Módulo Fotovoltaico Asignado:</label>
-          <select id="modal-roof-override-module" style="width:100%;padding:6px;background:rgba(0,0,0,0.5);color:#fff;border:1px solid rgba(255,255,255,0.2);border-radius:5px;font-size:10.5px;">
+          <label style="color:#57606a;display:block;margin-bottom:4px;font-weight:700;">Módulo Fotovoltaico Asignado:</label>
+          <select id="modal-roof-override-module" style="width:100%;padding:7px;background:#ffffff;color:#382a21;border:1px solid #cbd5e1;border-radius:8px;font-size:11px;">
             ${moduleOptions}
           </select>
         </div>
 
         <div>
-          <label style="color:#94A3B8;display:block;margin-bottom:4px;font-weight:700;">Electrónica y Topología de este Faldón:</label>
-          <select id="modal-roof-override-topo" style="width:100%;padding:6px;background:rgba(0,0,0,0.5);color:#fff;border:1px solid rgba(255,255,255,0.2);border-radius:5px;font-size:10.5px;">
+          <label style="color:#57606a;display:block;margin-bottom:4px;font-weight:700;">Electrónica y Topología de este Faldón:</label>
+          <select id="modal-roof-override-topo" style="width:100%;padding:7px;background:#ffffff;color:#382a21;border:1px solid #cbd5e1;border-radius:8px;font-size:11px;">
             <option value="inherit" ${currentTopo === 'inherit' ? 'selected' : ''}>— Heredar Configuración Global del Proyecto —</option>
             <option value="inverter" ${currentTopo === 'inverter' ? 'selected' : ''}>⚡ Inversor Central (String puro a MPPT dedicado)</option>
             <option value="optimizer" ${currentTopo === 'optimizer' ? 'selected' : ''}>⚙️ Inversor + Optimizadores DC/DC (MLPE)</option>
@@ -3007,8 +3007,8 @@ function wpOpenRoofOverrideModal(polyIdx) {
         </div>
 
         <div>
-          <label style="color:#94A3B8;display:block;margin-bottom:4px;font-weight:700;">Cobertura de Optimizadores (si aplica):</label>
-          <select id="modal-roof-override-coverage" style="width:100%;padding:6px;background:rgba(0,0,0,0.5);color:#fff;border:1px solid rgba(255,255,255,0.2);border-radius:5px;font-size:10.5px;">
+          <label style="color:#57606a;display:block;margin-bottom:4px;font-weight:700;">Cobertura de Optimizadores (si aplica):</label>
+          <select id="modal-roof-override-coverage" style="width:100%;padding:7px;background:#ffffff;color:#382a21;border:1px solid #cbd5e1;border-radius:8px;font-size:11px;">
             <option value="inherit" ${currentCoverage === 'inherit' ? 'selected' : ''}>— Heredar Configuración Global —</option>
             <option value="selective" ${currentCoverage === 'selective' ? 'selected' : ''}>🎯 Solo placas con sombra (&gt;8%)</option>
             <option value="full" ${currentCoverage === 'full' ? 'selected' : ''}>🌐 100% de los módulos de este faldón</option>
@@ -3016,9 +3016,9 @@ function wpOpenRoofOverrideModal(polyIdx) {
         </div>
       </div>
 
-      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;border-top:1px solid rgba(255,255,255,0.1);padding-top:12px;">
-        <button type="button" onclick="document.getElementById('step4-roof-override-modal').style.display='none'" class="doc-mini-btn" style="padding:6px 12px;font-size:10.5px;">Cancelar</button>
-        <button type="button" onclick="wpSaveRoofOverride(${polyIdx})" style="background:linear-gradient(135deg,#F59E0B,#D97706);border:none;color:#0F172A;font-weight:900;padding:6px 14px;border-radius:5px;cursor:pointer;font-size:10.5px;">Guardar Faldón</button>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;border-top:1px solid #dfe3e8;padding-top:12px;">
+        <button type="button" onclick="document.getElementById('step4-roof-override-modal').style.display='none'" class="doc-mini-btn" style="padding:7px 14px;font-size:11px;background:#ebedf0;color:#382a21;">Cancelar</button>
+        <button type="button" class="primary" onclick="wpSaveRoofOverride(${polyIdx})" style="background:linear-gradient(135deg,#e8a204,#d63d1b);border:none;color:#ffffff;font-weight:900;padding:7px 16px;border-radius:8px;cursor:pointer;font-size:11px;">Guardar Faldón</button>
       </div>
     </div>
   `;

@@ -60,11 +60,12 @@
     btn.title = 'Oculta vértices, polilíneas, planos de trabajo, cotas y tríada CAD para capturas de pantalla limpias. Tecla: C';
     Object.assign(btn.style, {
       display: 'none', // La tecla C sigue siendo el atajo principal
-      position: 'fixed', right: '14px', bottom: '46px', zIndex: '9998',
-      background: 'rgba(10,16,29,0.85)', color: '#E2E8F0',
-      border: '1px solid rgba(56,189,248,0.35)', borderRadius: '8px',
-      padding: '7px 12px', font: '600 10.5px Inter, system-ui, sans-serif',
-      letterSpacing: '0.4px', cursor: 'pointer', backdropFilter: 'blur(6px)',
+      position: 'fixed', left: '50%', transform: 'translateX(-50%)', bottom: '82px', zIndex: '9450',
+      background: 'rgba(243,245,248,0.94)', color: '#382a21',
+      border: '1px solid rgba(232,162,4,0.45)', borderRadius: '999px',
+      padding: '7px 14px', font: '700 11px Inter, system-ui, sans-serif',
+      letterSpacing: '0.4px', cursor: 'pointer', backdropFilter: 'blur(8px)',
+      boxShadow: '5px 5px 12px rgba(163,173,188,0.45), -5px -5px 12px rgba(255,255,255,0.88)',
       transition: 'opacity 0.25s, border-color 0.25s'
     });
     btn.addEventListener('click', function () { api.toggle(); });

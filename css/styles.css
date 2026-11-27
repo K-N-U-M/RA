@@ -63,8 +63,8 @@
       --z-hud: 1000;
       --z-sidebar: 1100;
       --z-floating-panel: 1200;
-      --z-modal: 1300;
-      --z-toast: 1400;
+      --z-modal: 150000;
+      --z-toast: 2000000;
     }
 
     @keyframes fadeIn {
@@ -3388,7 +3388,7 @@ body.ra-capture-mode-active .ra-status-hud {
 #ra-cost-breakdown-modal,
 #ra-pricing-review-modal,
 .ra-modal,
-[id$="-modal"] {
+div[id$="-modal"] {
   z-index: var(--z-modal) !important;
 }
 
