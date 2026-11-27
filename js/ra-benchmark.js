@@ -45,15 +45,17 @@
       hudContainer.id = 'ra-benchmark-hud';
       
       const hasCustomPos = savedPos && Number.isFinite(savedPos.left) && Number.isFinite(savedPos.top);
+      let isBmVisible = false;
+      try { isBmVisible = localStorage.getItem('ra_benchmark_visible') === '1'; } catch (e) {}
       hudContainer.style.cssText = `
         position: fixed;
-        ${hasCustomPos ? `top: ${savedPos.top}px; left: ${savedPos.left}px;` : 'bottom: 120px; right: 20px;'}
+        ${hasCustomPos ? `top: ${savedPos.top}px; left: ${savedPos.left}px;` : 'bottom: 76px; right: 20px;'}
         z-index: 9300;
         font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
         font-size: 11px;
         user-select: none;
         pointer-events: auto;
-        display: flex;
+        display: ${isBmVisible ? 'flex' : 'none'};
         flex-direction: column;
         align-items: flex-end;
         gap: 6px;

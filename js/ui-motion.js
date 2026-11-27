@@ -274,10 +274,18 @@
   }
 
   // ── 4. Integración con WorkflowOrchestrator y Arranque ─────────────────────
+  function syncStepAttr(step) {
+    if (document.body && step) {
+      document.body.setAttribute('data-ra-step', String(step));
+    }
+  }
+
   function setupWorkflowHook() {
+    syncStepAttr(global.wpCurrentStep || 1);
     if (global.WorkflowOrchestrator && typeof global.WorkflowOrchestrator.on === 'function') {
       global.WorkflowOrchestrator.on('step_changed', (payload) => {
         if (!payload || !payload.step) return;
+        syncStepAttr(payload.step);
         const stepId = payload.step === 1 ? 'wp-p1-plane-content' : ('wp-step-' + payload.step + '-content');
         const el = document.getElementById(stepId);
         if (el) animateContainerEntrance(el, 'ra-step-entering', 10);

@@ -1096,4 +1096,66 @@ body :is(
   line-height: 1.35 !important;
 }
 
+/* ── 9. Dock Inferior Minimalista Centrado (Estilo Figma/Apple) & Carril Derecho ─ */
+#ra-floating-tools-container {
+  left: 50% !important;
+  right: auto !important;
+  bottom: 18px !important;
+  transform: translateX(-50%) !important;
+  background: rgba(243, 245, 248, 0.88) !important;
+  backdrop-filter: blur(14px) !important;
+  -webkit-backdrop-filter: blur(14px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.85) !important;
+  border-radius: 999px !important;
+  padding: 5px 8px !important;
+  gap: 6px !important;
+  box-shadow: 0 8px 24px rgba(30, 36, 43, 0.16), 0 1px 3px rgba(30, 36, 43, 0.08) !important;
+}
+
+#ra-floating-tools-container button {
+  width: 40px !important;
+  height: 40px !important;
+  min-width: 40px !important;
+  padding: 0 !important;
+  border-radius: 50% !important;
+  justify-content: center !important;
+  background: rgba(255, 255, 255, 0.72) !important;
+  border: 1px solid rgba(255, 255, 255, 0.9) !important;
+  box-shadow: 0 2px 6px rgba(30, 36, 43, 0.08) !important;
+}
+
+#ra-floating-tools-container button > span {
+  display: none !important;
+}
+
+#ra-floating-tools-container button svg {
+  width: 18px !important;
+  height: 18px !important;
+  margin: 0 !important;
+}
+
+/* Visibilidad contextual por paso (oculta botones que aún no aplican en Paso 1) */
+body[data-ra-step="1"] #btn-toggle-pbr-texture,
+body[data-ra-step="1"] #btn-toggle-live-heatmap,
+body[data-ra-step="1"] #btn-toggle-cable-audit,
+body[data-ra-step="1"] #ra-btn-compare-scenarios,
+body[data-ra-step="2"] #btn-toggle-cable-audit,
+body[data-ra-step="3"] #btn-toggle-cable-audit {
+  display: none !important;
+}
+
+#ra-btn-compare-scenarios {
+  bottom: 20px !important;
+  right: 76px !important;
+  padding: 9px 14px !important;
+  border-radius: 999px !important;
+}
+
+/* Alinear carril derecho (Brújula + 3 FABs) en una columna exacta */
+#ra-solar-fab-btn,
+#ra-outliner-fab-btn,
+#ra-bom-fab-btn {
+  right: 26px !important;
+}
+
 /* Los breakpoints responsivos (<=1280px, <=1024px, <=768px, <=480px) residen en css/responsive.css */

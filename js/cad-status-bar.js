@@ -26,42 +26,34 @@
 
         bar.style.cssText = [
             'position:fixed',
-            'bottom:76px',
-            'left:50%',
-            'transform:translateX(-50%)',
+            'top:18px',
+            'left:72px',
             'z-index:900',
             'display:flex',
             'align-items:center',
-            'gap:14px',
-            'padding:5px 14px',
-            'background:rgba(243,245,248,0.92)',
-            'backdrop-filter:blur(8px)',
-            '-webkit-backdrop-filter:blur(8px)',
-            'border:1px solid rgba(255,255,255,0.75)',
+            'gap:10px',
+            'padding:6px 14px',
+            'background:rgba(243,245,248,0.88)',
+            'backdrop-filter:blur(10px)',
+            '-webkit-backdrop-filter:blur(10px)',
+            'border:1px solid rgba(255,255,255,0.8)',
             'border-radius:9999px',
             'color:#57606a',
-            'font-family:system-ui,-apple-system,sans-serif',
+            'font-family:Inter,system-ui,-apple-system,sans-serif',
             'font-size:11.5px',
             'line-height:1.2',
             'pointer-events:none',
-            'box-shadow:5px 5px 12px rgba(163,173,188,0.4),-5px -5px 12px rgba(255,255,255,0.85)',
+            'box-shadow:0 4px 14px rgba(30,36,43,0.12)',
             'white-space:nowrap',
             'user-select:none'
         ].join(';');
 
         bar.innerHTML = [
-            '<span id="ra-cad-sb-step" style="color:#e8a204;font-weight:700;">Paso: 1. Emplazamiento</span>',
-            '<span style="color:rgba(87,96,106,0.3);">|</span>',
-            '<span id="ra-cad-sb-tool" style="color:#382a21;font-weight:500;">Herramienta: Selección</span>',
-            '<span style="color:rgba(87,96,106,0.3);">|</span>',
-            '<span id="ra-cad-sb-snap" style="color:#57606a;">Snap: ON</span>',
-            '<span style="color:rgba(87,96,106,0.3);">|</span>',
-            '<span style="color:#57606a;">' +
-                '<kbd style="background:#dfe3e8;padding:1px 5px;border-radius:4px;color:#382a21;border:1px solid rgba(255,255,255,0.6);">M</kbd> Medir · ' +
-                '<kbd style="background:#dfe3e8;padding:1px 5px;border-radius:4px;color:#382a21;border:1px solid rgba(255,255,255,0.6);">C</kbd> Captura · ' +
-                '<kbd style="background:#dfe3e8;padding:1px 5px;border-radius:4px;color:#382a21;border:1px solid rgba(255,255,255,0.6);">Ctrl+Z</kbd> Deshacer · ' +
-                '<kbd style="background:#dfe3e8;padding:1px 5px;border-radius:4px;color:#382a21;border:1px solid rgba(255,255,255,0.6);">Esc</kbd> Cancelar' +
-            '</span>'
+            '<span id="ra-cad-sb-step" style="color:#c27d03;font-weight:700;">Paso: 1. Emplazamiento</span>',
+            '<span style="color:rgba(87,96,106,0.3);">·</span>',
+            '<span id="ra-cad-sb-tool" style="color:#382a21;font-weight:600;">Selección</span>',
+            '<span style="color:rgba(87,96,106,0.3);">·</span>',
+            '<span id="ra-cad-sb-snap" style="color:#57606a;">Snap: ON</span>'
         ].join('');
 
         document.body.appendChild(bar);
