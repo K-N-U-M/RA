@@ -244,8 +244,13 @@
     if (!statusEl) return;
     const duration = (typeof ms === 'number' && ms > 0) ? ms : 5000;
     const closeBtn = '<span onclick="hideStatus()" style="cursor:pointer; margin-left: 14px; padding-left: 14px; border-left: 1px solid rgba(232, 162, 4,0.3); font-size: 18px; line-height: 1; opacity: 0.8; display: flex; align-items: center;" title="Cerrar">&times;</span>';
-    const safeMsg = String(msg == null ? '' : msg).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-    statusEl.innerHTML = '<div style="display:flex; align-items:center;">' + safeMsg + closeBtn + '</div>';
+    const raw = String(msg == null ? '' : msg);
+    const safeMsg = raw
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+      .replace(/&lt;i\s+data-lucide=&quot;([a-z0-9-]+)&quot;(?:\s+class=&quot;([a-z0-9-\s]+)&quot;)?\s*&gt;&lt;\/i&gt;/gi, '<i data-lucide="$1" class="$2"></i>');
+    const onb = document.getElementById('ra-onboarding-empty-card');
+    statusEl.style.top = (onb && onb.style.display !== 'none') ? '74px' : '16px';
+    statusEl.innerHTML = '<div style="display:flex; align-items:center; gap:6px;">' + safeMsg + closeBtn + '</div>';
     statusEl.classList.add('visible');
     
     const hud = document.getElementById('ra-hud-energy');
