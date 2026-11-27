@@ -8,8 +8,8 @@
   --nm-surface: #c5cfdd;
   --nm-surface-elevated: #cfd8e4;
   --nm-surface-inset: #b0bccd;
-  --nm-text: #2a211b;
-  --nm-text-muted: #4b5563;
+  --nm-text: #111827;
+  --nm-text-muted: #334155;
   --nm-accent: #e8a204;
   --nm-accent-soft: rgba(232, 162, 4, 0.14);
   --nm-shadow-out: 7px 7px 16px rgba(96, 112, 134, 0.68), -5px -5px 12px rgba(235, 241, 248, 0.72);
@@ -24,10 +24,10 @@
   --border-subtle: rgba(163, 177, 198, 0.35);
   --border-medium: rgba(163, 177, 198, 0.55);
   --text-slate-100: var(--nm-text);
-  --text-slate-200: #2d353f;
-  --text-slate-300: #3d4652;
+  --text-slate-200: #1e293b;
+  --text-slate-300: #273244;
   --text-slate-400: var(--nm-text-muted);
-  --text-slate-500: #6e7781;
+  --text-slate-500: #3f4a5a;
   --amber-300: var(--nm-accent);
   --amber-400: var(--nm-accent);
   --amber-500: var(--nm-accent);
