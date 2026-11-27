@@ -4,17 +4,17 @@
    ============================================================================ */
 
 :root {
-  --nm-bg: #d5dce6;
-  --nm-surface: #dce2eb;
-  --nm-surface-elevated: #e4e9f0;
-  --nm-surface-inset: #cbd4e0;
-  --nm-text: #382a21;
-  --nm-text-muted: #57606a;
+  --nm-bg: #bcc7d6;
+  --nm-surface: #c5cfdd;
+  --nm-surface-elevated: #cfd8e4;
+  --nm-surface-inset: #b0bccd;
+  --nm-text: #2a211b;
+  --nm-text-muted: #4b5563;
   --nm-accent: #e8a204;
-  --nm-accent-soft: rgba(232, 162, 4, 0.12);
-  --nm-shadow-out: 6px 6px 14px rgba(132, 147, 168, 0.58), -5px -5px 12px rgba(244, 247, 251, 0.85);
-  --nm-shadow-out-sm: 4px 4px 9px rgba(132, 147, 168, 0.52), -3px -3px 7px rgba(244, 247, 251, 0.82);
-  --nm-shadow-in: inset 3px 3px 7px rgba(132, 147, 168, 0.58), inset -3px -3px 6px rgba(244, 247, 251, 0.82);
+  --nm-accent-soft: rgba(232, 162, 4, 0.14);
+  --nm-shadow-out: 7px 7px 16px rgba(96, 112, 134, 0.68), -5px -5px 12px rgba(235, 241, 248, 0.72);
+  --nm-shadow-out-sm: 4px 4px 10px rgba(96, 112, 134, 0.60), -3px -3px 7px rgba(235, 241, 248, 0.68);
+  --nm-shadow-in: inset 3px 3px 8px rgba(96, 112, 134, 0.66), inset -3px -3px 6px rgba(235, 241, 248, 0.68);
 
   /* Sobreescritura global de tokens base */
   --bg-card: var(--nm-surface);
