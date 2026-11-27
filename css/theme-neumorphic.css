@@ -1462,4 +1462,52 @@ body[data-ra-step="3"] #btn-toggle-cable-audit {
   transform: translateY(0) scale(1);
 }
 
+/* ── 13. Unificación Cromática Paso 3 (Análisis) & Radios/Checkboxes RA ───── */
+#ra-sidebar input[type="radio"],
+#ra-sidebar input[type="checkbox"],
+[id$="-modal"] input[type="radio"],
+[id$="-modal"] input[type="checkbox"] {
+  accent-color: var(--nm-accent, #e8a204) !important;
+}
+
+/* Purgar arcoíris heredado en Paso 3 (lila, azul, verde, amarillo) */
+#wp-step-3-content :is(
+  [style*="color:#c084fc"], [style*="color: #c084fc"],
+  [style*="color:#a855f7"], [style*="color: #a855f7"],
+  [style*="color:#d8b4fe"], [style*="color: #d8b4fe"],
+  [style*="color:#7c3aed"], [style*="color: #7c3aed"],
+  [style*="color:#38bdf8"], [style*="color: #38bdf8"],
+  [style*="color:#0284c7"], [style*="color: #0284c7"],
+  [style*="color:#34d399"], [style*="color: #34d399"],
+  [style*="color:#059669"], [style*="color: #059669"],
+  [style*="color:#fbbf24"], [style*="color: #fbbf24"],
+  [style*="color:#f59e0b"], [style*="color: #f59e0b"],
+  [style*="color:#b45309"], [style*="color: #b45309"]
+):not(button.primary):not(.btn-primary):not(svg) {
+  color: var(--nm-text) !important;
+}
+
+#wp-step-3-content svg {
+  color: var(--nm-accent) !important;
+  stroke: var(--nm-accent) !important;
+}
+
+/* Unidades discretas en Factura */
+#step3-bill-data-card span[style*="font-size:10px"],
+#step3-bill-data-card span[style*="font-size: 10px"] {
+  color: var(--nm-text-muted) !important;
+  font-weight: 600 !important;
+}
+
+/* Opción de estrategia seleccionada destacada en naranja RA */
+#wp-step-3-content label:has(input[type="radio"]:checked) {
+  border-color: rgba(232, 162, 4, 0.6) !important;
+  box-shadow: var(--nm-shadow-out-sm), 0 0 0 1px rgba(232, 162, 4, 0.25) !important;
+}
+
+#wp-step-3-content label:has(input[type="radio"]:checked) > div > div:first-child,
+#wp-step-3-content label:has(input[type="radio"]:checked) b {
+  color: #c27d03 !important;
+}
+
 /* Los breakpoints responsivos (<=1280px, <=1024px, <=768px, <=480px) residen en css/responsive.css */
