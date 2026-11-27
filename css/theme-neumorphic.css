@@ -322,18 +322,25 @@
 }
 
 /* ── Botones neumórficos (sin glow blanco excesivo) ───────────────────────── */
-#ra-sidebar button:not(.wp-step-btn),
+#ra-sidebar button:not(.wp-step-btn) {
+  background: var(--nm-surface-elevated) !important;
+  color: var(--nm-text) !important;
+  border: 1px solid rgba(255, 255, 255, 0.85) !important;
+  border-radius: 14px !important;
+  box-shadow: var(--nm-shadow-out-sm) !important;
+}
+
 #ra-floating-tools-container button,
 #ra-floating-settings-btn,
 #ra-solar-fab-btn,
 #ra-outliner-fab-btn,
 #ra-bom-fab-btn,
 #ra-btn-compare-scenarios {
-  background: var(--nm-surface-elevated) !important;
+  background: rgba(243, 245, 248, 0.94) !important;
   color: var(--nm-text) !important;
-  border: 1px solid rgba(255, 255, 255, 0.85) !important;
+  border: 1px solid rgba(255, 255, 255, 0.78) !important;
   border-radius: 14px !important;
-  box-shadow: var(--nm-shadow-out-sm) !important;
+  box-shadow: 0 6px 18px rgba(30, 36, 43, 0.16), 0 1px 3px rgba(30, 36, 43, 0.1) !important;
 }
 
 #ra-sidebar button:not(.wp-step-btn):hover,
@@ -629,13 +636,30 @@
   color: var(--nm-text) !important;
 }
 
-/* Benchmark HUD */
+/* 3D Tiles Loading Pill & Benchmark HUD */
+#ra-3d-tiles-loading {
+  background: rgba(243, 245, 248, 0.94) !important;
+  color: var(--nm-text) !important;
+  border: 1px solid rgba(232, 162, 4, 0.45) !important;
+  box-shadow: 0 6px 18px rgba(30, 36, 43, 0.16), 0 1px 3px rgba(30, 36, 43, 0.1) !important;
+}
+
+#ra-3d-tiles-loading #ra-3d-tiles-msg {
+  color: var(--nm-text) !important;
+}
+
+#ra-3d-tiles-loading #ra-3d-tiles-count {
+  background: rgba(232, 162, 4, 0.14) !important;
+  color: #b45309 !important;
+  border-color: rgba(232, 162, 4, 0.35) !important;
+}
+
 #ra-benchmark-pill,
 #ra-benchmark-panel {
   background: rgba(243, 245, 248, 0.94) !important;
   color: var(--nm-text) !important;
-  border: 1px solid rgba(255, 255, 255, 0.9) !important;
-  box-shadow: var(--nm-shadow-out) !important;
+  border: 1px solid rgba(255, 255, 255, 0.8) !important;
+  box-shadow: 0 6px 18px rgba(30, 36, 43, 0.16), 0 1px 3px rgba(30, 36, 43, 0.1) !important;
 }
 
 #ra-benchmark-pill {

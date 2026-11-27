@@ -26,7 +26,7 @@
 
         bar.style.cssText = [
             'position:fixed',
-            'bottom:8px',
+            'bottom:76px',
             'left:50%',
             'transform:translateX(-50%)',
             'z-index:900',
