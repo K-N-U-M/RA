@@ -395,6 +395,87 @@
     });
   }
 
+  // ── 7. Tooltips Globales Claros (Sustituye Globos Negros Nativos) ─────────
+  function setupGlobalLightTooltips() {
+    if (!document.body) return;
+
+    let tipEl = document.getElementById('ra-global-tooltip');
+    if (!tipEl) {
+      tipEl = document.createElement('div');
+      tipEl.id = 'ra-global-tooltip';
+      tipEl.setAttribute('role', 'tooltip');
+      document.body.appendChild(tipEl);
+    }
+
+    let activeHost = null;
+    let showTimer = null;
+
+    function hideTip() {
+      clearTimeout(showTimer);
+      activeHost = null;
+      tipEl.classList.remove('visible');
+    }
+
+    function positionTip(target) {
+      if (!target || !tipEl) return;
+      const rect = target.getBoundingClientRect();
+      const pad = 10;
+      const tipW = tipEl.offsetWidth || 180;
+      const tipH = tipEl.offsetHeight || 32;
+
+      let left = rect.left + (rect.width - tipW) / 2;
+      left = Math.max(pad, Math.min(left, window.innerWidth - tipW - pad));
+
+      let top = rect.top - tipH - 8;
+      if (top < pad) {
+        top = rect.bottom + 8;
+      }
+      if (top + tipH > window.innerHeight - pad) {
+        top = Math.max(pad, window.innerHeight - tipH - pad);
+      }
+
+      tipEl.style.left = Math.round(left) + 'px';
+      tipEl.style.top = Math.round(top) + 'px';
+    }
+
+    document.addEventListener('pointerover', function (e) {
+      const el = e.target && e.target.closest ? e.target.closest('[title], [data-ra-title]') : null;
+      if (!el || el.closest('#cesiumContainer')) return;
+
+      const rawTitle = el.getAttribute('title');
+      if (rawTitle && rawTitle.trim() !== '') {
+        el.setAttribute('data-ra-title', rawTitle);
+        el.removeAttribute('title');
+      }
+
+      const text = el.getAttribute('data-ra-title');
+      if (!text || text.trim() === '') return;
+
+      if (activeHost === el) return;
+      activeHost = el;
+      clearTimeout(showTimer);
+
+      showTimer = setTimeout(() => {
+        if (activeHost !== el) return;
+        tipEl.textContent = text;
+        positionTip(el);
+        tipEl.classList.add('visible');
+      }, 260);
+    }, { passive: true });
+
+    document.addEventListener('pointerout', function (e) {
+      if (!activeHost) return;
+      const rel = e.relatedTarget;
+      if (!rel || !activeHost.contains(rel)) {
+        hideTip();
+      }
+    }, { passive: true });
+
+    document.addEventListener('pointerdown', hideTip, { passive: true });
+    document.addEventListener('scroll', hideTip, { capture: true, passive: true });
+    document.addEventListener('keydown', hideTip, { passive: true });
+  }
+
   function init() {
     decorateExistingCards(document);
     setupRippleHandler();
@@ -403,6 +484,7 @@
     setupWorkflowHook();
     setupGrandEntrance();
     setupModalFocusIsolation();
+    setupGlobalLightTooltips();
   }
 
   if (document.readyState === 'loading') {

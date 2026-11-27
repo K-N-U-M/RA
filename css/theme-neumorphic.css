@@ -1434,4 +1434,32 @@ body[data-ra-step="3"] #btn-toggle-cable-audit {
   box-shadow: var(--nm-shadow-in) !important;
 }
 
+/* ── 12. Tooltips Globales Claros (Sustituye Globos Negros Nativos) ───────── */
+#ra-global-tooltip {
+  position: fixed;
+  z-index: 2500000;
+  pointer-events: none;
+  max-width: min(290px, calc(100vw - 24px));
+  padding: 7px 11px;
+  background: rgba(243, 245, 248, 0.96);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: var(--nm-text, #382a21);
+  border: 1px solid rgba(255, 255, 255, 0.92);
+  border-radius: 10px;
+  box-shadow: 0 8px 22px rgba(30, 36, 43, 0.16), 0 0 0 1px rgba(232, 162, 4, 0.18);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.38;
+  opacity: 0;
+  transform: translateY(4px) scale(0.97);
+  transition: opacity 0.16s ease, transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+#ra-global-tooltip.visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
 /* Los breakpoints responsivos (<=1280px, <=1024px, <=768px, <=480px) residen en css/responsive.css */
