@@ -546,7 +546,7 @@ function wpConfigureShadowMap(sm) {
     sm._terrainBias.depthBias = depthBias * 1.15;
   }
 }
-window.wpConfigureShadowMap = wpConfigureShadowMap;
+if (typeof window.wpConfigureShadowMap !== 'function') window.wpConfigureShadowMap = wpConfigureShadowMap;
 // Diagnóstico y ajuste en vivo del bias de sombras (gemelo digital):
 //   wpShadowDiagnostics()  → estado actual del shadowMap
 //   wpSetShadowBiasMeters(m) → despegue físico de la sombra en metros (0.1-2.0).
@@ -5893,9 +5893,7 @@ if (window.RA) window.RA.equipmentCatalog = window.equipmentCatalog || null;
 
 // ── MODAL DEL CATÁLOGO DE EQUIPOS ──────────────────────────────────────────
 
-window.openEquipmentCatalogModal = openEquipmentCatalogModal;
-window.closeEquipmentCatalogModal = closeEquipmentCatalogModal;
-window.switchCatalogTab = switchCatalogTab;
+// [DEDUP] openEquipmentCatalogModal, closeEquipmentCatalogModal, switchCatalogTab -> working-plane.js
 
 function wpSwitchGenTab(tab) {
   var solPanel = document.getElementById("wp-step2-solar-panel");
@@ -6176,14 +6174,10 @@ window.updateWindTurbineAreaPreview = function(isTypeToggle) {
 window.openEditEquipmentModal = openEditEquipmentModal;
 window.saveEditedEquipment = saveEditedEquipment;
 window.cancelEditEquipment = cancelEditEquipment;
-window.deleteCatalogItem = deleteCatalogItem;
-window.applyInverterFromCatalog = applyInverterFromCatalog;
-window.applyBatteryFromCatalog = applyBatteryFromCatalog;
-window.populateStep3EquipmentSelectors = populateStep3EquipmentSelectors;
+// [DEDUP] deleteCatalogItem, applyInverterFromCatalog, applyBatteryFromCatalog -> working-plane.js
+// [DEDUP] populateStep3EquipmentSelectors, step3UpdateHardwareSelection, wpComputeAutoSizing -> project-config.js
 window.step3SetTopology = step3SetTopology;
 window.step3EditCurrentEquipment = step3EditCurrentEquipment;
-window.step3UpdateHardwareSelection = step3UpdateHardwareSelection;
-window.wpComputeAutoSizing = wpComputeAutoSizing;
 window.wpStepQuantity = wpStepQuantity;
 window.wpSetManualQuantity = wpSetManualQuantity;
 window.wpResetAutoSizing = wpResetAutoSizing;

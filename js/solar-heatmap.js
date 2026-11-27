@@ -209,7 +209,9 @@
         else if (t.positionCartographic && typeof Cesium !== 'undefined' && Cesium.Cartesian3) {
           try {
             cart = Cesium.Cartesian3.fromRadians(t.positionCartographic.longitudeRad, t.positionCartographic.latitudeRad, t.positionCartographic.altitudeM || 0);
-          } catch (eC) {}
+          } catch (eC) {
+            console.warn('[solar-heatmap] Error convirtiendo posición cartográfica de aerogenerador:', eC);
+          }
         }
         list.push({
           id: t.id,
@@ -841,7 +843,9 @@
                     u >= rCtx.minU - 1.5 && u <= rCtx.maxU + 1.5 && v >= rCtx.minV - 1.5 && v <= rCtx.maxV + 1.5) {
                   return false;
                 }
-              } catch (_) {}
+              } catch (eCtx) {
+                console.warn('[solar-heatmap] Error evaluando contexto de faldón:', eCtx);
+              }
             }
             return true;
           } catch (_) {
@@ -2760,7 +2764,9 @@
               pl.roofInfo = fresh;
               pList = fresh.panels;
             }
-          } catch(ePl) {}
+          } catch(ePl) {
+            console.warn('[solar-heatmap] Error calculando roofInfo de polilínea:', ePl);
+          }
         }
         const polyCand = [];
         pList.forEach((p, pIdx) => {

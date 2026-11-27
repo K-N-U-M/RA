@@ -668,7 +668,9 @@
           }
         }
       }
-    } catch (eCache) {}
+    } catch (eCache) {
+      console.warn('[wind-resource] Error leyendo caché Open-Meteo:', eCache);
+    }
 
     // Año canónico de reanálisis consolidado
     var targetYear = 2023;
@@ -808,7 +810,9 @@
             timestamp: Date.now()
           }));
         }
-      } catch (eSave) {}
+      } catch (eSave) {
+        console.warn('[wind-resource] Error guardando caché Open-Meteo:', eSave);
+      }
 
       if (typeof callback === 'function') callback(null, result);
       return result;
@@ -849,7 +853,9 @@
           }
         }
       }
-    } catch (eCache) {}
+    } catch (eCache) {
+      console.warn('[wind-resource] Error leyendo caché NASA POWER:', eCache);
+    }
 
     var url = 'https://power.larc.nasa.gov/api/temporal/climatology/point?parameters=WS10M,WS50M,T2M&community=RE&longitude=' +
       lon.toFixed(4) + '&latitude=' + lat.toFixed(4) + '&format=JSON';
@@ -905,7 +911,9 @@
             timestamp: Date.now()
           }));
         }
-      } catch (eSave) {}
+      } catch (eSave) {
+        console.warn('[wind-resource] Error guardando caché NASA POWER:', eSave);
+      }
 
       if (typeof callback === 'function') callback(null, result);
       return result;
@@ -1022,7 +1030,9 @@
           }
         }
       }
-    } catch (eCache) {}
+    } catch (eCache) {
+      console.warn('[wind-resource] Error leyendo caché GWA:', eCache);
+    }
 
     var url = '/api/gwa?lat=' + lat.toFixed(4) + '&lon=' + lon.toFixed(4);
 
@@ -1045,7 +1055,9 @@
             timestamp: Date.now()
           }));
         }
-      } catch (eSave) {}
+      } catch (eSave) {
+        console.warn('[wind-resource] Error guardando caché GWA:', eSave);
+      }
 
       if (typeof callback === 'function') callback(null, result);
       return result;

@@ -542,7 +542,9 @@ function getRobustMonthlyGHI(latDeg, lonDeg, monthIdx, customGHIList) {
         }
       }
     }
-  } catch(e) {}
+  } catch(e) {
+    console.warn('[solar-engine] Error leyendo caché NASA GHI:', e);
+  }
   return estimateMonthlyGHI(latDeg, monthIdx);
 }
 
@@ -582,7 +584,9 @@ function runPhysicalModel(kwp, latDeg, lonDeg, tiltDeg, azimutDeg, cfg, customMo
         if (localStorage.getItem(`ra_nasa_ghi_${Number(latDeg).toFixed(2)}_${Number(lonDeg).toFixed(2)}`)) {
           usedNasaCache = true;
         }
-      } catch(e) {}
+      } catch(e) {
+        console.warn('[solar-engine] Error comprobando caché NASA GHI en localStorage:', e);
+      }
     }
     const decl = solarDeclination(doy);
 

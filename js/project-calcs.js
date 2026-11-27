@@ -306,7 +306,9 @@ function getProjectCalcs() {
   if (!_cachedFin && typeof window !== 'undefined' && typeof window.calculateFinancialModel === 'function' && !window._isComputingFinModel) {
     try {
       _cachedFin = window.calculateFinancialModel();
-    } catch(eFin) {}
+    } catch(eFin) {
+      console.warn('[project-calcs] Error calculando modelo financiero:', eFin);
+    }
   }
   const precio_kwh = 0.18; // precio de referencia para etiquetas (no para calcular ahorro)
   const ahorro_anual = (_cachedFin && _cachedFin.ahorroLuzAnio1 > 0) ? Math.round(_cachedFin.ahorroLuzAnio1) : 0;
