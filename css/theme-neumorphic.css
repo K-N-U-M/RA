@@ -1614,4 +1614,33 @@ body:has(#ra-sidebar:not(.collapsed)) #ra-cad-status-bar {
   left: 514px !important;
 }
 
+/* ── 16. Botón Principal de Flujo por Paso (Degradado Amarillo → Naranja) ── */
+#ra-sidebar button.btn-action-primary,
+#ra-sidebar button#step5-btn-download-commercial,
+#ra-sidebar button[onclick*="wpDefinePlaneMode"],
+#ra-sidebar button[onclick*="startPolylineDrawMode"] {
+  background: linear-gradient(135deg, #fbbf24 0%, #e8a204 52%, #ea580c 100%) !important;
+  background-image: linear-gradient(135deg, #fbbf24 0%, #e8a204 52%, #ea580c 100%) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.35) !important;
+  font-weight: 800 !important;
+  box-shadow: 0 6px 16px rgba(232, 162, 4, 0.36), 0 2px 5px rgba(234, 88, 12, 0.22) !important;
+}
+
+#ra-sidebar button.btn-action-primary *,
+#ra-sidebar button#step5-btn-download-commercial *,
+#ra-sidebar button[onclick*="wpDefinePlaneMode"] *,
+#ra-sidebar button[onclick*="startPolylineDrawMode"] * {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+}
+
+#ra-sidebar button.btn-action-primary:hover,
+#ra-sidebar button#step5-btn-download-commercial:hover,
+#ra-sidebar button[onclick*="wpDefinePlaneMode"]:hover,
+#ra-sidebar button[onclick*="startPolylineDrawMode"]:hover {
+  filter: brightness(1.06) !important;
+  box-shadow: 0 8px 22px rgba(232, 162, 4, 0.48), 0 3px 8px rgba(234, 88, 12, 0.28) !important;
+}
+
 /* Los breakpoints responsivos (<=1280px, <=1024px, <=768px, <=480px) residen en css/responsive.css */
