@@ -150,11 +150,13 @@
   const _scratchV1 = (typeof Cesium !== 'undefined' && Cesium.Cartesian3) ? new Cesium.Cartesian3() : null;
   const _scratchV2 = (typeof Cesium !== 'undefined' && Cesium.Cartesian3) ? new Cesium.Cartesian3() : null;
   const _scratchUp = (typeof Cesium !== 'undefined' && Cesium.Cartesian3) ? new Cesium.Cartesian3() : null;
+  const _scratchNormalWorld = (typeof Cesium !== 'undefined' && Cesium.Cartesian3) ? new Cesium.Cartesian3() : null;
 
-  function getPanelNormalWorld(pData, roofNorm, transform) {
+  function getPanelNormalWorld(pData, roofNorm, transform, result) {
     if (typeof Cesium === 'undefined' || !Cesium.Cartesian3) {
       return roofNorm || { x: 0, y: 0, z: 1 };
     }
+    const out = result || _scratchNormalWorld || new Cesium.Cartesian3();
     if (pData && pData.corners && pData.corners.length >= 3) {
       const c0 = pData.corners[0];
       const c1 = pData.corners[1];
@@ -163,7 +165,7 @@
       const v2 = _scratchV2 || new Cesium.Cartesian3();
       Cesium.Cartesian3.subtract(c1, c0, v1);
       Cesium.Cartesian3.subtract(c3, c0, v2);
-      const n = Cesium.Cartesian3.cross(v1, v2, new Cesium.Cartesian3());
+      const n = Cesium.Cartesian3.cross(v1, v2, out);
       if (Cesium.Cartesian3.magnitude(n) > 1e-6) {
         Cesium.Cartesian3.normalize(n, n);
         const upScratch = _scratchUp || new Cesium.Cartesian3();
@@ -176,7 +178,7 @@
     }
     // Si disponemos de la matriz de transformación del faldón, transformar el vector normal a ECEF
     if (transform && roofNorm) {
-      let nWorld = new Cesium.Cartesian3();
+      let nWorld = out;
       if (typeof Cesium.Matrix4.multiplyByPointAsVector === "function") {
         nWorld = Cesium.Matrix4.multiplyByPointAsVector(transform, roofNorm, nWorld);
       } else {
@@ -185,9 +187,9 @@
       return Cesium.Cartesian3.normalize(nWorld, nWorld);
     }
     if (roofNorm) {
-      return Cesium.Cartesian3.clone(roofNorm);
+      return Cesium.Cartesian3.clone(roofNorm, out);
     }
-    return new Cesium.Cartesian3(0, 0, 1);
+    return Cesium.Cartesian3.fromElements(0, 0, 1, out);
   }
   if (typeof window !== 'undefined') window.getPanelNormalWorld = getPanelNormalWorld;
 

@@ -103,8 +103,9 @@
   }
 
   function escapeHtml(str) {
-    var san = (global.RA && (global.RA.Sanitizer || global.RA.Sanitize)) || global.RASanitize;
-    if (san && typeof san.plain === 'function') return san.plain(str);
+    if (typeof window !== 'undefined' && typeof window.RASanitizer?.escapeHtml === 'function') {
+      return window.RASanitizer.escapeHtml(str);
+    }
     return String(str == null ? '' : str)
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')

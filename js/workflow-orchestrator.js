@@ -334,10 +334,17 @@
         const btn = document.getElementById('wp-step-' + s + '-btn');
         if (!btn) continue;
 
+        if (btn._origTitle === undefined) {
+          btn._origTitle = (typeof btn.getAttribute === 'function' ? btn.getAttribute('title') : btn.title) || '';
+        }
         const check = this.canEnterStep(s);
         if (check.allowed) {
           btn.classList.remove('disabled');
-          btn.removeAttribute('title');
+          if (btn._origTitle) {
+            btn.title = btn._origTitle;
+          } else if (typeof btn.removeAttribute === 'function') {
+            btn.removeAttribute('title');
+          }
         } else {
           btn.classList.add('disabled');
           btn.title = check.reason || 'Paso bloqueado';

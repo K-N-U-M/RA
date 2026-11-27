@@ -116,8 +116,10 @@
     return host.innerHTML;
   }
 
-  var api = { richText: richText, plain: plain, unescapePlain: unescapePlain, safeImageSrc: safeImageSrc, safeCssUrl: safeCssUrl };
+  var api = { richText: richText, plain: plain, escapeHtml: plain, unescapePlain: unescapePlain, safeImageSrc: safeImageSrc, safeCssUrl: safeCssUrl };
   if (!root.RA) root.RA = {};
   root.RASanitize = api;
+  root.RASanitizer = api;
   root.RA.Sanitize = api;
+  root.RA.Sanitizer = api;
 })(typeof window !== 'undefined' ? window : this);

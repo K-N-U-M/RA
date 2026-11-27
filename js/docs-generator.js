@@ -69,9 +69,8 @@ function _unescapePlainDoc(str) {
 }
 
 function escapeHtml(str) {
-  if (typeof window !== 'undefined') {
-    const san = (window.RA && (window.RA.Sanitizer || window.RA.Sanitize)) || window.RASanitize;
-    if (san && typeof san.plain === 'function') return san.plain(str);
+  if (typeof window !== 'undefined' && typeof window.RASanitizer?.escapeHtml === 'function') {
+    return window.RASanitizer.escapeHtml(str);
   }
   if (str === null || str === undefined) return '';
   return _unescapePlainDoc(str)
