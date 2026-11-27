@@ -1207,4 +1207,231 @@ body[data-ra-step="3"] #btn-toggle-cable-audit {
   box-shadow: 4px 4px 12px rgba(30, 36, 43, 0.14) !important;
 }
 
+/* ── 11. Panel Simulación Solar & Raytracing (#ra-solar-time-hud) Unificado ─ */
+#ra-solar-time-hud {
+  background: rgba(243, 245, 248, 0.96) !important;
+  color: var(--nm-text) !important;
+  border: 1px solid rgba(255, 255, 255, 0.92) !important;
+  border-radius: 22px !important;
+  padding: 16px 18px !important;
+  gap: 12px !important;
+  box-shadow: 0 14px 36px rgba(30, 36, 43, 0.18), 0 2px 8px rgba(30, 36, 43, 0.08) !important;
+}
+
+#ra-solar-time-hud:hover {
+  border-color: rgba(232, 162, 4, 0.45) !important;
+  box-shadow: 0 16px 40px rgba(30, 36, 43, 0.2), 0 0 18px rgba(232, 162, 4, 0.14) !important;
+}
+
+#ra-solar-time-hud .solar-hud-header {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  gap: 10px !important;
+  border-bottom: 1px solid #dfe3e8 !important;
+  padding-bottom: 10px !important;
+  position: relative;
+}
+
+#ra-solar-time-hud .solar-hud-title {
+  color: var(--nm-text) !important;
+  font-size: 12.5px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.04em !important;
+  padding-right: 40px !important;
+  flex-wrap: wrap !important;
+  gap: 8px !important;
+}
+
+#ra-solar-time-hud .solar-hud-title svg {
+  color: var(--nm-accent) !important;
+}
+
+#ra-solar-time-hud #solar-season-badge {
+  background: rgba(232, 162, 4, 0.14) !important;
+  color: #b45309 !important;
+  border: 1px solid rgba(232, 162, 4, 0.35) !important;
+  border-radius: 999px !important;
+  padding: 2px 9px !important;
+  font-size: 10.5px !important;
+  font-weight: 800 !important;
+  white-space: nowrap !important;
+}
+
+#ra-solar-time-hud .solar-hud-min-btn {
+  position: absolute !important;
+  top: 0 !important;
+  right: 0 !important;
+  width: 30px !important;
+  height: 30px !important;
+  border-radius: 10px !important;
+  background: var(--nm-surface) !important;
+  border: 1px solid rgba(255, 255, 255, 0.85) !important;
+  color: var(--nm-text) !important;
+  box-shadow: var(--nm-shadow-out-sm) !important;
+}
+
+#ra-solar-time-hud .solar-hud-min-btn:hover {
+  background: var(--nm-surface-elevated) !important;
+  border-color: var(--nm-accent) !important;
+  color: #c27d03 !important;
+}
+
+#ra-solar-time-hud .solar-hud-telemetry {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 8px !important;
+  width: 100% !important;
+  font-family: 'Inter', system-ui, sans-serif !important;
+}
+
+#ra-solar-time-hud .solar-tel-item {
+  background: var(--nm-surface-inset) !important;
+  border: 1px solid rgba(255, 255, 255, 0.78) !important;
+  box-shadow: var(--nm-shadow-in) !important;
+  border-radius: 12px !important;
+  padding: 7px 10px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 2px !important;
+  font-size: 10.5px !important;
+  color: var(--nm-text-muted) !important;
+}
+
+#ra-solar-time-hud .solar-tel-item b,
+#ra-solar-time-hud #solar-telemetry-alt,
+#ra-solar-time-hud #solar-telemetry-az,
+#ra-solar-time-hud #solar-telemetry-shaded,
+#ra-solar-time-hud #solar-telemetry-mlpe {
+  color: var(--nm-text) !important;
+  font-family: 'JetBrains Mono', ui-monospace, monospace !important;
+  font-size: 12.5px !important;
+  font-weight: 800 !important;
+}
+
+/* Selector de modos tipo interruptor físico */
+#ra-solar-time-hud .solar-modes-bar {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 6px !important;
+  background: var(--nm-surface-inset) !important;
+  border: 1px solid rgba(255, 255, 255, 0.75) !important;
+  box-shadow: var(--nm-shadow-in) !important;
+  border-radius: 14px !important;
+  padding: 5px !important;
+}
+
+#ra-solar-time-hud .solar-mode-btn {
+  background: transparent !important;
+  border: 1px solid transparent !important;
+  border-radius: 10px !important;
+  color: var(--nm-text-muted) !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  padding: 7px 8px !important;
+  box-shadow: none !important;
+}
+
+#ra-solar-time-hud .solar-mode-btn:hover {
+  background: rgba(255, 255, 255, 0.55) !important;
+  color: var(--nm-text) !important;
+}
+
+#ra-solar-time-hud .solar-mode-btn.active {
+  background: var(--nm-surface-elevated) !important;
+  border: 1px solid rgba(232, 162, 4, 0.45) !important;
+  color: #c27d03 !important;
+  font-weight: 800 !important;
+  box-shadow: var(--nm-shadow-out-sm) !important;
+}
+
+/* Días críticos */
+#ra-solar-time-hud .solar-presets-bar {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 6px !important;
+}
+
+#ra-solar-time-hud .solar-preset-btn {
+  background: var(--nm-surface) !important;
+  border: 1px solid rgba(255, 255, 255, 0.85) !important;
+  border-radius: 10px !important;
+  color: var(--nm-text) !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  padding: 5px 10px !important;
+  box-shadow: var(--nm-shadow-out-sm) !important;
+}
+
+#ra-solar-time-hud .solar-preset-btn:hover {
+  border-color: var(--nm-accent) !important;
+  color: #c27d03 !important;
+}
+
+/* Meses y velocidades en naranja RA unificado */
+#ra-solar-time-hud .solar-month-btn {
+  background: var(--nm-surface) !important;
+  border: 1px solid rgba(255, 255, 255, 0.85) !important;
+  border-radius: 9px !important;
+  color: var(--nm-text-muted) !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  padding: 6px 2px !important;
+  box-shadow: 2px 2px 5px rgba(163, 177, 198, 0.32), -2px -2px 5px rgba(255, 255, 255, 0.85) !important;
+}
+
+#ra-solar-time-hud .solar-month-btn:hover {
+  color: var(--nm-text) !important;
+  border-color: rgba(232, 162, 4, 0.45) !important;
+}
+
+#ra-solar-time-hud .solar-month-btn.active {
+  background: var(--nm-accent) !important;
+  background-image: linear-gradient(135deg, #e8a204, #d63d1b) !important;
+  border-color: transparent !important;
+  color: #ffffff !important;
+  box-shadow: 2px 3px 8px rgba(232, 162, 4, 0.35) !important;
+}
+
+#ra-solar-time-hud .solar-play-btn {
+  background: linear-gradient(135deg, #e8a204, #d63d1b) !important;
+  border: none !important;
+  border-radius: 12px !important;
+  color: #ffffff !important;
+  font-size: 12px !important;
+  font-weight: 800 !important;
+  padding: 8px 14px !important;
+  box-shadow: 3px 4px 10px rgba(232, 162, 4, 0.35) !important;
+}
+
+#ra-solar-time-hud .solar-slider-labels {
+  font-size: 11px !important;
+  color: var(--nm-text-muted) !important;
+}
+
+#ra-solar-time-hud #solar-time-display {
+  color: #c27d03 !important;
+  font-size: 12px !important;
+  font-weight: 800 !important;
+}
+
+#ra-solar-time-hud [id^="btn-speed-"] {
+  background: var(--nm-surface) !important;
+  border: 1px solid rgba(255, 255, 255, 0.85) !important;
+  border-radius: 9px !important;
+  color: var(--nm-text-muted) !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  padding: 6px 9px !important;
+  box-shadow: var(--nm-shadow-out-sm) !important;
+}
+
+#ra-solar-time-hud [id^="btn-speed-"].active {
+  background: var(--nm-surface-elevated) !important;
+  border-color: var(--nm-accent) !important;
+  color: #c27d03 !important;
+  font-weight: 800 !important;
+  box-shadow: var(--nm-shadow-in) !important;
+}
+
 /* Los breakpoints responsivos (<=1280px, <=1024px, <=768px, <=480px) residen en css/responsive.css */
