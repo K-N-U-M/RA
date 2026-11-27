@@ -1,0 +1,599 @@
+/* ============================================================================
+   RA — ARQUITECTURA RESPONSIVA INTEGRAL (Tablets, Smartphones y Pantallas Pequeñas)
+   Mobile-First Ergonomics · Zero Overlaps · Safe-Area Insets · Light Soft UI
+   Breakpoints: <= 1280px | <= 1024px | <= 768px | <= 480px
+   ============================================================================ */
+
+/* ── 1. Portátiles Compactos & Tablets Grandes (<= 1280px) ────────────────── */
+@media (max-width: 1280px) {
+  #ra-sidebar {
+    width: 370px;
+  }
+
+  .doc-modal-box,
+  [id$="-modal"] > div,
+  [role="dialog"] > div {
+    max-width: 94vw !important;
+    max-height: 92dvh !important;
+  }
+
+  #ra-floating-tools-container {
+    right: 72px;
+    bottom: 16px;
+    gap: 6px;
+  }
+
+  #ra-floating-settings-btn {
+    right: 16px;
+    bottom: 16px;
+  }
+}
+
+/* ── 2. Tablets & Landscape Compacto (<= 1024px) ──────────────────────────── */
+@media (max-width: 1024px) {
+  #ra-sidebar {
+    width: min(360px, 46vw) !important;
+    max-width: 92vw !important;
+    border-radius: 0 20px 20px 0 !important;
+  }
+
+  .sb-header {
+    padding: 12px 12px 9px !important;
+    flex-wrap: wrap !important;
+    gap: 6px !important;
+  }
+
+  .sb-header-actions {
+    flex-wrap: wrap !important;
+    gap: 5px !important;
+  }
+
+  .sb-header-actions button {
+    min-width: 36px !important;
+    min-height: 36px !important;
+    padding: 6px !important;
+  }
+
+  .wp-stepper,
+  #wp-stepper-container {
+    display: grid !important;
+    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+    gap: 4px !important;
+    padding: 6px 6px !important;
+  }
+
+  .wp-step-btn {
+    padding: 6px 3px !important;
+    border-radius: 12px !important;
+    font-size: 9.5px !important;
+    min-width: 0 !important;
+  }
+
+  #ra-hud-energy,
+  #ra-project-status-hud {
+    max-width: calc(100vw - 380px) !important;
+    border-radius: 16px !important;
+    font-size: 11px !important;
+  }
+
+  /* Compactar barra inferior en pantallas <= 960px para que no tape la barra lateral */
+  #ra-floating-tools-container {
+    right: 68px !important;
+    bottom: 14px !important;
+    max-width: calc(100vw - 88px) !important;
+    overflow-x: auto !important;
+    flex-wrap: nowrap !important;
+    gap: 6px !important;
+    padding: 5px 8px !important;
+    border-radius: 22px !important;
+    scrollbar-width: none !important;
+  }
+
+  #ra-floating-tools-container::-webkit-scrollbar {
+    display: none;
+  }
+
+  #ra-floating-tools-container button {
+    flex: 0 0 auto !important;
+    width: 40px !important;
+    height: 40px !important;
+    min-width: 40px !important;
+    padding: 0 !important;
+    border-radius: 50% !important;
+    justify-content: center !important;
+  }
+
+  #ra-floating-tools-container button > span {
+    display: none !important;
+  }
+
+  #ra-cad-status-bar > span:nth-last-child(1),
+  #ra-cad-status-bar > span:nth-last-child(2) {
+    display: none !important;
+  }
+
+  #ra-cad-status-bar {
+    max-width: calc(100vw - 390px) !important;
+    padding: 5px 12px !important;
+    font-size: 11px !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+}
+
+/* ── 3. Smartphones & Tablets Verticales (<= 768px) ───────────────────────── */
+@media (max-width: 768px) {
+  html,
+  body {
+    width: 100%;
+    height: 100dvh;
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+
+  /* ── 3.1 Botón Menú Hamburguesa Light Soft-UI ───────────────────────────── */
+  #ra-mobile-menu-btn {
+    display: flex !important;
+    position: fixed !important;
+    top: max(12px, env(safe-area-inset-top)) !important;
+    left: 12px !important;
+    width: 46px !important;
+    height: 46px !important;
+    border-radius: 15px !important;
+    background: var(--nm-surface-elevated, #f3f5f8) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+    border: 1.5px solid rgba(232, 162, 4, 0.55) !important;
+    box-shadow: var(--nm-shadow-out), 0 4px 14px rgba(232, 162, 4, 0.18) !important;
+    color: var(--nm-accent, #e8a204) !important;
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: pointer !important;
+    z-index: 99990 !important;
+    touch-action: manipulation !important;
+    transition: transform 0.24s var(--ra-ease-spring, ease), box-shadow 0.24s ease !important;
+  }
+
+  #ra-mobile-menu-btn svg {
+    stroke: #e8a204 !important;
+    width: 22px !important;
+    height: 22px !important;
+  }
+
+  #ra-mobile-menu-btn:active {
+    transform: scale(0.92) !important;
+    box-shadow: var(--nm-shadow-in) !important;
+  }
+
+  body.sb-open #ra-mobile-menu-btn {
+    display: none !important;
+  }
+
+  /* ── 3.2 Backdrop y Cajón Lateral Deslizable Full-Height ───────────────── */
+  #ra-mobile-sidebar-backdrop.active {
+    display: block !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    z-index: 99995 !important;
+    background: rgba(231, 234, 238, 0.6) !important;
+    backdrop-filter: blur(8px) !important;
+    -webkit-backdrop-filter: blur(8px) !important;
+  }
+
+  #ra-sidebar {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: min(100vw, 420px) !important;
+    max-width: 100vw !important;
+    height: 100dvh !important;
+    background: var(--nm-bg, #e7eaee) !important;
+    border-radius: 0 22px 22px 0 !important;
+    padding-top: env(safe-area-inset-top, 0px) !important;
+    padding-bottom: 0 !important;
+    z-index: 100000 !important;
+    box-shadow: 16px 0 42px rgba(56, 42, 33, 0.18) !important;
+    transform: translateX(0) !important;
+    transition: transform 0.34s var(--ra-ease-expo, cubic-bezier(0.16, 1, 0.3, 1)) !important;
+  }
+
+  #ra-sidebar.collapsed {
+    transform: translateX(-105%) !important;
+    pointer-events: none !important;
+    box-shadow: none !important;
+  }
+
+  #ra-sidebar-resizer,
+  #ra-sidebar-toggle-btn {
+    display: none !important;
+  }
+
+  .sb-collapse-btn {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 40px !important;
+    height: 40px !important;
+    min-width: 40px !important;
+    border-radius: 12px !important;
+    background: var(--nm-surface-elevated, #f3f5f8) !important;
+    border: 1.5px solid rgba(232, 162, 4, 0.45) !important;
+    color: var(--nm-accent, #e8a204) !important;
+    box-shadow: var(--nm-shadow-out-sm) !important;
+    font-size: 16px !important;
+    font-weight: 800 !important;
+    cursor: pointer !important;
+  }
+
+  /* ── 3.3 Ergonomía Táctil Dentro del Drawer ─────────────────────────────── */
+  .sb-tab-content {
+    padding: 12px 12px calc(env(safe-area-inset-bottom, 20px) + 92px) !important;
+    overscroll-behavior: contain !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  #ra-sidebar .wp-card,
+  #ra-sidebar .ra-card,
+  #ra-sidebar .ui-card,
+  #ra-sidebar .wp-subdock,
+  #ra-sidebar [id^="wp-subdock-body-"] > div {
+    border-radius: 16px !important;
+    padding: 12px !important;
+  }
+
+  #ra-sidebar button:not(.wp-step-btn):not(.sb-collapse-btn) {
+    min-height: 44px !important;
+    font-size: 13px !important;
+    border-radius: 13px !important;
+    white-space: normal !important;
+    line-height: 1.25 !important;
+    padding-top: 8px !important;
+    padding-bottom: 8px !important;
+  }
+
+  #ra-sidebar .sb-header-actions button {
+    min-height: 38px !important;
+    min-width: 38px !important;
+    padding: 6px !important;
+  }
+
+  /* Evitar auto-zoom en Safari iOS (requiere >= 16px en inputs) */
+  #ra-sidebar input[type="text"],
+  #ra-sidebar input[type="number"],
+  #ra-sidebar input[type="search"],
+  #ra-sidebar select,
+  #ra-sidebar textarea,
+  [id$="-modal"] input,
+  [id$="-modal"] select,
+  [id$="-modal"] textarea {
+    min-height: 42px !important;
+    font-size: 16px !important;
+  }
+
+  /* Envolver filas de botones e info para evitar desbordamientos */
+  #ra-sidebar [style*="display:flex"],
+  #ra-sidebar [style*="display: flex"] {
+    flex-wrap: wrap;
+  }
+
+  #ra-sidebar table {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* ── 3.4 Zona Superior Sin Colisiones (HUD Energía + Brújula + Status) ──── */
+  #ra-project-status-hud {
+    display: none !important;
+  }
+
+  #ra-hud-energy {
+    top: max(12px, env(safe-area-inset-top)) !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    max-width: calc(100vw - 138px) !important;
+    z-index: 900 !important;
+  }
+
+  #ra-hud-pill {
+    padding: 6px 11px !important;
+    font-size: 11px !important;
+    gap: 5px !important;
+    border-radius: 999px !important;
+    max-width: 100% !important;
+    overflow: hidden !important;
+    white-space: nowrap !important;
+  }
+
+  #ra-hud-pill #hud-title-label {
+    display: none !important;
+  }
+
+  #hud-val-neta {
+    font-size: 12px !important;
+  }
+
+  #ra-hud-dropdown {
+    width: min(90vw, 290px) !important;
+    padding: 12px !important;
+  }
+
+  #ra-status {
+    top: max(64px, calc(env(safe-area-inset-top) + 52px)) !important;
+    max-width: calc(100vw - 24px) !important;
+    white-space: normal !important;
+    text-align: center !important;
+    font-size: 11px !important;
+    line-height: 1.3 !important;
+    padding: 7px 14px !important;
+  }
+
+  /* Rosa de los Vientos y Rail Derecha FABs en estilo claro */
+  #ra-rosa {
+    top: max(10px, env(safe-area-inset-top)) !important;
+    right: 10px !important;
+    width: 48px !important;
+    height: 48px !important;
+    transform: none !important;
+    z-index: 860 !important;
+  }
+
+  #ra-rosa-rumbo {
+    font-size: 9px !important;
+  }
+
+  #ra-solar-fab-btn,
+  #ra-outliner-fab-btn,
+  #ra-bom-fab-btn {
+    right: 12px !important;
+    width: 42px !important;
+    height: 42px !important;
+    min-width: 42px !important;
+    min-height: 42px !important;
+    border-radius: 14px !important;
+    transform: none !important;
+    background: rgba(243, 245, 248, 0.94) !important;
+    border: 1.5px solid rgba(255, 255, 255, 0.85) !important;
+    box-shadow: var(--nm-shadow-out-sm) !important;
+    z-index: 860 !important;
+  }
+
+  #ra-solar-fab-btn { top: calc(env(safe-area-inset-top, 0px) + 70px) !important; }
+  #ra-outliner-fab-btn { display: flex !important; top: calc(env(safe-area-inset-top, 0px) + 120px) !important; }
+  #ra-bom-fab-btn { display: flex !important; top: calc(env(safe-area-inset-top, 0px) + 170px) !important; }
+
+  .ra-fab-tooltip {
+    display: none !important;
+  }
+
+  /* ── 3.5 Dock Flotante Inferior Unificado (Cero Desbordes) ───────────────── */
+  #ra-floating-tools-container {
+    left: 12px !important;
+    right: 64px !important;
+    bottom: max(12px, env(safe-area-inset-bottom)) !important;
+    width: auto !important;
+    max-width: none !important;
+    padding: 5px 8px !important;
+    gap: 6px !important;
+    border-radius: 24px !important;
+    background: rgba(235, 237, 240, 0.92) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.88) !important;
+    box-shadow: var(--nm-shadow-out) !important;
+    overflow-x: auto !important;
+    flex-wrap: nowrap !important;
+    justify-content: flex-start !important;
+    scrollbar-width: none !important;
+    z-index: 9100 !important;
+  }
+
+  #ra-floating-tools-container button {
+    width: 40px !important;
+    height: 40px !important;
+    min-width: 40px !important;
+    padding: 0 !important;
+    border-radius: 50% !important;
+  }
+
+  #ra-floating-settings-btn {
+    right: 12px !important;
+    bottom: max(14px, env(safe-area-inset-bottom)) !important;
+    width: 44px !important;
+    height: 44px !important;
+    z-index: 9200 !important;
+  }
+
+  #ra-floating-settings-popover {
+    left: 10px !important;
+    right: 10px !important;
+    width: auto !important;
+    bottom: max(68px, calc(env(safe-area-inset-bottom) + 56px)) !important;
+    max-height: 70dvh !important;
+    padding: 14px !important;
+    border-radius: 20px !important;
+  }
+
+  #ra-btn-compare-scenarios {
+    bottom: max(68px, calc(env(safe-area-inset-bottom) + 56px)) !important;
+    right: 12px !important;
+    padding: 7px 12px !important;
+    font-size: 11px !important;
+    z-index: 9050 !important;
+  }
+
+  #ra-onboarding-empty-card {
+    bottom: max(70px, calc(env(safe-area-inset-bottom) + 58px)) !important;
+    width: calc(100vw - 24px) !important;
+    max-width: 440px !important;
+    padding: 10px 12px !important;
+    gap: 6px !important;
+    justify-content: center !important;
+    font-size: 12px !important;
+  }
+
+  #ra-onboarding-empty-card button {
+    min-height: 36px !important;
+    font-size: 12px !important;
+  }
+
+  /* Barra de estado CAD arriba en móvil, sin atajos de teclado */
+  #ra-cad-status-bar {
+    top: max(64px, calc(env(safe-area-inset-top) + 52px)) !important;
+    bottom: auto !important;
+    max-width: calc(100vw - 124px) !important;
+    padding: 4px 10px !important;
+    font-size: 10px !important;
+    gap: 8px !important;
+  }
+
+  /* Ocultar telemetría FPS flotante en móvil para mantener limpio el mapa 3D */
+  #ra-benchmark-hud {
+    display: none !important;
+  }
+
+  /* Toasts con márgenes seguros sobre móvil */
+  #ra-toast-container {
+    left: 12px !important;
+    right: 12px !important;
+    bottom: max(70px, calc(env(safe-area-inset-bottom) + 58px)) !important;
+    max-width: calc(100vw - 24px) !important;
+  }
+
+  /* ── 3.6 Aislamiento Limpio con Drawer Abierto ──────────────────────────── */
+  body.sb-open #ra-floating-tools-container,
+  body.sb-open #ra-floating-settings-btn,
+  body.sb-open #ra-rosa,
+  body.sb-open #ra-outliner-fab-btn,
+  body.sb-open #ra-bom-fab-btn,
+  body.sb-open #ra-solar-fab-btn,
+  body.sb-open #ra-hud-energy,
+  body.sb-open #ra-solar-time-hud,
+  body.sb-open #ra-onboarding-empty-card,
+  body.sb-open #ra-cad-status-bar,
+  body.sb-open #ra-btn-compare-scenarios {
+    display: none !important;
+  }
+
+  /* ── 3.7 Bottom Sheets & Modales Responsive ─────────────────────────────── */
+  #ra-solar-time-hud,
+  #ra-cad-outliner-panel.mobile-active,
+  #ra-bom-tree-hud {
+    position: fixed !important;
+    top: auto !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    transform: none !important;
+    width: 100vw !important;
+    max-width: 100vw !important;
+    max-height: 62dvh !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    border-radius: 22px 22px 0 0 !important;
+    padding: 14px 14px calc(env(safe-area-inset-bottom, 12px) + 12px) !important;
+    background: var(--nm-surface-elevated, #f3f5f8) !important;
+    box-shadow: 0 -10px 30px rgba(56, 42, 33, 0.16) !important;
+    z-index: 100008 !important;
+  }
+
+  #ra-cad-outliner-panel.mobile-active {
+    display: flex !important;
+  }
+
+  #ra-solar-time-hud.solar-hud-minimized {
+    display: none !important;
+  }
+
+  .ra-modal,
+  [id$="-modal"] > div,
+  [role="dialog"]:not(#cesiumContainer):not(.cesium-viewer) > div,
+  #ra-doc-modal .doc-modal-box,
+  #ra-credentials-gate > div,
+  #ra-scenario-comparator-modal .ra-sc-card {
+    width: calc(100vw - 14px) !important;
+    max-width: calc(100vw - 14px) !important;
+    max-height: 92dvh !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    border-radius: 20px !important;
+    padding: 14px !important;
+  }
+
+  #ra-loading .ld-stage-card {
+    padding: 26px 20px 22px !important;
+    border-radius: 22px !important;
+    gap: 14px !important;
+  }
+
+  #ra-loading .ld-orbit-ring.ring-1 {
+    width: 126px !important;
+    height: 126px !important;
+  }
+
+  #ra-loading .ld-orbit-ring.ring-2 {
+    width: 152px !important;
+    height: 152px !important;
+  }
+}
+
+/* ── 4. Smartphones Ultra-Compactos (<= 480px) ────────────────────────────── */
+@media (max-width: 480px) {
+  #ra-sidebar {
+    width: 100vw !important;
+    border-radius: 0 !important;
+  }
+
+  .sb-brand-logo {
+    max-width: 108px !important;
+    height: 24px !important;
+  }
+
+  .wp-step-btn {
+    padding: 6px 2px !important;
+  }
+
+  .wp-step-title {
+    font-size: 8.5px !important;
+  }
+
+  .stat-grid-2 {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 6px !important;
+  }
+
+  .stat-grid-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 5px !important;
+  }
+
+  .stat-pill {
+    padding: 6px 7px !important;
+  }
+
+  .stat-pill-value {
+    font-size: 13px !important;
+  }
+
+  [id$="-modal"] [style*="grid-template-columns"],
+  [role="dialog"] [style*="grid-template-columns"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  .ra-sc-table th,
+  .ra-sc-table td {
+    padding: 7px 6px !important;
+    font-size: 11.5px !important;
+  }
+}
+
+@media (max-width: 380px) {
+  .wp-step-title {
+    display: none !important;
+  }
+
+  .stat-grid-3 {
+    grid-template-columns: 1fr !important;
+  }
+}

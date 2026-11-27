@@ -608,63 +608,41 @@
   // ── INICIALIZACIÓN RESPONSIVE PARA DISPOSITIVOS MÓVILES / TÁCTILES ───────────
   function initMobileResponsiveBehavior() {
     if (typeof window === 'undefined') return;
-    const isMobile = window.innerWidth <= 768;
+    let wasMobile = window.innerWidth <= 768;
 
     const sb = document.getElementById('ra-sidebar');
     const btn = document.getElementById('btn-sidebar-toggle');
     const toggleIcon = document.getElementById('sidebar-toggle-icon');
+    const mobBtn = document.getElementById('ra-mobile-menu-btn');
+    const backdrop = document.getElementById('ra-mobile-sidebar-backdrop');
 
-    if (isMobile) {
-      // 1. Sidebar colapsado al inicio en móvil
-      if (sb) {
-        sb.classList.add('collapsed');
-        document.body.classList.remove('sb-open');
-        if (btn) btn.textContent = '✕';
-        if (toggleIcon) toggleIcon.textContent = '▶';
-      }
+    function syncResponsiveState(isMobile) {
+      if (isMobile) {
+        if (sb) {
+          sb.classList.add('collapsed');
+          document.body.classList.remove('sb-open');
+          if (btn) btn.textContent = '✕';
+          if (toggleIcon) toggleIcon.textContent = '▶';
+        }
+        if (mobBtn) mobBtn.style.display = 'flex';
+        if (backdrop) backdrop.classList.remove('active');
 
-      // 2. Panel solar minimizado al inicio
-      if (typeof global.toggleSolarHUD === 'function') {
-        global.toggleSolarHUD(false);
+        if (typeof global.toggleSolarHUD === 'function') {
+          global.toggleSolarHUD(false);
+        } else {
+          const solarHud = document.getElementById('ra-solar-time-hud');
+          if (solarHud) solarHud.classList.add('solar-hud-minimized');
+        }
       } else {
-        const solarHud = document.getElementById('ra-solar-time-hud');
-        if (solarHud) solarHud.classList.add('solar-hud-minimized');
+        if (sb) {
+          sb.classList.remove('collapsed');
+          document.body.classList.remove('sb-open');
+          if (btn) btn.textContent = '◀';
+          if (toggleIcon) toggleIcon.textContent = '◀';
+        }
+        if (mobBtn) mobBtn.style.display = 'none';
+        if (backdrop) backdrop.classList.remove('active');
       }
-
-      // 3. Árbol de proyecto (Outliner) cerrado al inicio
-      if (global.UIOutliner && typeof global.UIOutliner.close === 'function') {
-        global.UIOutliner.close();
-      }
-
-      // 4. Auto-cerrar sidebar al pulsar cualquier botón de acción de dibujo o CAD en móvil
-      const tabContent = document.querySelector('.sb-tab-content');
-      if (tabContent) {
-        tabContent.addEventListener('click', function(e) {
-          const target = e.target.closest('button, .wp-step-btn');
-          if (target && !target.classList.contains('sb-collapse-btn')) {
-            // Si pulsa un botón de acción como 'DEFINIR PLANO', 'TRAZAR', 'UBICAR', cerrar sidebar para ver el 3D
-            const isActionBtn = target.classList.contains('btn-action-primary') ||
-                                target.classList.contains('btn-action-blue') ||
-                                target.classList.contains('btn-action-emerald') ||
-                                target.id.indexOf('create') !== -1 ||
-                                target.id.indexOf('btn-p1-') !== -1;
-            if (isActionBtn && sb && !sb.classList.contains('collapsed')) {
-              if (typeof global.toggleSidebarCollapse === 'function') {
-                global.toggleSidebarCollapse();
-              }
-            }
-          }
-        }, { passive: true });
-      }
-    } else {
-      // En desktop, mantener abierto por defecto
-      if (sb) {
-        sb.classList.remove('collapsed');
-        document.body.classList.remove('sb-open');
-        if (btn) btn.textContent = '◀';
-        if (toggleIcon) toggleIcon.textContent = '◀';
-      }
-      // Asegurar que árboles flotantes no se abran automáticamente en arranque
       if (global.UIOutliner && typeof global.UIOutliner.close === 'function') {
         global.UIOutliner.close();
       }
@@ -673,7 +651,61 @@
       }
     }
 
-    // Vincular botón flotante del Árbol de Proyecto (UIOutliner)
+    syncResponsiveState(wasMobile);
+
+    // 1. Cerrar cajón al tocar el backdrop semitransparente
+    if (backdrop) {
+      backdrop.addEventListener('click', function() {
+        if (sb && !sb.classList.contains('collapsed') && typeof global.toggleSidebarCollapse === 'function') {
+          global.toggleSidebarCollapse();
+        }
+      });
+    }
+
+    // 2. Gesto táctil swipe-izquierda para cerrar el sidebar en móvil
+    if (sb) {
+      let touchStartX = 0;
+      let touchStartY = 0;
+      sb.addEventListener('touchstart', function(e) {
+        if (window.innerWidth > 768 || !e.touches || !e.touches[0]) return;
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+      }, { passive: true });
+      sb.addEventListener('touchend', function(e) {
+        if (window.innerWidth > 768 || sb.classList.contains('collapsed') || !e.changedTouches || !e.changedTouches[0]) return;
+        const dx = e.changedTouches[0].clientX - touchStartX;
+        const dy = Math.abs(e.changedTouches[0].clientY - touchStartY);
+        if (dx < -70 && Math.abs(dx) > dy * 1.6 && typeof global.toggleSidebarCollapse === 'function') {
+          global.toggleSidebarCollapse();
+        }
+      }, { passive: true });
+    }
+
+    // 3. Auto-cerrar sidebar en móvil al lanzar herramientas interactivas sobre el mapa 3D
+    const tabContent = document.querySelector('.sb-tab-content');
+    if (tabContent) {
+      tabContent.addEventListener('click', function(e) {
+        if (window.innerWidth > 768) return;
+        const target = e.target.closest('button, .wp-step-btn');
+        if (!target || target.classList.contains('sb-collapse-btn') || target.classList.contains('wp-step-btn')) return;
+        const tid = target.id || '';
+        const isCanvasToolBtn =
+          target.classList.contains('btn-action-primary') ||
+          target.classList.contains('btn-action-blue') ||
+          target.classList.contains('btn-action-emerald') ||
+          tid.indexOf('btn-draw-') !== -1 ||
+          tid.indexOf('btn-define-plane') !== -1 ||
+          tid.indexOf('btn-place-') !== -1 ||
+          tid.indexOf('create') !== -1 ||
+          tid.indexOf('btn-p1-define') !== -1 ||
+          tid.indexOf('btn-p1-draw') !== -1;
+        if (isCanvasToolBtn && sb && !sb.classList.contains('collapsed') && typeof global.toggleSidebarCollapse === 'function') {
+          global.toggleSidebarCollapse();
+        }
+      }, { passive: true });
+    }
+
+    // 4. Vincular botón flotante del Árbol de Proyecto (UIOutliner)
     const outlinerFab = document.getElementById('ra-outliner-fab-btn');
     if (outlinerFab) {
       outlinerFab.onclick = function(e) {
@@ -684,7 +716,7 @@
       };
     }
 
-    // Vincular botón flotante del Árbol de Mediciones (BOMTreeEngine)
+    // 5. Vincular botón flotante del Árbol de Mediciones (BOMTreeEngine)
     const bomFab = document.getElementById('ra-bom-fab-btn');
     if (bomFab) {
       bomFab.onclick = function(e) {
@@ -695,12 +727,11 @@
       };
     }
 
-    // Al tocar el visor 3D en móvil, replegar paneles abiertos para dejar la vista limpia
+    // 6. Al tocar el visor 3D en móvil, replegar paneles abiertos para dejar la vista limpia
     const cesiumCont = document.getElementById('cesiumContainer');
     if (cesiumCont) {
       cesiumCont.addEventListener('pointerdown', function() {
         if (window.innerWidth <= 768) {
-          const sb = document.getElementById('ra-sidebar');
           if (sb && !sb.classList.contains('collapsed') && typeof global.toggleSidebarCollapse === 'function') {
             global.toggleSidebarCollapse();
           }
@@ -714,17 +745,19 @@
       }, { passive: true });
     }
 
-    // Listener para orientación y redimensión
+    // 7. Listener reactivo para orientación y cruce de breakpoint
     let resizeTimer = null;
     window.addEventListener('resize', function() {
       clearTimeout(resizeTimer);
       resizeTimer = setTimeout(function() {
         const currentlyMobile = window.innerWidth <= 768;
-        const backdrop = document.getElementById('ra-mobile-sidebar-backdrop');
-        if (backdrop && !currentlyMobile) {
+        if (currentlyMobile !== wasMobile) {
+          wasMobile = currentlyMobile;
+          syncResponsiveState(currentlyMobile);
+        } else if (!currentlyMobile && backdrop) {
           backdrop.classList.remove('active');
         }
-      }, 150);
+      }, 140);
     }, { passive: true });
   }
 

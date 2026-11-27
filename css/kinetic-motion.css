@@ -547,6 +547,7 @@
 }
 
 body.ra-pre-reveal #ra-sidebar:not(.collapsed),
+body.ra-pre-reveal #ra-mobile-menu-btn,
 body.ra-pre-reveal #ra-floating-tools-container button,
 body.ra-pre-reveal #ra-floating-settings-btn,
 body.ra-pre-reveal #ra-onboarding-empty-card,
@@ -561,6 +562,10 @@ body.ra-pre-reveal #ra-btn-compare-scenarios {
 
 body.ra-app-entering #cesiumContainer {
   animation: raViewportDepthIn 0.92s var(--ra-ease-expo) both;
+}
+
+body.ra-app-entering #ra-mobile-menu-btn {
+  animation: raStepCascadeIn 0.54s var(--ra-ease-spring) 0.16s both;
 }
 
 body.ra-app-entering #ra-sidebar:not(.collapsed) {
