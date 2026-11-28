@@ -4904,7 +4904,7 @@ function wpApplyPanelArrangement(polyIdx, mode) {
       ? window.solarProjectConfig.latitude
       : 40.4168;
   }
-  const optimalTilt = Math.min(45, Math.max(15, Math.round(Math.abs(lat) - 4.5)));
+  const optimalTilt = Math.min(35, Math.max(15, Math.round(3.7 + 0.69 * Math.abs(lat))));
 
   if (poly._baselineYieldKwh === undefined && typeof wpComputePolyQuickYield === 'function') {
     const baseStats = wpComputePolyQuickYield(poly);
@@ -5636,14 +5636,23 @@ function wpSnapPolyToSweetSpot(polyIdx, mode) {
     poly._baselinePanelCount = poly.roofInfo.panels.length;
   }
 
-  let lat = 37.38;
+  let lat = 40.41;
   if (poly.roofInfo && typeof poly.roofInfo.latDeg === 'number') {
     lat = poly.roofInfo.latDeg;
+  } else if (window.solarProjectConfig && typeof window.solarProjectConfig.lat === 'number') {
+    lat = window.solarProjectConfig.lat;
   } else if (window.solarProjectConfig && typeof window.solarProjectConfig.latitude === 'number') {
     lat = window.solarProjectConfig.latitude;
   }
-  const optTilt = Math.min(35, Math.max(15, Math.round(3.7 + 0.69 * Math.abs(lat))));
   const optAzGeo = (lat >= 0) ? 180 : 0;
+  const optTiltSouth = Math.min(35, Math.max(15, Math.round(3.7 + 0.69 * Math.abs(lat))));
+  let optTilt = optTiltSouth;
+  if (mode === 'tilt_only') {
+    const curAz = (typeof poly.modAzimuth === 'number') ? poly.modAzimuth : optAzGeo;
+    const azDevRad = ((curAz - optAzGeo) * Math.PI) / 180;
+    const azFactor = Math.max(0.38, Math.cos(azDevRad));
+    optTilt = Math.max(10, Math.round(optTiltSouth * azFactor));
+  }
 
   poly.arrangementMode = 'custom';
   poly.modTilt = optTilt;
