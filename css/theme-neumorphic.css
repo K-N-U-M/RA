@@ -422,6 +422,7 @@
 #ra-embedded-doc-modal,
 #ra-scenario-comparator-modal,
 #ra-a11y-modal,
+[id$="-modal"],
 #ra-async-confirm-modal {
   background: rgba(188, 199, 214, 0.34) !important;
   backdrop-filter: blur(8px) !important;
