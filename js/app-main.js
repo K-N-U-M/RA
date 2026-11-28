@@ -1099,15 +1099,29 @@ if (globe) {
 }
 scene.backgroundColor = Cesium.Color.fromCssColorString('#0284c7');
 
-// Vista inicial: Barcelona a 135 m elipsoidales (~45-50 m sobre cubiertas; el terreno+geoide ronda 62 m y edificios ~85-90 m)
+// Vista inicial cinematográfica: arranque orbital a 340 m y descenso suave tipo dron hasta 135 m
 camera.setView({
-  destination : Cesium.Cartesian3.fromDegrees(2.1734, 41.3851, 135),
+  destination : Cesium.Cartesian3.fromDegrees(2.1722, 41.3838, 340),
   orientation : {
-    heading: Cesium.Math.toRadians(30),
-    pitch  : Cesium.Math.toRadians(-35),
+    heading: Cesium.Math.toRadians(12),
+    pitch  : Cesium.Math.toRadians(-22),
     roll   : 0
   },
 });
+setTimeout(() => {
+  if (camera && typeof camera.flyTo === 'function') {
+    camera.flyTo({
+      destination: Cesium.Cartesian3.fromDegrees(2.1734, 41.3851, 135),
+      orientation: {
+        heading: Cesium.Math.toRadians(30),
+        pitch  : Cesium.Math.toRadians(-35),
+        roll   : 0
+      },
+      duration: 2.4,
+      easingFunction: (typeof Cesium !== 'undefined' && Cesium.EasingFunction) ? Cesium.EasingFunction.CUBIC_IN_OUT : undefined
+    });
+  }
+}, 150);
 
 // ── Variables de Capas y Primitivas ────────────────────────────────────────
 window.currentEngine = window.currentEngine || 'google';
