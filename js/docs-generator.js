@@ -1809,6 +1809,9 @@ function generateUnifilar() {
     inverter: d.inverter,
     battery: d.battery,
     hasBattery: d.hasBattery,
+    isMicroinverter: !!d.isMicroinverter,
+    rcdType: d.rcdType || 'Clase A Superinm.',
+    spdClaseLabel: d.spdClaseLabel || 'Tipo II',
     V_max_inv: d.V_max_inv,
     V_mppt_min: d.V_mppt_min,
     V_mppt_max: d.V_mppt_max
@@ -1911,339 +1914,729 @@ function generateUnifilar() {
  * Motor Vectorial SVG Puro para Esquema Unifilar Normalizado (EPLAN / IEC 60617 / ISO 7200)
  */
 function buildUnifilarSvg(D) {
-  const W = 1600, H = 1131;
-  const mLeft = 40, mTop = 35, mRight = 40, mBottom = 35;
-  const fW = W - mLeft - mRight;
-  const fH = H - mTop - mBottom;
+  const _esc = (v) => String(v == null ? '' : v)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+  const _trunc = (s, max) => {
+    const str = String(s || '');
+    return str.length > max ? str.slice(0, max - 1) + '…' : str;
+  };
 
-  // Grid coordinates
+  // Defensive SSOT resolution (works for both generateUnifilar payload and direct getProjectCalcs object)
+  const tit = D.tit || {};
+  const nombre = _esc(_trunc(D.nombre || tit.nombre || 'Titular Instalación', 34));
+  const nif = _esc(D.nif || tit.nif || '—');
+  const dirFull = _esc(_trunc(((D.dir || tit.dir || '') + ' ' + (D.mun || tit.mun || '')).trim() || 'Ubicación Instalación', 44));
+  const cups = _esc(_trunc(D.cups || tit.cups || '—', 28));
+  const dist = _esc(_trunc(D.dist || tit.dist || 'Distribuidora BT', 28));
+  const tecnico = _esc(_trunc(D.tecnico || tit.tecnico || 'Ingeniero Proyectista', 24));
+  const titulacion = _esc(_trunc(D.titulacion || tit.titulacion || 'Ing. Industrial', 22));
+  const ncol = _esc(D.ncol || tit.ncol || '—');
+  const refNum = _esc(D.refNum || 'RA-FV-001');
+  const fechaStr = _esc(D.fechaStr || new Date().toLocaleDateString('es-ES'));
+  const modalRaw = String(D.modalTexto || 'Autoconsumo con excedentes').split('(')[0].trim();
+  const modalShort = _esc(_trunc(modalRaw, 38));
+
+  const numPanels = Number(D.numPanels) || 0;
+  const numStrings = Math.max(1, Number(D.numStrings) || 1);
+  const modsActual = Number(D.modsActual) || Math.ceil(numPanels / numStrings) || 1;
+  const cfgPot = Number(D.cfg_pot || (D.cfg && D.cfg.potencia)) || 550;
+  const cfgTec = _esc(_trunc(D.cfg_tec || (D.cfg && D.cfg.tecnologia) || 'Monocristalino', 28));
+  const P_dc_kW = Number(D.P_dc_kW) || (numPanels * cfgPot / 1000);
+  const P_ac_kW = Number(D.P_ac_kW || D.inv_kW) || 5.0;
+  const Voc_string = Number(D.Voc_string) || 0;
+  const Voc_str_cold = Number(D.Voc_str_cold) || 0;
+  const Isc = Number(D.Isc) || 0;
+  const Imp = Number(D.Imp) || 0;
+  const I_total_dc = Number(D.I_total_dc) || (Isc * numStrings);
+  const V_max_inv = Number(D.V_max_inv) || 1000;
+  const monofasico = !!D.monofasico;
+  const isMicro = !!D.isMicroinverter;
+  const iAcNum = typeof D.I_ac === 'number' ? D.I_ac : (parseFloat(D.I_ac) || 0);
+  const iAcStr = iAcNum.toFixed(1);
+  const I_iga = Number(D.I_iga) || 25;
+  const difAmp = Number(D.dif_amp) || 40;
+  const rcdLabel = _esc(_trunc(D.rcdType || 'Clase A Superinm.', 20));
+  const spdLabel = _esc(_trunc(D.spdClaseLabel || 'Tipo II', 16));
+  const fuseStd = Number(D.fuse_std) || 15;
+  const S_str = Number(D.S_str) || 4;
+  const S_mdc = Number(D.S_mdc) || S_str;
+  const S_ac = Number(D.S_ac) || 6;
+  const L_dc = Number(D.L_dc) || 15;
+  const L_ac = Number(D.L_ac) || 15;
+  const dVdcStr = (D.dVdc_p != null && isFinite(parseFloat(D.dVdc_p))) ? parseFloat(D.dVdc_p).toFixed(2) + '%' : '≤1.50%';
+  const dVacStr = (D.dVac_p != null && isFinite(parseFloat(D.dVac_p))) ? parseFloat(D.dVac_p).toFixed(2) + '%' : '≤1.50%';
+  const R_tierra = Number(D.R_tierra) || 15;
+  const invName = _esc(_trunc(D.inverter && D.inverter.fullName ? D.inverter.fullName : (P_ac_kW.toFixed(2) + ' kW'), 32));
+  const invEff = (D.inverter && D.inverter.efficiency) ? (D.inverter.efficiency > 1 ? D.inverter.efficiency : D.inverter.efficiency * 100).toFixed(1) : '98.2';
+  const hasBat = !!(D.hasBattery && D.battery);
+  const batName = hasBat ? _esc(_trunc(D.battery.fullName || 'Batería LFP', 30)) : '';
+  const batKwh = hasBat ? (Number(D.battery.totalKwh) || 5.0).toFixed(1) : '0.0';
+  const batVolt = hasBat ? (D.battery.voltage || 400) : 400;
+  const hasWind = (typeof window !== 'undefined' && window.windParkSummary && window.windParkSummary.totalRatedKw > 0);
+  const windStr = hasWind ? _esc(window.windParkSummary.totalRatedKw + ' kW Mini-Eólica (Dump Load)') : 'No instalada';
+  const acPoles = monofasico ? '2P' : '4P';
+  const acCableSpec = (monofasico ? '3G' : '5G') + S_ac + ' mm²';
+  const acVoltStr = monofasico ? '230 V (1F+N)' : '400 V (3F+N)';
+  const dcSwitchAmp = I_total_dc > 32 ? 63 : 32;
+
+  // Format A3 Landscape (ISO 5457)
+  const W = 1600, H = 1131;
+  const mL = 36, mT = 30, fW = W - 2 * mL, fH = H - 2 * mT;
+  const inX = mL + 12, inY = mT + 12, inW = fW - 24, inH = fH - 24;
+
+  // Helper: IEC 60617 oblique conductor slashes on horizontal or vertical wire
+  const drawSlashes = (cx, cy, count, vertical) => {
+    let out = '';
+    const n = Math.min(count, 5);
+    const step = 4.2;
+    const start = -((n - 1) * step) / 2;
+    for (let i = 0; i < n; i++) {
+      if (vertical) {
+        const y0 = cy + start + i * step;
+        out += `<line x1="${cx - 5}" y1="${y0 + 3}" x2="${cx + 5}" y2="${y0 - 3}" stroke="#0f172a" stroke-width="1.3"/>`;
+      } else {
+        const x0 = cx + start + i * step;
+        out += `<line x1="${x0 - 3}" y1="${cy + 5}" x2="${x0 + 3}" y2="${cy - 5}" stroke="#0f172a" stroke-width="1.3"/>`;
+      }
+    }
+    return out;
+  };
+
+  // ISO 5457 Coordinate Grid (1..8 x A..F)
   const numCols = 8;
-  const colW = (fW - 24) / numCols;
+  const colW = inW / numCols;
   let gridXml = '';
   for (let i = 0; i < numCols; i++) {
-    const x = mLeft + 12 + i * colW + colW / 2;
-    gridXml += `<text x="${x}" y="${mTop + 8}" font-family="monospace" font-size="9" font-weight="bold" fill="#000000" text-anchor="middle">${i + 1}</text>`;
-    gridXml += `<text x="${x}" y="${mTop + fH - 4}" font-family="monospace" font-size="9" font-weight="bold" fill="#000000" text-anchor="middle">${i + 1}</text>`;
+    const x = inX + i * colW + colW / 2;
+    gridXml += `<text x="${x}" y="${mT + 9}" font-family="monospace" font-size="8.5" font-weight="bold" fill="#0f172a" text-anchor="middle">${i + 1}</text>`;
+    gridXml += `<text x="${x}" y="${mT + fH - 3}" font-family="monospace" font-size="8.5" font-weight="bold" fill="#0f172a" text-anchor="middle">${i + 1}</text>`;
     if (i > 0) {
-      const gx = mLeft + 12 + i * colW;
-      gridXml += `<line x1="${gx}" y1="${mTop}" x2="${gx}" y2="${mTop + 12}" stroke="#000" stroke-width="1"/>`;
-      gridXml += `<line x1="${gx}" y1="${mTop + fH - 12}" x2="${gx}" y2="${mTop + fH}" stroke="#000" stroke-width="1"/>`;
+      const gx = inX + i * colW;
+      gridXml += `<line x1="${gx}" y1="${mT}" x2="${gx}" y2="${inY}" stroke="#0f172a" stroke-width="0.9"/>`;
+      gridXml += `<line x1="${gx}" y1="${inY + inH}" x2="${gx}" y2="${mT + fH}" stroke="#0f172a" stroke-width="0.9"/>`;
     }
   }
-
   const rowNames = ['A', 'B', 'C', 'D', 'E', 'F'];
-  const rowH = (fH - 24) / rowNames.length;
+  const rowH = inH / rowNames.length;
   for (let j = 0; j < rowNames.length; j++) {
-    const y = mTop + 12 + j * rowH + rowH / 2 + 3;
-    gridXml += `<text x="${mLeft + 6}" y="${y}" font-family="monospace" font-size="9" font-weight="bold" fill="#000000" text-anchor="middle">${rowNames[j]}</text>`;
-    gridXml += `<text x="${mLeft + fW - 6}" y="${y}" font-family="monospace" font-size="9" font-weight="bold" fill="#000000" text-anchor="middle">${rowNames[j]}</text>`;
+    const y = inY + j * rowH + rowH / 2 + 3;
+    gridXml += `<text x="${mL + 6}" y="${y}" font-family="monospace" font-size="8.5" font-weight="bold" fill="#0f172a" text-anchor="middle">${rowNames[j]}</text>`;
+    gridXml += `<text x="${mL + fW - 6}" y="${y}" font-family="monospace" font-size="8.5" font-weight="bold" fill="#0f172a" text-anchor="middle">${rowNames[j]}</text>`;
     if (j > 0) {
-      const gy = mTop + 12 + j * rowH;
-      gridXml += `<line x1="${mLeft}" y1="${gy}" x2="${mLeft + 12}" y2="${gy}" stroke="#000" stroke-width="1"/>`;
-      gridXml += `<line x1="${mLeft + fW - 12}" y1="${gy}" x2="${mLeft + fW}" y2="${gy}" stroke="#000" stroke-width="1"/>`;
+      const gy = inY + j * rowH;
+      gridXml += `<line x1="${mL}" y1="${gy}" x2="${inX}" y2="${gy}" stroke="#0f172a" stroke-width="0.9"/>`;
+      gridXml += `<line x1="${inX + inW}" y1="${gy}" x2="${mL + fW}" y2="${gy}" stroke="#0f172a" stroke-width="0.9"/>`;
     }
   }
 
-  // Cartela ISO 7200
-  const tbW = 460, tbH = 110;
-  const tbX = mLeft + fW - 12 - tbW;
-  const tbY = mTop + fH - 12 - tbH;
-
-  const cartelaXml = `
-    <g id="cartela_iso7200">
-      <rect x="${tbX}" y="${tbY}" width="${tbW}" height="${tbH}" fill="#f8fafc" stroke="#000000" stroke-width="1.5"/>
-      <line x1="${tbX}" y1="${tbY + 28}" x2="${tbX + tbW}" y2="${tbY + 28}" stroke="#000" stroke-width="1"/>
-      <line x1="${tbX}" y1="${tbY + 68}" x2="${tbX + tbW}" y2="${tbY + 68}" stroke="#000" stroke-width="1"/>
-      <line x1="${tbX + 260}" y1="${tbY}" x2="${tbX + 260}" y2="${tbY + 68}" stroke="#000" stroke-width="1"/>
-      <line x1="${tbX + 130}" y1="${tbY + 68}" x2="${tbX + 130}" y2="${tbY + tbH}" stroke="#000" stroke-width="1"/>
-      <line x1="${tbX + 260}" y1="${tbY + 68}" x2="${tbX + 260}" y2="${tbY + tbH}" stroke="#000" stroke-width="1"/>
-      <line x1="${tbX + 360}" y1="${tbY + 68}" x2="${tbX + 360}" y2="${tbY + tbH}" stroke="#000" stroke-width="1"/>
-
-      <text x="${tbX + 8}" y="${tbY + 11}" font-family="Arial, sans-serif" font-size="8" font-weight="bold" fill="#64748b">PROYECTO:</text>
-      <text x="${tbX + 8}" y="${tbY + 22}" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="#0f172a">INSTALACIÓN SOLAR FOTOVOLTAICA AUTOCONSUMO</text>
-
-      <text x="${tbX + 8}" y="${tbY + 39}" font-family="Arial, sans-serif" font-size="8" font-weight="bold" fill="#64748b">TITULAR / PROMOTOR:</text>
-      <text x="${tbX + 8}" y="${tbY + 51}" font-family="Arial, sans-serif" font-size="9.5" font-weight="bold" fill="#0f172a">${D.nombre} (${D.nif})</text>
-      <text x="${tbX + 8}" y="${tbY + 62}" font-family="Arial, sans-serif" font-size="8" fill="#334155">${D.dir} ${D.mun}</text>
-
-      <text x="${tbX + 268}" y="${tbY + 11}" font-family="Arial, sans-serif" font-size="8" font-weight="bold" fill="#64748b">DOCUMENTO:</text>
-      <text x="${tbX + 268}" y="${tbY + 23}" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="#0f172a">ESQUEMA UNIFILAR</text>
-
-      <text x="${tbX + 268}" y="${tbY + 39}" font-family="Arial, sans-serif" font-size="8" font-weight="bold" fill="#64748b">REF. EXPEDIENTE:</text>
-      <text x="${tbX + 268}" y="${tbY + 52}" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="#0284c7">${D.refNum}</text>
-
-      <text x="${tbX + 8}" y="${tbY + 78}" font-family="Arial, sans-serif" font-size="7.5" font-weight="bold" fill="#64748b">DISEÑADO POR:</text>
-      <text x="${tbX + 8}" y="${tbY + 89}" font-family="Arial, sans-serif" font-size="8.5" font-weight="bold" fill="#0f172a">${D.tecnico}</text>
-      <text x="${tbX + 8}" y="${tbY + 100}" font-family="Arial, sans-serif" font-size="7.5" fill="#334155">${D.titulacion} · Col. ${D.ncol}</text>
-
-      <text x="${tbX + 138}" y="${tbY + 78}" font-family="Arial, sans-serif" font-size="7.5" font-weight="bold" fill="#64748b">FECHA:</text>
-      <text x="${tbX + 138}" y="${tbY + 92}" font-family="Arial, sans-serif" font-size="9" font-weight="bold" fill="#0f172a">${D.fechaStr}</text>
-
-      <text x="${tbX + 268}" y="${tbY + 78}" font-family="Arial, sans-serif" font-size="7.5" font-weight="bold" fill="#64748b">NORMATIVA:</text>
-      <text x="${tbX + 268}" y="${tbY + 89}" font-family="Arial, sans-serif" font-size="8.5" font-weight="bold" fill="#0f172a">REBT ITC-BT-40</text>
-      <text x="${tbX + 268}" y="${tbY + 100}" font-family="Arial, sans-serif" font-size="8" fill="#334155">RD 244/2019 · IEC 60617</text>
-
-      <text x="${tbX + 368}" y="${tbY + 78}" font-family="Arial, sans-serif" font-size="7.5" font-weight="bold" fill="#64748b">HOJA / ESCALA:</text>
-      <text x="${tbX + 368}" y="${tbY + 92}" font-family="Arial, sans-serif" font-size="9" font-weight="bold" fill="#0f172a">1 / 1 · S/E</text>
-    </g>
-  `;
-
-  // Strings generation
-  const genX = 140, genY = 160;
-  const displayedStrings = Math.min(D.numStrings, 3);
-  const strW = 105, strH = 120, strGap = 20;
+  // ── ZONA 1: CAMPO GENERADOR FOTOVOLTAICO (x: 64..384, y: 112..392) ──
+  const z1X = 64, z1Y = 112, z1W = 320, z1H = 280;
+  const hasExtraStrings = numStrings > 3;
+  const slots = hasExtraStrings ? 4 : Math.min(numStrings, 3);
+  const strW = slots === 4 ? 70 : (slots === 3 ? 92 : (slots === 2 ? 120 : 148));
+  const strGap = slots === 4 ? 7 : 12;
+  const totalStrRowW = slots * strW + (slots - 1) * strGap;
+  const strStartX = z1X + (z1W - totalStrRowW) / 2;
+  const strY = z1Y + 42;
+  const strH = 178;
+  const busY = z1Y + 252;
 
   let stringsXml = '';
-  for (let s = 0; s < displayedStrings; s++) {
-    const sx = genX - 40 + s * (strW + strGap);
+  const branchCenters = [];
+  for (let s = 0; s < slots; s++) {
+    const isSummary = hasExtraStrings && s === 3;
+    const remCount = numStrings - 3;
+    const sx = strStartX + s * (strW + strGap);
+    const cx = sx + strW / 2;
+    branchCenters.push(cx);
+    const symCx = cx;
+    const symCy = strY + 34;
+
     stringsXml += `
-      <g id="string_${s + 1}">
-        <rect x="${sx}" y="${genY}" width="${strW}" height="${strH}" fill="#f0f9ff" stroke="#0284c7" stroke-width="1.5" rx="3"/>
-        <line x1="${sx + 15}" y1="${genY + 20}" x2="${sx + strW - 15}" y2="${genY + 20}" stroke="#0284c7" stroke-width="1.5"/>
-        <line x1="${sx + 15}" y1="${genY + 45}" x2="${sx + strW - 15}" y2="${genY + 45}" stroke="#0284c7" stroke-width="1.5"/>
-        <line x1="${sx + 20}" y1="${genY + 8}" x2="${sx + 35}" y2="${genY + 20}" stroke="#0284c7" stroke-width="1.5"/>
-        <line x1="${sx + 35}" y1="${genY + 8}" x2="${sx + 50}" y2="${genY + 20}" stroke="#0284c7" stroke-width="1.5"/>
+      <g id="${isSummary ? 'string_additional' : 'string_' + (s + 1)}">
+        <rect x="${sx}" y="${strY}" width="${strW}" height="${strH}" fill="${isSummary ? '#f8fafc' : '#f0f9ff'}" stroke="#0284c7" stroke-width="1.4" ${isSummary ? 'stroke-dasharray="4,2"' : ''} rx="3"/>
+        <!-- Símbolo normalizado IEC 60617: Generador FV -->
+        <rect x="${symCx - 16}" y="${symCy - 14}" width="32" height="28" fill="#ffffff" stroke="#0369a1" stroke-width="1.4"/>
+        <line x1="${symCx - 16}" y1="${symCy + 14}" x2="${symCx + 16}" y2="${symCy - 14}" stroke="#0369a1" stroke-width="1.1"/>
+        <line x1="${symCx - 10}" y1="${symCy - 5}" x2="${symCx - 2}" y2="${symCy - 5}" stroke="#0369a1" stroke-width="1.4"/>
+        <line x1="${symCx - 6}" y1="${symCy - 9}" x2="${symCx - 6}" y2="${symCy - 1}" stroke="#0369a1" stroke-width="1.4"/>
+        <line x1="${symCx + 3}" y1="${symCy + 6}" x2="${symCx + 11}" y2="${symCy + 6}" stroke="#0369a1" stroke-width="1.4"/>
+        <!-- Flechas radiación incidente -->
+        <line x1="${symCx - 26}" y1="${symCy - 22}" x2="${symCx - 17}" y2="${symCy - 13}" stroke="#d97706" stroke-width="1.2" marker-end="url(#arr-amber)"/>
+        <line x1="${symCx - 18}" y1="${symCy - 24}" x2="${symCx - 9}" y2="${symCy - 15}" stroke="#d97706" stroke-width="1.2" marker-end="url(#arr-amber)"/>
 
-        <text x="${sx + strW / 2}" y="${genY + 60}" font-family="Arial, sans-serif" font-size="9.5" font-weight="bold" fill="#0369a1" text-anchor="middle">-G${s + 1} · STRING ${s + 1}</text>
-        <text x="${sx + strW / 2}" y="${genY + 75}" font-family="Arial, sans-serif" font-size="8.5" font-weight="bold" fill="#0f172a" text-anchor="middle">${D.modsActual} Módulos en Serie</text>
-        <text x="${sx + strW / 2}" y="${genY + 89}" font-family="monospace" font-size="8" fill="#475569" text-anchor="middle">Voc(STC): ${D.Voc_string.toFixed(0)} V</text>
-        <text x="${sx + strW / 2}" y="${genY + 101}" font-family="monospace" font-size="8" fill="#475569" text-anchor="middle">Voc(-10°C): ${D.Voc_str_cold.toFixed(0)} V</text>
-        <text x="${sx + strW / 2}" y="${genY + 113}" font-family="monospace" font-size="8" fill="#475569" text-anchor="middle">Isc: ${D.Isc} A | Imp: ${D.Imp} A</text>
+        <text x="${cx}" y="${strY + 70}" font-family="Arial, sans-serif" font-size="${slots === 4 ? 8 : 9}" font-weight="bold" fill="#0369a1" text-anchor="middle">${isSummary ? '-G4..-G' + numStrings : '-G' + (s + 1) + ' · STRING ' + (s + 1)}</text>
+        <text x="${cx}" y="${strY + 86}" font-family="Arial, sans-serif" font-size="${slots === 4 ? 7.5 : 8.2}" font-weight="bold" fill="#0f172a" text-anchor="middle">${isSummary ? '+' + remCount + ' Strings' : modsActual + '×' + cfgPot + ' Wp'}</text>
+        <text x="${cx}" y="${strY + 102}" font-family="monospace" font-size="${slots === 4 ? 7 : 7.8}" fill="#334155" text-anchor="middle">Voc: ${Voc_string.toFixed(0)} V</text>
+        <text x="${cx}" y="${strY + 116}" font-family="monospace" font-size="${slots === 4 ? 7 : 7.8}" fill="#b45309" font-weight="bold" text-anchor="middle">Voc frío: ${Voc_str_cold.toFixed(0)} V</text>
+        <text x="${cx}" y="${strY + 130}" font-family="monospace" font-size="${slots === 4 ? 6.8 : 7.6}" fill="#475569" text-anchor="middle">Isc: ${isSummary ? (Isc * remCount).toFixed(1) : Isc.toFixed(1)} A</text>
+        <text x="${cx}" y="${strY + 144}" font-family="monospace" font-size="${slots === 4 ? 6.8 : 7.6}" fill="#475569" text-anchor="middle">Imp: ${Imp.toFixed(1)} A</text>
+        <text x="${cx}" y="${strY + 162}" font-family="Arial, sans-serif" font-size="6.8" fill="#64748b" text-anchor="middle">${isMicro ? 'Microinv. AC' : 'MC4 · +/- DC'}</text>
 
-        <line x1="${sx + strW / 2}" y1="${genY + strH}" x2="${sx + strW / 2}" y2="${genY + strH + 45}" stroke="#000" stroke-width="2"/>
-        <rect x="${sx + strW / 2 - 6}" y="${genY + strH + 15}" width="4" height="12" fill="#ef4444"/>
-        <rect x="${sx + strW / 2 + 2}" y="${genY + strH + 15}" width="4" height="12" fill="#000000"/>
-      </g>
-    `;
+        <!-- Bajada a bus colector + conector MC4 -->
+        <line x1="${cx}" y1="${strY + strH}" x2="${cx}" y2="${busY}" stroke="#0f172a" stroke-width="1.8" ${isSummary ? 'stroke-dasharray="3,2"' : ''}/>
+        <rect x="${cx - 5}" y="${strY + strH + 8}" width="4" height="8" fill="#dc2626" rx="1"/>
+        <rect x="${cx + 1}" y="${strY + strH + 8}" width="4" height="8" fill="#0f172a" rx="1"/>
+        <circle cx="${cx}" cy="${busY}" r="2.8" fill="#0f172a"/>
+      </g>`;
   }
 
-  // Si la instalación tiene más de 3 strings, representar los adicionales de forma explícita
-  const hasExtraStrings = D.numStrings > 3;
-  const remCount = D.numStrings - 3;
-  if (hasExtraStrings) {
-    const sx = genX - 40 + 3 * (strW + strGap);
-    stringsXml += `
-      <g id="string_additional">
-        <rect x="${sx}" y="${genY}" width="${strW}" height="${strH}" fill="#f8fafc" stroke="#0284c7" stroke-width="1.5" stroke-dasharray="4 3" rx="3"/>
-        <line x1="${sx + 15}" y1="${genY + 20}" x2="${sx + strW - 15}" y2="${genY + 20}" stroke="#0284c7" stroke-width="1.5" stroke-dasharray="3 2"/>
-        <line x1="${sx + 15}" y1="${genY + 45}" x2="${sx + strW - 15}" y2="${genY + 45}" stroke="#0284c7" stroke-width="1.5" stroke-dasharray="3 2"/>
+  const busLeftX = branchCenters[0];
+  const busRightX = branchCenters[branchCenters.length - 1];
+  const dcDropX = 112; // Clean vertical entry into Zone 2 left
 
-        <text x="${sx + strW / 2}" y="${genY + 60}" font-family="Arial, sans-serif" font-size="9.5" font-weight="bold" fill="#0369a1" text-anchor="middle">-G4..-G${D.numStrings} (+${remCount} STR)</text>
-        <text x="${sx + strW / 2}" y="${genY + 75}" font-family="Arial, sans-serif" font-size="8.5" font-weight="bold" fill="#0f172a" text-anchor="middle">${remCount} Strings idénticos</text>
-        <text x="${sx + strW / 2}" y="${genY + 89}" font-family="monospace" font-size="8" fill="#475569" text-anchor="middle">${D.modsActual} Mód/str (${remCount * D.modsActual} mód)</text>
-        <text x="${sx + strW / 2}" y="${genY + 101}" font-family="monospace" font-size="8" fill="#475569" text-anchor="middle">Voc(-10°C): ${D.Voc_str_cold.toFixed(0)} V</text>
-        <text x="${sx + strW / 2}" y="${genY + 113}" font-family="monospace" font-size="8" fill="#475569" text-anchor="middle">Isc total: ${(D.Isc * remCount).toFixed(1)} A</text>
+  // ── ZONA 2: CUADRO DE PROTECCIÓN DC (-XDC) (x: 64..384, y: 444..670) ──
+  const z2X = 64, z2Y = 444, z2W = 320, z2H = 226;
+  const dcBusY = 524;
+  const peRailY = 706; // Continuous Equipotential PE Green-Yellow bus across bottom of schematic
 
-        <line x1="${sx + strW / 2}" y1="${genY + strH}" x2="${sx + strW / 2}" y2="${genY + strH + 45}" stroke="#000" stroke-width="2" stroke-dasharray="4 2"/>
-        <rect x="${sx + strW / 2 - 6}" y="${genY + strH + 15}" width="4" height="12" fill="#ef4444"/>
-        <rect x="${sx + strW / 2 + 2}" y="${genY + strH + 15}" width="4" height="12" fill="#000000"/>
-      </g>
-    `;
-  }
+  // ── ZONA 3: INVERSOR (-T1) Y BATERÍA (-BAT1) (x: 448..748, y: 175..670) ──
+  const invX = 448, invY = 195, invW = 300, invH = 190;
+  const invMidY = invY + invH / 2; // 290
+  const batX = 448, batY = 480, batW = 300, batH = 175;
 
-  // Bus collector line
-  const totalSlots = hasExtraStrings ? 4 : displayedStrings;
-  const colBusY = genY + strH + 45;
-  const busStartX = genX - 40 + strW / 2;
-  const busEndX = genX - 40 + (totalSlots - 1) * (strW + strGap) + strW / 2;
-  const dcTrunkX = (busStartX + busEndX) / 2;
-  const boxDcY = colBusY + 60;
+  // ── ZONA 4: CUADRO GENERAL AC (-XAC) (x: 812..1202, y: 175..670) ──
+  const acX = 812, acY = 175, acW = 390, acH = 495;
+  const acBusY = 290;
+  const peBoxX = acX + 20, peBoxY = 602, peBoxW = acW - 40, peBoxH = 24;
+  const peCenterX = peBoxX + peBoxW / 2; // 1007
 
-  // DC Box (-XDC)
-  const cdcW = 260, cdcH = 140;
-  const cdcX = dcTrunkX - cdcW / 2;
-  const cdcY = boxDcY;
+  // ── ZONA 5: ENLACE, MEDIDA Y RED DISTRIBUCIÓN BT (x: 1244..1536, y: 175..540) ──
+  const z5X = 1244, z5Y = 175, z5W = 292, z5H = 365;
+  const meterCx = 1304, meterCy = acBusY;
+  const cgpX = 1384, cgpY = acBusY;
+  const gridCardX = 1258, gridCardY = 376, gridCardW = 264, gridCardH = 148;
 
-  // Inverter (-T1)
-  const dcOutY = cdcY + cdcH;
-  const invY = dcOutY + 70;
-  const invW = 280, invH = 130;
-  const invX = dcTrunkX - invW / 2;
+  // ── BOTTOM STRIP (y: 748..1076, strictly inside inX..inX+inW = 48..1552) ──
+  const botY = 748;
+  const legX = 64, legY = botY, legW = 432, legH = 328;
+  const paramX = 510, paramY = botY, paramW = 536, paramH = 212;
+  const notesX = 510, notesY = 970, notesW = 536, notesH = 106;
+  const circX = 1060, circY = botY, circW = 476, circH = 196;
+  const tbX = 1060, tbY = 954, tbW = 476, tbH = 122;
 
-  // AC Box (-XAC)
-  const acBoxX = invX + invW + 120;
-  const acBoxY = invY - 20;
-  const acBoxW = 340, acBoxH = 260;
-
-  // Grid Box
-  const gridX = acBoxX + acBoxW + 60;
-  const gridY = acBoxY + 60;
-
-  // Global Table
-  const ntX = W - 490, ntY = mTop + 30;
-  const iAcStr = (typeof D.I_ac === 'number' ? D.I_ac : (parseFloat(D.I_ac) || 0)).toFixed(1);
+  // Electrical parameters table (SSOT)
   const tableData = [
-    ['Potencia Pico Campo FV:', D.P_dc_kW.toFixed(2) + ' kWp (' + D.numPanels + ' mód. ' + D.cfg_pot + 'W)'],
-    ['Configuración del Generador:', D.numStrings + ' String(s) de ' + D.modsActual + ' módulos en serie'],
-    ['Tensión Máx. Generador (Voc a -10°C):', D.Voc_str_cold.toFixed(1) + ' V CC (Límite: ' + (D.V_max_inv || 1000) + ' V)'],
-    ['Inversor de Conexión a Red:', String(D.inverter ? D.inverter.fullName : (D.P_ac_kW.toFixed(2) + ' kW')).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + ' (' + (D.monofasico ? 'Monofásico' : 'Trifásico') + ')'],
-    ['Sistema de Almacenamiento:', (D.hasBattery && D.battery) ? (String(D.battery.fullName).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + ' (' + D.battery.totalKwh.toFixed(1) + ' kWh LFP)') : 'Sin acumulación (Directo)'],
-    ['Generación Eólica Híbrida:', (typeof window !== 'undefined' && window.windParkSummary && window.windParkSummary.totalRatedKw > 0) ? (window.windParkSummary.totalRatedKw + ' kW Mini-Eólica (Freno Dump Load REBT)') : 'No instalada'],
-    ['Corriente Nominal Salida AC:', iAcStr + ' A (Protección IGA: ' + D.I_iga + ' A)'],
-    ['Línea Continua (DC):', 'Cable ZZ-F ' + D.S_str + 'mm² / ' + D.S_mdc + 'mm² (1.8/3kV)'],
-    ['Línea Alterna (AC):', 'Cable RV-K 0.6/1kV ' + D.S_ac + 'mm² Cu'],
-    ['Caída de Tensión Calculada:', 'DC: ' + (D.dVdc_p ? parseFloat(D.dVdc_p).toFixed(2) + '%' : '≤1.5%') + ' | AC: ' + (D.dVac_p ? parseFloat(D.dVac_p).toFixed(2) + '%' : '≤1.5%') + ' (ITC-BT-40)']
+    ['Potencia Pico Campo FV:', P_dc_kW.toFixed(2) + ' kWp (' + numPanels + ' mód. ' + cfgPot + ' Wp)'],
+    ['Configuración Generador:', numStrings + ' String(s) × ' + modsActual + ' mód. serie · ' + cfgTec],
+    ['Tensión Máx. Frío (Voc):', Voc_str_cold.toFixed(1) + ' V CC (Límite inv.: ' + V_max_inv + ' V)'],
+    ['Equipo de Conversión:', invName + ' (' + (monofasico ? '1F+N' : '3F+N') + ')'],
+    ['Almacenamiento LFP:', hasBat ? (batName + ' (' + batKwh + ' kWh)') : 'Sin acumulación (Autoconsumo directo)'],
+    ['Generación Eólica Híbrida:', windStr],
+    ['Corriente Nominal AC:', iAcStr + ' A · Protección IGA: ' + I_iga + ' A (' + acPoles + ' Curva C)'],
+    ['Diferencial / Sobretens.:', 'ID ' + difAmp + ' A · 30 mA (' + rcdLabel + ') · SPD ' + spdLabel],
+    ['Línea DC / Línea AC:', 'ZZ-F ' + S_str + '/' + S_mdc + ' mm² | RV-K ' + acCableSpec],
+    ['Caída de Tensión (REBT):', 'DC: ' + dVdcStr + ' | AC: ' + dVacStr + ' (Lím. ≤1.5% tramo / ≤2.5% tot.)']
   ];
-
-  let tableXml = '';
-  tableData.forEach((row, rIdx) => {
-    const ry = ntY + 34 + rIdx * 14;
-    tableXml += `
-      <text x="${ntX + 12}" y="${ry}" font-family="Arial, sans-serif" font-size="8" fill="#475569">${row[0]}</text>
-      <text x="${ntX + 220}" y="${ry}" font-family="Arial, sans-serif" font-size="8" font-weight="bold" fill="#0f172a">${row[1]}</text>
-    `;
+  let paramRowsXml = '';
+  tableData.forEach((row, idx) => {
+    const ry = paramY + 34 + idx * 17.4;
+    if (idx % 2 === 1) {
+      paramRowsXml += `<rect x="${paramX + 6}" y="${ry - 11}" width="${paramW - 12}" height="16.5" fill="#f1f5f9"/>`;
+    }
+    paramRowsXml += `
+      <text x="${paramX + 12}" y="${ry}" font-family="Arial, sans-serif" font-size="8.2" fill="#475569">${row[0]}</text>
+      <text x="${paramX + 190}" y="${ry}" font-family="Arial, sans-serif" font-size="8.2" font-weight="bold" fill="#0f172a">${row[1]}</text>`;
   });
 
-  return `<svg viewBox="0 0 ${W} ${H}" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg" style="background:#ffffff;">
-  <!-- Fondo y Marco EPLAN -->
-  <rect x="0" y="0" width="${W}" height="${H}" fill="#ffffff"/>
-  <rect x="${mLeft}" y="${mTop}" width="${fW}" height="${fH}" fill="none" stroke="#000000" stroke-width="2.5"/>
-  <rect x="${mLeft + 12}" y="${mTop + 12}" width="${fW - 24}" height="${fH - 24}" fill="none" stroke="#000000" stroke-width="1"/>
+  // Circuit schedule table (Cuadro de Circuitos)
+  const circuitRows = [
+    ['C1 · Strings FV', '2×' + S_str + ' mm² ZZ-F', L_dc + ' m', dVdcStr, 'gPV ' + fuseStd + 'A'],
+    ['C2 · Troncal DC', '2×' + S_mdc + ' mm² ZZ-F', L_dc + ' m', dVdcStr, 'Secc. ' + dcSwitchAmp + 'A + SPD'],
+    ['C3 · Línea AC', acCableSpec + ' RV-K', L_ac + ' m', dVacStr, 'IGA ' + I_iga + 'A + ID ' + difAmp + 'A'],
+    ['C4 · Batería DC', hasBat ? '2×10 mm² ZZ-F' : '—', hasBat ? '3 m' : '—', hasBat ? '≤0.5%' : '—', hasBat ? '-Q_BAT 40A' : 'N/A'],
+    ['PE · Tierra', '1×6 mm² H07Z1-K', '—', '—', 'R ≤ ' + R_tierra + ' Ω (ITC-18)']
+  ];
+  let circRowsXml = '';
+  circuitRows.forEach((r, idx) => {
+    const ry = circY + 56 + idx * 26;
+    if (idx % 2 === 1) {
+      circRowsXml += `<rect x="${circX + 6}" y="${ry - 15}" width="${circW - 12}" height="24" fill="#f8fafc"/>`;
+    }
+    circRowsXml += `
+      <text x="${circX + 12}" y="${ry}" font-family="Arial, sans-serif" font-size="8" font-weight="bold" fill="#0f172a">${r[0]}</text>
+      <text x="${circX + 112}" y="${ry}" font-family="monospace" font-size="7.8" fill="#0369a1">${r[1]}</text>
+      <text x="${circX + 242}" y="${ry}" font-family="monospace" font-size="7.8" fill="#334155" text-anchor="middle">${r[2]}</text>
+      <text x="${circX + 296}" y="${ry}" font-family="monospace" font-size="7.8" font-weight="bold" fill="#15803d" text-anchor="middle">${r[3]}</text>
+      <text x="${circX + 340}" y="${ry}" font-family="Arial, sans-serif" font-size="7.8" fill="#334155">${r[4]}</text>`;
+  });
 
-  <!-- Cuadrícula de Coordenadas -->
+  // Cartela ISO 7200
+  const cartelaXml = `
+    <g id="cartela_iso7200">
+      <rect x="${tbX}" y="${tbY}" width="${tbW}" height="${tbH}" fill="#ffffff" stroke="#0f172a" stroke-width="1.8"/>
+      <rect x="${tbX}" y="${tbY}" width="${tbW}" height="28" fill="#0f172a"/>
+      <line x1="${tbX}" y1="${tbY + 74}" x2="${tbX + tbW}" y2="${tbY + 74}" stroke="#0f172a" stroke-width="1"/>
+      <line x1="${tbX + 296}" y1="${tbY}" x2="${tbX + 296}" y2="${tbY + tbH}" stroke="#0f172a" stroke-width="1"/>
+      <line x1="${tbX + 150}" y1="${tbY + 74}" x2="${tbX + 150}" y2="${tbY + tbH}" stroke="#0f172a" stroke-width="1"/>
+      <line x1="${tbX + 392}" y1="${tbY + 74}" x2="${tbX + 392}" y2="${tbY + tbH}" stroke="#0f172a" stroke-width="1"/>
+
+      <text x="${tbX + 10}" y="${tbY + 18}" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="#ffffff">INSTALACIÓN SOLAR FOTOVOLTAICA AUTOCONSUMO</text>
+      <text x="${tbX + 306}" y="${tbY + 18}" font-family="Arial, sans-serif" font-size="10.5" font-weight="bold" fill="#fbbf24">ESQUEMA UNIFILAR</text>
+
+      <text x="${tbX + 10}" y="${tbY + 40}" font-family="Arial, sans-serif" font-size="7" font-weight="bold" fill="#64748b">TITULAR / EMPLAZAMIENTO:</text>
+      <text x="${tbX + 10}" y="${tbY + 53}" font-family="Arial, sans-serif" font-size="9" font-weight="bold" fill="#0f172a">${nombre} (${nif})</text>
+      <text x="${tbX + 10}" y="${tbY + 66}" font-family="Arial, sans-serif" font-size="8" fill="#334155">${dirFull}</text>
+
+      <text x="${tbX + 306}" y="${tbY + 40}" font-family="Arial, sans-serif" font-size="7" font-weight="bold" fill="#64748b">EXPEDIENTE / POTENCIA:</text>
+      <text x="${tbX + 306}" y="${tbY + 54}" font-family="monospace" font-size="9.5" font-weight="bold" fill="#0284c7">${refNum}</text>
+      <text x="${tbX + 306}" y="${tbY + 67}" font-family="Arial, sans-serif" font-size="8" font-weight="bold" fill="#0f172a">${P_dc_kW.toFixed(2)} kWp / ${P_ac_kW.toFixed(2)} kW AC</text>
+
+      <text x="${tbX + 10}" y="${tbY + 86}" font-family="Arial, sans-serif" font-size="7" font-weight="bold" fill="#64748b">PROYECTISTA:</text>
+      <text x="${tbX + 10}" y="${tbY + 99}" font-family="Arial, sans-serif" font-size="8.2" font-weight="bold" fill="#0f172a">${tecnico}</text>
+      <text x="${tbX + 10}" y="${tbY + 112}" font-family="Arial, sans-serif" font-size="7.3" fill="#334155">${titulacion} · Col. ${ncol}</text>
+
+      <text x="${tbX + 158}" y="${tbY + 86}" font-family="Arial, sans-serif" font-size="7" font-weight="bold" fill="#64748b">NORMATIVA:</text>
+      <text x="${tbX + 158}" y="${tbY + 99}" font-family="Arial, sans-serif" font-size="8" font-weight="bold" fill="#0f172a">REBT ITC-BT-40 / 18 / 23</text>
+      <text x="${tbX + 158}" y="${tbY + 112}" font-family="Arial, sans-serif" font-size="7.5" fill="#334155">RD 244/2019 · UNE-EN 60617</text>
+
+      <text x="${tbX + 306}" y="${tbY + 86}" font-family="Arial, sans-serif" font-size="7" font-weight="bold" fill="#64748b">FECHA:</text>
+      <text x="${tbX + 306}" y="${tbY + 105}" font-family="Arial, sans-serif" font-size="9" font-weight="bold" fill="#0f172a">${fechaStr}</text>
+
+      <text x="${tbX + 400}" y="${tbY + 86}" font-family="Arial, sans-serif" font-size="7" font-weight="bold" fill="#64748b">FORMATO:</text>
+      <text x="${tbX + 400}" y="${tbY + 101}" font-family="Arial, sans-serif" font-size="8.5" font-weight="bold" fill="#0f172a">A3 · S/E</text>
+      <text x="${tbX + 400}" y="${tbY + 113}" font-family="Arial, sans-serif" font-size="7.5" fill="#475569">Hoja 1/1</text>
+    </g>`;
+
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg" style="background:#ffffff;">
+  <defs>
+    <marker id="arr-amber" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#d97706"/>
+    </marker>
+    <marker id="arr-dark" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#0f172a"/>
+    </marker>
+    <marker id="arr-cyan" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#0284c7"/>
+    </marker>
+  </defs>
+
+  <!-- Fondo y Marco Normalizado ISO 5457 -->
+  <rect x="0" y="0" width="${W}" height="${H}" fill="#ffffff"/>
+  <rect x="${mL}" y="${mT}" width="${fW}" height="${fH}" fill="none" stroke="#0f172a" stroke-width="2.2"/>
+  <rect x="${inX}" y="${inY}" width="${inW}" height="${inH}" fill="none" stroke="#0f172a" stroke-width="1"/>
   ${gridXml}
 
-  <!-- Cartela Normalizada ISO 7200 -->
-  ${cartelaXml}
-
-  <!-- Tabla de Parámetros Globales -->
-  <g id="tabla_parametros">
-    <rect x="${ntX}" y="${ntY}" width="440" height="150" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1" rx="4"/>
-    <text x="${ntX + 12}" y="${ntY + 18}" font-family="Arial, sans-serif" font-size="9.5" font-weight="bold" fill="#0f172a">PARÁMETROS DE DISEÑO Y CÁLCULO ELÉCTRICO</text>
-    ${tableXml}
+  <!-- Cabecera Técnica del Plano -->
+  <g id="cabecera_plano">
+    <text x="64" y="70" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="#0f172a" letter-spacing="0.4">ESQUEMA UNIFILAR NORMALIZADO DE INSTALACIÓN FOTOVOLTAICA</text>
+    <text x="64" y="88" font-family="Arial, sans-serif" font-size="9.5" fill="#475569">Potencia Pico: ${P_dc_kW.toFixed(2)} kWp (${numPanels} mód. ${cfgPot} Wp · ${cfgTec}) · Potencia Nominal AC: ${P_ac_kW.toFixed(2)} kW (${acVoltStr}) · Simbología UNE-EN 60617 / IEC 60617</text>
+    <line x1="64" y1="98" x2="1536" y2="98" stroke="#cbd5e1" stroke-width="1"/>
   </g>
 
-  <!-- 1. CAMPO GENERADOR FOTOVOLTAICO -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- ZONA 1: CAMPO GENERADOR FOTOVOLTAICO (CUBIERTA)                         -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
   <g id="campo_fv">
-    <text x="${genX - 40}" y="${genY - 50}" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#0f172a">CAMPO GENERADOR FOTOVOLTAICO (CUBIERTA)</text>
-    <text x="${genX - 40}" y="${genY - 34}" font-family="Arial, sans-serif" font-size="9.5" fill="#475569">Potencia Pico Total: ${D.P_dc_kW.toFixed(2)} kWp (${D.numPanels} mód. ${D.cfg_pot} Wp - ${String(D.cfg_tec || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')})</text>
+    <rect x="${z1X}" y="${z1Y}" width="${z1W}" height="${z1H}" fill="#f8fafc" stroke="#0284c7" stroke-width="1.4" stroke-dasharray="6,3" rx="4"/>
+    <rect x="${z1X}" y="${z1Y}" width="${z1W}" height="24" fill="#e0f2fe" rx="3"/>
+    <text x="${z1X + 10}" y="${z1Y + 16}" font-family="Arial, sans-serif" font-size="9.2" font-weight="bold" fill="#0369a1">1. CAMPO GENERADOR FOTOVOLTAICO (CUBIERTA)</text>
+
     ${stringsXml}
-    <line x1="${busStartX}" y1="${colBusY}" x2="${busEndX}" y2="${colBusY}" stroke="#000" stroke-width="2.5"/>
-    <line x1="${dcTrunkX}" y1="${colBusY}" x2="${dcTrunkX}" y2="${boxDcY}" stroke="#000" stroke-width="2"/>
-    <text x="${dcTrunkX + 10}" y="${(colBusY + boxDcY) / 2}" font-family="monospace" font-size="8" font-weight="bold" fill="#0369a1">Cable Solar ZZ-F 1x${D.S_str}mm² (1.8/3kV)</text>
+
+    <!-- Bus Colector de Strings -->
+    <line x1="${Math.min(busLeftX, dcDropX)}" y1="${busY}" x2="${Math.max(busRightX, dcDropX)}" y2="${busY}" stroke="#0f172a" stroke-width="2.4"/>
+    <!-- Bajada DC hacia Zona 2 (-XDC) -->
+    <line x1="${dcDropX}" y1="${busY}" x2="${dcDropX}" y2="${z2Y}" stroke="#0f172a" stroke-width="2.2"/>
+    <circle cx="${dcDropX}" cy="${busY}" r="3" fill="#0f172a"/>
+    ${drawSlashes(dcDropX, 418, 2, true)}
+    <text x="${dcDropX + 14}" y="415" font-family="monospace" font-size="8.2" font-weight="bold" fill="#0369a1">2×${S_str} mm² ZZ-F 1,8/3 kV</text>
+    <text x="${dcDropX + 14}" y="428" font-family="monospace" font-size="7.5" fill="#475569">L=${L_dc} m · ΔV=${dVdcStr} · Idc=${I_total_dc.toFixed(1)} A</text>
+
+    <!-- Toma equipotencial estructura metálica FV a Tierra PE -->
+    <line x1="${z1X + 14}" y1="${z1Y + z1H}" x2="${z1X + 14}" y2="${peRailY}" stroke="#16a34a" stroke-width="1.6" stroke-dasharray="6,3"/>
+    <text x="${z1X + 20}" y="434" font-family="monospace" font-size="7" font-weight="bold" fill="#15803d">PE Estruc.</text>
   </g>
 
-  <!-- 2. CUADRO PROTECCIÓN DC (-XDC) -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- ZONA 2: CUADRO DE PROTECCIÓN DC (-XDC · IP65)                           -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
   <g id="cuadro_dc">
-    <rect x="${cdcX}" y="${cdcY}" width="${cdcW}" height="${cdcH}" fill="#fffbeb" stroke="#d97706" stroke-width="2" stroke-dasharray="4,3" rx="4"/>
-    <text x="${cdcX + 8}" y="${cdcY + 16}" font-family="Arial, sans-serif" font-size="9" font-weight="bold" fill="#b45309">CUADRO PROTECCIÓN DC (-XDC) · IP65 CUBIERTA</text>
+    <rect x="${z2X}" y="${z2Y}" width="${z2W}" height="${z2H}" fill="#fffbeb" stroke="#d97706" stroke-width="1.6" stroke-dasharray="6,3" rx="4"/>
+    <rect x="${z2X}" y="${z2Y}" width="${z2W}" height="24" fill="#fef3c7" rx="3"/>
+    <text x="${z2X + 10}" y="${z2Y + 16}" font-family="Arial, sans-serif" font-size="9" font-weight="bold" fill="#92400e">${isMicro ? '2. CAJA DE AGRUPACIÓN AC CUBIERTA (-XAC1)' : '2. CUADRO DE PROTECCIÓN DC (-XDC) · IP65'}</text>
 
-    <!-- Fusible -F1 -->
-    <rect x="${cdcX + 35}" y="${cdcY + 30}" width="35" height="24" fill="#ffffff" stroke="#000" stroke-width="1.5"/>
-    <line x1="${cdcX + 35}" y1="${cdcY + 42}" x2="${cdcX + 70}" y2="${cdcY + 42}" stroke="#000" stroke-width="1.5"/>
-    <text x="${cdcX + 52}" y="${cdcY + 27}" font-family="Arial, sans-serif" font-size="7.5" font-weight="bold" fill="#000" text-anchor="middle">-F1</text>
-    <text x="${cdcX + 52}" y="${cdcY + 63}" font-family="Arial, sans-serif" font-size="7.5" fill="#000" text-anchor="middle">gPV ${D.fuse_std || 15}A</text>
+    <!-- Línea unifilar continua entrando desde arriba y saliendo por la derecha -->
+    <polyline points="${dcDropX},${z2Y} ${dcDropX},${dcBusY} 134,${dcBusY}" fill="none" stroke="#0f172a" stroke-width="2.2"/>
 
-    <!-- Sobretensiones SPD -F01 -->
-    <rect x="${cdcX + 110}" y="${cdcY + 30}" width="40" height="45" fill="#ffffff" stroke="#000" stroke-width="1.5"/>
-    <line x1="${cdcX + 118}" y1="${cdcY + 42}" x2="${cdcX + 142}" y2="${cdcY + 42}" stroke="#000" stroke-width="1.5"/>
-    <line x1="${cdcX + 130}" y1="${cdcY + 42}" x2="${cdcX + 130}" y2="${cdcY + 62}" stroke="#000" stroke-width="1.5"/>
-    <line x1="${cdcX + 122}" y1="${cdcY + 62}" x2="${cdcX + 138}" y2="${cdcY + 62}" stroke="#000" stroke-width="1.5"/>
-    <text x="${cdcX + 130}" y="${cdcY + 27}" font-family="Arial, sans-serif" font-size="7.5" font-weight="bold" fill="#000" text-anchor="middle">-F01 (SPD)</text>
-    <text x="${cdcX + 130}" y="${cdcY + 84}" font-family="Arial, sans-serif" font-size="7" fill="#000" text-anchor="middle">Tipo II DC</text>
-    <text x="${cdcX + 130}" y="${cdcY + 93}" font-family="Arial, sans-serif" font-size="7" fill="#000" text-anchor="middle">Up≤2.5kV</text>
+    <!-- -F1 FUSIBLE gPV (Símbolo IEC 60617: rectángulo atravesado por conductor) -->
+    <rect x="134" y="${dcBusY - 10}" width="38" height="20" fill="#ffffff" stroke="#0f172a" stroke-width="1.6"/>
+    <line x1="134" y1="${dcBusY}" x2="172" y2="${dcBusY}" stroke="#0f172a" stroke-width="1.6"/>
+    <text x="153" y="${dcBusY - 17}" font-family="monospace" font-size="8.5" font-weight="bold" fill="#0f172a" text-anchor="middle">-F1</text>
+    <text x="153" y="${dcBusY + 24}" font-family="Arial, sans-serif" font-size="7.5" font-weight="bold" fill="#334155" text-anchor="middle">Fusible gPV</text>
+    <text x="153" y="${dcBusY + 35}" font-family="monospace" font-size="7.5" fill="#475569" text-anchor="middle">${fuseStd}A · ${V_max_inv}V</text>
 
-    <!-- Seccionador -Q1 -->
-    <rect x="${cdcX + 190}" y="${cdcY + 30}" width="45" height="45" fill="#ffffff" stroke="#000" stroke-width="1.5"/>
-    <circle cx="${cdcX + 200}" cy="${cdcY + 65}" r="2.5" fill="none" stroke="#000" stroke-width="1.5"/>
-    <circle cx="${cdcX + 225}" cy="${cdcY + 65}" r="2.5" fill="none" stroke="#000" stroke-width="1.5"/>
-    <line x1="${cdcX + 200}" y1="${cdcY + 65}" x2="${cdcX + 215}" y2="${cdcY + 45}" stroke="#000" stroke-width="1.5"/>
-    <text x="${cdcX + 212}" y="${cdcY + 27}" font-family="Arial, sans-serif" font-size="7.5" font-weight="bold" fill="#000" text-anchor="middle">-Q1</text>
-    <text x="${cdcX + 212}" y="${cdcY + 84}" font-family="Arial, sans-serif" font-size="7" fill="#000" text-anchor="middle">Seccionador</text>
-    <text x="${cdcX + 212}" y="${cdcY + 93}" font-family="Arial, sans-serif" font-size="7" fill="#000" text-anchor="middle">1000V / 32A</text>
+    <!-- Tramo entre -F1 y nodo SPD -->
+    <line x1="172" y1="${dcBusY}" x2="266" y2="${dcBusY}" stroke="#0f172a" stroke-width="2.2"/>
+    <circle cx="216" cy="${dcBusY}" r="3" fill="#0f172a"/>
 
-    <!-- Línea DC Saliente -->
-    <line x1="${dcTrunkX}" y1="${dcOutY}" x2="${dcTrunkX}" y2="${invY}" stroke="#000" stroke-width="2"/>
-    <text x="${dcTrunkX + 10}" y="${(dcOutY + invY) / 2}" font-family="monospace" font-size="8" font-weight="bold" fill="#0369a1">Línea Principal DC: ZZ-F ${D.S_mdc}mm² (Idc=${D.I_total_dc.toFixed(1)}A)</text>
+    <!-- -F01 SPD DC (Símbolo IEC 60617 en derivación a Tierra PE) -->
+    <line x1="216" y1="${dcBusY}" x2="216" y2="${dcBusY + 26}" stroke="#0f172a" stroke-width="1.6"/>
+    <rect x="200" y="${dcBusY + 26}" width="32" height="44" fill="#ffffff" stroke="#0f172a" stroke-width="1.6"/>
+    <!-- Varistor / Descargador interior -->
+    <line x1="216" y1="${dcBusY + 26}" x2="216" y2="${dcBusY + 42}" stroke="#0f172a" stroke-width="1.4"/>
+    <polygon points="212,${dcBusY + 41} 220,${dcBusY + 41} 216,${dcBusY + 49}" fill="#0f172a"/>
+    <line x1="208" y1="${dcBusY + 55}" x2="224" y2="${dcBusY + 55}" stroke="#0f172a" stroke-width="1.6"/>
+    <line x1="216" y1="${dcBusY + 55}" x2="216" y2="${dcBusY + 70}" stroke="#0f172a" stroke-width="1.4"/>
+    <text x="239" y="${dcBusY + 40}" font-family="monospace" font-size="8.2" font-weight="bold" fill="#0f172a">-F01 (SPD)</text>
+    <text x="239" y="${dcBusY + 52}" font-family="Arial, sans-serif" font-size="7.3" fill="#334155">${spdLabel} DC</text>
+    <text x="239" y="${dcBusY + 63}" font-family="monospace" font-size="7.2" fill="#475569">Up≤2.5kV</text>
+    <!-- Bajada PE desde SPD DC hasta colector PE -->
+    <line x1="216" y1="${dcBusY + 70}" x2="216" y2="${peRailY}" stroke="#16a34a" stroke-width="1.8" stroke-dasharray="6,3"/>
+    <circle cx="216" cy="${peRailY}" r="3" fill="#16a34a"/>
+
+    <!-- -Q1 INTERRUPTOR-SECCIONADOR DC (Símbolo IEC 60617 con contacto y barra seccionamiento) -->
+    <circle cx="266" cy="${dcBusY}" r="2.6" fill="#0f172a"/>
+    <line x1="266" y1="${dcBusY}" x2="306" y2="${dcBusY - 16}" stroke="#0f172a" stroke-width="2"/>
+    <line x1="308" y1="${dcBusY - 7}" x2="308" y2="${dcBusY + 7}" stroke="#0f172a" stroke-width="2"/>
+    <circle cx="312" cy="${dcBusY}" r="2.6" fill="#0f172a"/>
+    <!-- Mando rotativo manual -->
+    <line x1="286" y1="${dcBusY - 8}" x2="286" y2="${dcBusY - 22}" stroke="#0f172a" stroke-width="1.1" stroke-dasharray="2,2"/>
+    <line x1="280" y1="${dcBusY - 22}" x2="292" y2="${dcBusY - 22}" stroke="#0f172a" stroke-width="1.8"/>
+    <text x="290" y="${dcBusY - 29}" font-family="monospace" font-size="8.5" font-weight="bold" fill="#0f172a" text-anchor="middle">-Q1</text>
+    <text x="322" y="${dcBusY + 24}" font-family="Arial, sans-serif" font-size="7.5" font-weight="bold" fill="#334155" text-anchor="middle">Seccionador DC</text>
+    <text x="322" y="${dcBusY + 35}" font-family="monospace" font-size="7.4" fill="#475569" text-anchor="middle">${V_max_inv}V / ${dcSwitchAmp}A</text>
+
+    <!-- Salida DC Principal hacia Inversor (-T1) -->
+    <polyline points="312,${dcBusY} 416,${dcBusY} 416,${invMidY} ${invX},${invMidY}" fill="none" stroke="#0f172a" stroke-width="2.2" marker-end="url(#arr-dark)"/>
+    ${drawSlashes(416, 408, 2, true)}
+    <text x="410" y="395" font-family="monospace" font-size="7.5" font-weight="bold" fill="#0369a1" text-anchor="end">ZZ-F 2×${S_mdc}mm²</text>
+    <text x="410" y="407" font-family="monospace" font-size="7.2" fill="#475569" text-anchor="end">Idc=${I_total_dc.toFixed(1)}A</text>
   </g>
 
-  <!-- 3. INVERSOR DC/AC (-T1) -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- ZONA 3: CONVERSIÓN DC/AC (-T1) Y ALMACENAMIENTO (-BAT1)                 -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
   <g id="inversor_t1">
-    <rect x="${invX}" y="${invY}" width="${invW}" height="${invH}" fill="#eff6ff" stroke="#1d4ed8" stroke-width="2.5" rx="4"/>
-    <line x1="${invX}" y1="${invY + invH}" x2="${invX + invW}" y2="${invY}" stroke="#1d4ed8" stroke-width="1"/>
-    <text x="${invX + 50}" y="${invY + invH - 25}" font-family="Arial, sans-serif" font-size="20" font-weight="bold" fill="#1e40af" text-anchor="middle">=</text>
-    <text x="${invX + invW - 50}" y="${invY + 45}" font-family="Arial, sans-serif" font-size="20" font-weight="bold" fill="#1e40af" text-anchor="middle">~</text>
+    <rect x="${invX}" y="${invY}" width="${invW}" height="${invH}" fill="#eff6ff" stroke="#1d4ed8" stroke-width="2" rx="4"/>
+    <rect x="${invX}" y="${invY}" width="${invW}" height="24" fill="#dbeafe" rx="3"/>
+    <text x="${invX + 10}" y="${invY + 16}" font-family="Arial, sans-serif" font-size="9.2" font-weight="bold" fill="#1e3a8a">3. -T1 · ${isMicro ? 'SISTEMA MICROINVERSORES' : 'INVERSOR DE CONEXIÓN A RED'}</text>
 
-    <text x="${invX + invW / 2}" y="${invY + 22}" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="#0f172a" text-anchor="middle">-T1 · INVERSOR DE CONEXIÓN A RED</text>
-    <text x="${invX + invW / 2}" y="${invY + 40}" font-family="Arial, sans-serif" font-size="9.5" font-weight="bold" fill="#1e3a8a" text-anchor="middle">Potencia Nominal AC: ${D.P_ac_kW.toFixed(2)} kW (${D.monofasico ? '230V 1F+N' : '400V 3F+N'})</text>
-    <text x="${invX + invW / 2}" y="${invY + 54}" font-family="Arial, sans-serif" font-size="8" fill="#475569" text-anchor="middle">MPPT Integrado · Eficiencia: 98.4% · cos φ = 1.0</text>
-    <text x="${invX + invW / 2}" y="${invY + 66}" font-family="Arial, sans-serif" font-size="8" fill="#475569" text-anchor="middle">Protección Anti-isla RD 1699/2011 · UNE-EN 50549</text>
-    <text x="${invX + invW / 2}" y="${invY + 78}" font-family="Arial, sans-serif" font-size="8" fill="#475569" text-anchor="middle">I_ac_max = ${iAcStr} A | Frecuencia: 50 Hz</text>
+    <!-- Símbolo IEC 60617 Inversor DC/AC dedicado (sin cruzar ningún texto) -->
+    <rect x="${invX + 14}" y="${invY + 56}" width="64" height="64" fill="#ffffff" stroke="#1d4ed8" stroke-width="1.8" rx="2"/>
+    <line x1="${invX + 14}" y1="${invY + 120}" x2="${invX + 78}" y2="${invY + 56}" stroke="#1d4ed8" stroke-width="1.4"/>
+    <!-- Símbolo CC (=) superior izquierda -->
+    <line x1="${invX + 23}" y1="${invY + 72}" x2="${invX + 41}" y2="${invY + 72}" stroke="#1e40af" stroke-width="2"/>
+    <line x1="${invX + 23}" y1="${invY + 78}" x2="${invX + 28}" y2="${invY + 78}" stroke="#1e40af" stroke-width="1.8"/>
+    <line x1="${invX + 30}" y1="${invY + 78}" x2="${invX + 34}" y2="${invY + 78}" stroke="#1e40af" stroke-width="1.8"/>
+    <line x1="${invX + 36}" y1="${invY + 78}" x2="${invX + 41}" y2="${invY + 78}" stroke="#1e40af" stroke-width="1.8"/>
+    <!-- Símbolo CA (~) inferior derecha -->
+    <path d="M ${invX + 51} ${invY + 104} Q ${invX + 56} ${invY + 95} ${invX + 61} ${invY + 104} T ${invX + 71} ${invY + 104}" fill="none" stroke="#15803d" stroke-width="2"/>
 
-    <!-- Línea AC al Cuadro General -->
-    <path d="M ${invX + invW / 2} ${invY + invH} L ${invX + invW / 2} ${invY + invH + 30} L ${acBoxX + 40} ${invY + invH + 30} L ${acBoxX + 40} ${acBoxY + acBoxH - 30}" fill="none" stroke="#15803d" stroke-width="2.5"/>
-    <text x="${invX + invW / 2 + 10}" y="${invY + invH + 24}" font-family="monospace" font-size="8" font-weight="bold" fill="#166534">Línea AC: RV-K 0.6/1kV ${D.monofasico ? '3G' : '5G'}${D.S_ac}mm²</text>
+    <!-- Ficha Técnica Limpia a la derecha del símbolo -->
+    <text x="${invX + 90}" y="${invY + 48}" font-family="Arial, sans-serif" font-size="9.2" font-weight="bold" fill="#0f172a">${invName}</text>
+    <text x="${invX + 90}" y="${invY + 66}" font-family="Arial, sans-serif" font-size="8.6" font-weight="bold" fill="#1e40af">P_nom AC: ${P_ac_kW.toFixed(2)} kW (${acVoltStr})</text>
+    <text x="${invX + 90}" y="${invY + 83}" font-family="monospace" font-size="8" fill="#334155">I_ac_max: ${iAcStr} A · f = 50 Hz</text>
+    <text x="${invX + 90}" y="${invY + 99}" font-family="Arial, sans-serif" font-size="8" fill="#334155">MPPT Integrado · η = ${invEff}% · cos φ = 1.0</text>
+    <text x="${invX + 90}" y="${invY + 115}" font-family="Arial, sans-serif" font-size="7.8" fill="#475569">Anti-isla RD 1699/2011 · UNE-EN 50549</text>
+    <text x="${invX + 90}" y="${invY + 131}" font-family="Arial, sans-serif" font-size="7.8" fill="#475569">Tensión máx. DC: ${V_max_inv} V · IP65</text>
+
+    <!-- Toma de Tierra Carcasa Inversor -> Colector PE -->
+    <line x1="${invX + 26}" y1="${invY + invH}" x2="${invX + 26}" y2="${peRailY}" stroke="#16a34a" stroke-width="1.6" stroke-dasharray="6,3"/>
+    <circle cx="${invX + 26}" cy="${peRailY}" r="3" fill="#16a34a"/>
+    <text x="${invX + 32}" y="${invY + invH + 16}" font-family="monospace" font-size="7" font-weight="bold" fill="#15803d">PE Chasis</text>
+
+    <!-- Línea AC de salida hacia Cuadro General AC (-XAC) -->
+    <line x1="${invX + invW}" y1="${invMidY}" x2="${acX}" y2="${acBusY}" stroke="#15803d" stroke-width="2.4" marker-end="url(#arr-dark)"/>
+    ${drawSlashes(780, acBusY, monofasico ? 3 : 5, false)}
+    <text x="780" y="${acBusY - 14}" font-family="monospace" font-size="7.6" font-weight="bold" fill="#15803d" text-anchor="middle">RV-K ${acCableSpec}</text>
+    <text x="780" y="${acBusY + 18}" font-family="monospace" font-size="7.2" fill="#475569" text-anchor="middle">L=${L_ac}m · ΔV=${dVacStr}</text>
   </g>
 
-  ${(D.hasBattery && D.battery) ? `
-  <!-- 3.b SISTEMA DE BATERÍAS (-BAT1) -->
+  ${hasBat ? `
+  <!-- 3.b SISTEMA DE ALMACENAMIENTO LFP (-BAT1) -->
   <g id="modulo_bateria">
-    <line x1="${invX + 50}" y1="${invY + invH}" x2="${invX + 50}" y2="${invY + invH + 85}" stroke="#16a34a" stroke-width="2.5" stroke-dasharray="5,2"/>
-    <rect x="${invX + 32}" y="${invY + invH + 25}" width="36" height="24" fill="#ffffff" stroke="#16a34a" stroke-width="1.5" rx="2"/>
-    <text x="${invX + 50}" y="${invY + invH + 40}" font-family="Arial, sans-serif" font-size="7.5" font-weight="bold" fill="#166534" text-anchor="middle">-Q_BAT</text>
-    <text x="${invX + 50}" y="${invY + invH + 58}" font-family="Arial, sans-serif" font-size="6.5" fill="#475569" text-anchor="middle">gBat 40A</text>
+    <!-- Bus DC bidireccional Inversor <-> Batería -->
+    <line x1="${invX + 150}" y1="${invY + invH}" x2="${invX + 150}" y2="${batY}" stroke="#16a34a" stroke-width="2.2" stroke-dasharray="5,2"/>
+    <!-- Protección DC Batería -Q_BAT (IEC 60617 fusible/seccionador) -->
+    <rect x="${invX + 132}" y="${invY + invH + 28}" width="36" height="24" fill="#ffffff" stroke="#15803d" stroke-width="1.6" rx="2"/>
+    <line x1="${invX + 150}" y1="${invY + invH + 28}" x2="${invX + 150}" y2="${invY + invH + 52}" stroke="#15803d" stroke-width="1.6"/>
+    <text x="${invX + 176}" y="${invY + invH + 38}" font-family="monospace" font-size="8.2" font-weight="bold" fill="#15803d">-Q_BAT</text>
+    <text x="${invX + 176}" y="${invY + invH + 50}" font-family="Arial, sans-serif" font-size="7.2" fill="#475569">Secc. / Fus. gBat 40A</text>
 
-    <rect x="${invX - 10}" y="${invY + invH + 85}" width="250" height="95" fill="#f0fdf4" stroke="#16a34a" stroke-width="2" rx="4"/>
-    <text x="${invX + 115}" y="${invY + invH + 105}" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="#15803d" text-anchor="middle">-BAT1 · ALMACENAMIENTO LFP</text>
-    <text x="${invX + 115}" y="${invY + invH + 122}" font-family="Arial, sans-serif" font-size="9" font-weight="bold" fill="#0f172a" text-anchor="middle">${String(D.battery.fullName || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</text>
-    <text x="${invX + 115}" y="${invY + invH + 138}" font-family="Arial, sans-serif" font-size="8" fill="#334155" text-anchor="middle">Capacidad: ${D.battery.totalKwh.toFixed(1)} kWh útiles (DoD 90%)</text>
-    <text x="${invX + 115}" y="${invY + invH + 152}" font-family="Arial, sans-serif" font-size="8" fill="#334155" text-anchor="middle">Tensión: ${D.battery.voltage || 400}V CC · BMS CAN/RS485</text>
-    <text x="${invX + 115}" y="${invY + invH + 167}" font-family="Arial, sans-serif" font-size="7" fill="#64748b" text-anchor="middle">UNE-EN IEC 62619 / CEI 0-21</text>
+    <!-- Caja Batería LFP (-BAT1) -->
+    <rect x="${batX}" y="${batY}" width="${batW}" height="${batH}" fill="#f0fdf4" stroke="#16a34a" stroke-width="1.8" rx="4"/>
+    <rect x="${batX}" y="${batY}" width="${batW}" height="24" fill="#dcfce7" rx="3"/>
+    <text x="${batX + 10}" y="${batY + 16}" font-family="Arial, sans-serif" font-size="9" font-weight="bold" fill="#15803d">-BAT1 · ALMACENAMIENTO LFP</text>
+
+    <!-- Símbolo IEC 60617 Acumulador / Batería multicelda -->
+    <rect x="${batX + 14}" y="${batY + 46}" width="58" height="58" fill="#ffffff" stroke="#16a34a" stroke-width="1.4" rx="2"/>
+    <line x1="${batX + 28}" y1="${batY + 60}" x2="${batX + 58}" y2="${batY + 60}" stroke="#15803d" stroke-width="1.6"/>
+    <line x1="${batX + 35}" y1="${batY + 69}" x2="${batX + 51}" y2="${batY + 69}" stroke="#15803d" stroke-width="3.2"/>
+    <line x1="${batX + 28}" y1="${batY + 79}" x2="${batX + 58}" y2="${batY + 79}" stroke="#15803d" stroke-width="1.6"/>
+    <line x1="${batX + 35}" y1="${batY + 88}" x2="${batX + 51}" y2="${batY + 88}" stroke="#15803d" stroke-width="3.2"/>
+    <text x="${batX + 22}" y="${batY + 58}" font-family="monospace" font-size="8" font-weight="bold" fill="#dc2626">+</text>
+    <text x="${batX + 22}" y="${batY + 95}" font-family="monospace" font-size="8" font-weight="bold" fill="#0f172a">-</text>
+
+    <!-- Ficha Batería -->
+    <text x="${batX + 84}" y="${batY + 52}" font-family="Arial, sans-serif" font-size="9" font-weight="bold" fill="#0f172a">${batName}</text>
+    <text x="${batX + 84}" y="${batY + 70}" font-family="Arial, sans-serif" font-size="8.2" fill="#334155">Capacidad: ${batKwh} kWh útiles (DoD 90%)</text>
+    <text x="${batX + 84}" y="${batY + 86}" font-family="monospace" font-size="8" fill="#334155">Tensión: ${batVolt} V CC · BMS CAN/RS485</text>
+    <text x="${batX + 84}" y="${batY + 102}" font-family="Arial, sans-serif" font-size="7.6" fill="#475569">Química LiFePO4 · UNE-EN IEC 62619</text>
+    <text x="${batX + 84}" y="${batY + 118}" font-family="Arial, sans-serif" font-size="7.6" fill="#475569">Instalación interior / IP65 · CEI 0-21</text>
   </g>` : ''}
 
-  <!-- 4. CUADRO GENERAL AC (-XAC) -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- ZONA 4: CUADRO GENERAL DE DISTRIBUCIÓN Y PROTECCIÓN AC (-XAC)           -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
   <g id="cuadro_ac">
-    <rect x="${acBoxX}" y="${acBoxY}" width="${acBoxW}" height="${acBoxH}" fill="#f0fdf4" stroke="#16a34a" stroke-width="2" stroke-dasharray="4,3" rx="4"/>
-    <text x="${acBoxX + 10}" y="${acBoxY + 16}" font-family="Arial, sans-serif" font-size="9.5" font-weight="bold" fill="#15803d">CUADRO GENERAL DE DISTRIBUCIÓN Y PROTECCIÓN AC</text>
+    <rect x="${acX}" y="${acY}" width="${acW}" height="${acH}" fill="#f0fdf4" stroke="#15803d" stroke-width="1.6" stroke-dasharray="6,3" rx="4"/>
+    <rect x="${acX}" y="${acY}" width="${acW}" height="24" fill="#dcfce7" rx="3"/>
+    <text x="${acX + 10}" y="${acY + 16}" font-family="Arial, sans-serif" font-size="9.2" font-weight="bold" fill="#14532d">4. CUADRO GENERAL DE PROTECCIÓN Y DISTRIBUCIÓN AC (-XAC)</text>
 
-    <!-- IGA PIA -F2 -->
-    <rect x="${acBoxX + 30}" y="${acBoxY + 40}" width="65" height="55" fill="#ffffff" stroke="#000" stroke-width="1.5" rx="3"/>
-    <text x="${acBoxX + 62}" y="${acBoxY + 34}" font-family="monospace" font-size="10" font-weight="bold" fill="#0284c7" text-anchor="middle">-F2</text>
-    <text x="${acBoxX + 62}" y="${acBoxY + 54}" font-family="Arial, sans-serif" font-size="9" font-weight="bold" fill="#0f172a" text-anchor="middle">IGA (PIA)</text>
-    <text x="${acBoxX + 62}" y="${acBoxY + 68}" font-family="Arial, sans-serif" font-size="8" fill="#475569" text-anchor="middle">${D.I_iga}A Curva C</text>
-    <text x="${acBoxX + 62}" y="${acBoxY + 84}" font-family="Arial, sans-serif" font-size="7" fill="#64748b" text-anchor="middle">Icu ≥ 6kA</text>
+    <!-- Línea de entrada al IGA (-F2) -->
+    <line x1="${acX}" y1="${acBusY}" x2="848" y2="${acBusY}" stroke="#0f172a" stroke-width="2.2"/>
 
-    <!-- Diferencial -Q2 -->
-    <rect x="${acBoxX + 115}" y="${acBoxY + 40}" width="75" height="55" fill="#ffffff" stroke="#000" stroke-width="1.5" rx="3"/>
-    <text x="${acBoxX + 152}" y="${acBoxY + 34}" font-family="monospace" font-size="10" font-weight="bold" fill="#0284c7" text-anchor="middle">-Q2</text>
-    <text x="${acBoxX + 152}" y="${acBoxY + 54}" font-family="Arial, sans-serif" font-size="9" font-weight="bold" fill="#0f172a" text-anchor="middle">Diferencial</text>
-    <text x="${acBoxX + 152}" y="${acBoxY + 68}" font-family="Arial, sans-serif" font-size="8" fill="#475569" text-anchor="middle">30mA Cl. A/B</text>
-    <text x="${acBoxX + 152}" y="${acBoxY + 84}" font-family="Arial, sans-serif" font-size="7" fill="#64748b" text-anchor="middle">${D.dif_amp}A Superinm.</text>
+    <!-- -F2 IGA / PIA MAGNETOTÉRMICO (Símbolo IEC 60617: corte automático × + térmico + magnético) -->
+    <circle cx="848" cy="${acBusY}" r="2.5" fill="#0f172a"/>
+    <line x1="848" y1="${acBusY}" x2="890" y2="${acBusY - 16}" stroke="#0f172a" stroke-width="2"/>
+    <!-- Aspa × interruptor automático -->
+    <line x1="888" y1="${acBusY - 4}" x2="896" y2="${acBusY + 4}" stroke="#0f172a" stroke-width="1.8"/>
+    <line x1="888" y1="${acBusY + 4}" x2="896" y2="${acBusY - 4}" stroke="#0f172a" stroke-width="1.8"/>
+    <!-- Disparador térmico + magnético -->
+    <line x1="870" y1="${acBusY - 8}" x2="870" y2="${acBusY + 12}" stroke="#0f172a" stroke-width="1" stroke-dasharray="2,2"/>
+    <path d="M 858 ${acBusY + 12} L 866 ${acBusY + 12} L 866 ${acBusY + 20} L 874 ${acBusY + 20} L 874 ${acBusY + 12} L 882 ${acBusY + 12}" fill="none" stroke="#0f172a" stroke-width="1.3"/>
+    <path d="M 882 ${acBusY + 12} A 5 5 0 1 1 882 ${acBusY + 22}" fill="none" stroke="#0f172a" stroke-width="1.3"/>
+    <text x="872" y="${acBusY - 30}" font-family="monospace" font-size="8.8" font-weight="bold" fill="#0284c7" text-anchor="middle">-F2 (IGA/PIA)</text>
+    <text x="872" y="${acBusY + 38}" font-family="Arial, sans-serif" font-size="7.8" font-weight="bold" fill="#0f172a" text-anchor="middle">${I_iga}A · ${acPoles} Curva C</text>
+    <text x="872" y="${acBusY + 49}" font-family="monospace" font-size="7.2" fill="#475569" text-anchor="middle">Icu ≥ 6 kA</text>
 
-    <!-- SPD AC -F02 -->
-    <rect x="${acBoxX + 210}" y="${acBoxY + 40}" width="65" height="55" fill="#ffffff" stroke="#000" stroke-width="1.5" rx="3"/>
-    <text x="${acBoxX + 242}" y="${acBoxY + 34}" font-family="monospace" font-size="10" font-weight="bold" fill="#0284c7" text-anchor="middle">-F02</text>
-    <text x="${acBoxX + 242}" y="${acBoxY + 54}" font-family="Arial, sans-serif" font-size="9" font-weight="bold" fill="#0f172a" text-anchor="middle">SPD AC</text>
-    <text x="${acBoxX + 242}" y="${acBoxY + 68}" font-family="Arial, sans-serif" font-size="8" fill="#475569" text-anchor="middle">Tipo II (20kA)</text>
-    <text x="${acBoxX + 242}" y="${acBoxY + 84}" font-family="Arial, sans-serif" font-size="7" fill="#64748b" text-anchor="middle">Up ≤ 1.5kV</text>
+    <!-- Tramo entre -F2 y -Q2 -->
+    <line x1="892" y1="${acBusY}" x2="948" y2="${acBusY}" stroke="#0f172a" stroke-width="2.2"/>
 
-    <!-- SMART METER -P1 -->
-    <rect x="${acBoxX + 115}" y="${acBoxY + 125}" width="110" height="50" fill="#ffffff" stroke="#000" stroke-width="1.5" rx="3"/>
-    <text x="${acBoxX + 170}" y="${acBoxY + 119}" font-family="monospace" font-size="10" font-weight="bold" fill="#0284c7" text-anchor="middle">-P1</text>
-    <text x="${acBoxX + 170}" y="${acBoxY + 143}" font-family="Arial, sans-serif" font-size="9" font-weight="bold" fill="#0f172a" text-anchor="middle">SMART METER</text>
-    <text x="${acBoxX + 170}" y="${acBoxY + 158}" font-family="Arial, sans-serif" font-size="8" fill="#475569" text-anchor="middle">Bidireccional RS485</text>
+    <!-- -Q2 INTERRUPTOR DIFERENCIAL (Símbolo IEC 60617: toroide + contacto disparo) -->
+    <ellipse cx="956" cy="${acBusY}" rx="6" ry="12" fill="none" stroke="#0284c7" stroke-width="1.6"/>
+    <line x1="948" y1="${acBusY}" x2="968" y2="${acBusY}" stroke="#0f172a" stroke-width="2.2"/>
+    <circle cx="968" cy="${acBusY}" r="2.5" fill="#0f172a"/>
+    <line x1="968" y1="${acBusY}" x2="1008" y2="${acBusY - 16}" stroke="#0f172a" stroke-width="2"/>
+    <circle cx="1010" cy="${acBusY}" r="2.5" fill="#0f172a"/>
+    <path d="M 956 ${acBusY + 12} L 956 ${acBusY + 20} L 986 ${acBusY + 20} L 986 ${acBusY - 7}" fill="none" stroke="#0284c7" stroke-width="1.1" stroke-dasharray="2,2"/>
+    <text x="980" y="${acBusY - 30}" font-family="monospace" font-size="8.8" font-weight="bold" fill="#0284c7" text-anchor="middle">-Q2 (ID)</text>
+    <text x="980" y="${acBusY + 38}" font-family="Arial, sans-serif" font-size="7.8" font-weight="bold" fill="#0f172a" text-anchor="middle">${difAmp}A · 30 mA</text>
+    <text x="980" y="${acBusY + 49}" font-family="Arial, sans-serif" font-size="7.2" fill="#475569" text-anchor="middle">${rcdLabel}</text>
 
-    <!-- Embarrado Tierra PE -->
-    <rect x="${acBoxX + 30}" y="${acBoxY + 200}" width="${acBoxW - 60}" height="26" fill="#fef08a" stroke="#ca8a04" stroke-width="1.5" rx="2"/>
-    <text x="${acBoxX + 30 + (acBoxW - 60) / 2}" y="${acBoxY + 217}" font-family="Arial, sans-serif" font-size="8.5" font-weight="bold" fill="#854d0e" text-anchor="middle">EMBARRADO EQUIPOTENCIAL DE PUESTA A TIERRA (PE) · R ≤ ${D.R_tierra} Ω</text>
+    <!-- Tramo entre -Q2, nodo SPD AC y Embarrado General -->
+    <line x1="1010" y1="${acBusY}" x2="1096" y2="${acBusY}" stroke="#0f172a" stroke-width="2.2"/>
+    <circle cx="1054" cy="${acBusY}" r="3" fill="#0f172a"/>
 
-    <!-- Pica de Tierra -->
-    <path d="M ${acBoxX + acBoxW / 2} ${acBoxY + 226} L ${acBoxX + acBoxW / 2} ${acBoxY + 251} M ${acBoxX + acBoxW / 2 - 18} ${acBoxY + 251} L ${acBoxX + acBoxW / 2 + 18} ${acBoxY + 251} M ${acBoxX + acBoxW / 2 - 12} ${acBoxY + 257} L ${acBoxX + acBoxW / 2 + 12} ${acBoxY + 257} M ${acBoxX + acBoxW / 2 - 6} ${acBoxY + 263} L ${acBoxX + acBoxW / 2 + 6} ${acBoxY + 263}" fill="none" stroke="#ca8a04" stroke-width="2"/>
-    <text x="${acBoxX + acBoxW / 2}" y="${acBoxY + 276}" font-family="Arial, sans-serif" font-size="7.5" fill="#854d0e" text-anchor="middle">Pica de Cu 2m (ITC-BT-18)</text>
+    <!-- -F02 SPD AC en derivación a Embarrado Equipotencial PE -->
+    <line x1="1054" y1="${acBusY}" x2="1054" y2="${acBusY + 36}" stroke="#0f172a" stroke-width="1.6"/>
+    <rect x="1038" y="${acBusY + 36}" width="32" height="44" fill="#ffffff" stroke="#0f172a" stroke-width="1.6"/>
+    <line x1="1054" y1="${acBusY + 36}" x2="1054" y2="${acBusY + 52}" stroke="#0f172a" stroke-width="1.4"/>
+    <polygon points="1050,${acBusY + 51} 1058,${acBusY + 51} 1054,${acBusY + 59}" fill="#0f172a"/>
+    <line x1="1046" y1="${acBusY + 65}" x2="1062" y2="${acBusY + 65}" stroke="#0f172a" stroke-width="1.6"/>
+    <line x1="1054" y1="${acBusY + 65}" x2="1054" y2="${acBusY + 80}" stroke="#0f172a" stroke-width="1.4"/>
+    <text x="1032" y="${acBusY + 54}" font-family="monospace" font-size="8" font-weight="bold" fill="#0284c7" text-anchor="end">-F02</text>
+    <text x="1032" y="${acBusY + 66}" font-family="Arial, sans-serif" font-size="7.2" fill="#334155" text-anchor="end">SPD ${spdLabel}</text>
+    <text x="1032" y="${acBusY + 77}" font-family="monospace" font-size="7" fill="#475569" text-anchor="end">Up≤1.5kV</text>
+    <!-- Bajada PE desde SPD AC -->
+    <line x1="1054" y1="${acBusY + 80}" x2="1054" y2="${peBoxY}" stroke="#16a34a" stroke-width="1.8" stroke-dasharray="6,3"/>
+    <circle cx="1054" cy="${peBoxY}" r="3" fill="#16a34a"/>
+
+    <!-- Embarrado General AC (Barra gruesa normalizada) -->
+    <line x1="1096" y1="${acBusY}" x2="1174" y2="${acBusY}" stroke="#0f172a" stroke-width="4.5"/>
+    <text x="1135" y="${acBusY - 12}" font-family="Arial, sans-serif" font-size="7.5" font-weight="bold" fill="#0f172a" text-anchor="middle">EMBARRADO AC</text>
+
+    <!-- Derivación a Cargas Interiores (Cuadro Vivienda/Empresa) -->
+    <line x1="1135" y1="${acBusY}" x2="1135" y2="412" stroke="#0f172a" stroke-width="2" marker-end="url(#arr-dark)"/>
+    <circle cx="1135" cy="${acBusY}" r="3.2" fill="#0f172a"/>
+    <rect x="1086" y="416" width="98" height="58" fill="#ffffff" stroke="#475569" stroke-width="1.4" rx="3"/>
+    <text x="1135" y="434" font-family="Arial, sans-serif" font-size="8" font-weight="bold" fill="#0f172a" text-anchor="middle">CARGAS</text>
+    <text x="1135" y="447" font-family="Arial, sans-serif" font-size="8" font-weight="bold" fill="#0f172a" text-anchor="middle">INTERIORES</text>
+    <text x="1135" y="462" font-family="Arial, sans-serif" font-size="7" fill="#64748b" text-anchor="middle">Cuadro Vivienda</text>
+
+    <!-- Salida hacia Red + Toroide de Medida (TI) para Smart Meter -P1 -->
+    <line x1="1174" y1="${acBusY}" x2="${z5X}" y2="${acBusY}" stroke="#0f172a" stroke-width="2.2"/>
+    <ellipse cx="1186" cy="${acBusY}" rx="5" ry="11" fill="none" stroke="#0284c7" stroke-width="1.8"/>
+    <text x="1186" y="${acBusY - 16}" font-family="monospace" font-size="7.2" font-weight="bold" fill="#0284c7" text-anchor="middle">TI</text>
+
+    <!-- SMART METER -P1 + enlace a TI y RS485 al Inversor -->
+    <rect x="836" y="472" width="164" height="58" fill="#ffffff" stroke="#0284c7" stroke-width="1.6" rx="3"/>
+    <text x="918" y="490" font-family="monospace" font-size="8.8" font-weight="bold" fill="#0284c7" text-anchor="middle">-P1 · SMART METER</text>
+    <text x="918" y="505" font-family="Arial, sans-serif" font-size="7.8" fill="#0f172a" text-anchor="middle">Medidor Bidireccional RS485</text>
+    <text x="918" y="519" font-family="Arial, sans-serif" font-size="7.2" fill="#475569" text-anchor="middle">Control Inyección Cero / Excedentes</text>
+    <!-- Cable señal TI -> Smart Meter -->
+    <polyline points="1186,${acBusY + 11} 1186,501 1000,501" fill="none" stroke="#0284c7" stroke-width="1.3" stroke-dasharray="3,2" marker-end="url(#arr-cyan)"/>
+    <!-- Cable comunicación RS485 Smart Meter -> Inversor -->
+    <polyline points="836,501 776,501 776,348 ${invX + invW},348" fill="none" stroke="#0284c7" stroke-width="1.3" stroke-dasharray="4,3" marker-end="url(#arr-cyan)"/>
+    <text x="780" y="460" font-family="monospace" font-size="7" font-weight="bold" fill="#0284c7" transform="rotate(-90 780 460)">RS485 / MODBUS</text>
+
+    <!-- EMBARRADO EQUIPOTENCIAL PE -->
+    <rect x="${peBoxX}" y="${peBoxY}" width="${peBoxW}" height="${peBoxH}" fill="#fef08a" stroke="#15803d" stroke-width="1.8" rx="2"/>
+    <text x="${peCenterX}" y="${peBoxY + 15}" font-family="Arial, sans-serif" font-size="8.2" font-weight="bold" fill="#14532d" text-anchor="middle">EMBARRADO EQUIPOTENCIAL TIERRA (PE) · R ≤ ${R_tierra} Ω (ITC-BT-18)</text>
+
+    <!-- Conexión Colector PE Global -> Embarrado PE -->
+    <polyline points="${z1X + 14},${peRailY} ${peCenterX},${peRailY} ${peCenterX},${peBoxY + peBoxH}" fill="none" stroke="#16a34a" stroke-width="1.8" stroke-dasharray="6,3"/>
+    <text x="598" y="${peRailY - 5}" font-family="monospace" font-size="7.4" font-weight="bold" fill="#15803d" text-anchor="middle">RED EQUIPOTENCIAL DE PUESTA A TIERRA (PE) · Cu 1×6 mm² Verde-Amarillo</text>
+
+    <!-- Símbolo IEC 60617 Pica de Tierra (bajo Embarrado PE) -->
+    <line x1="${peCenterX}" y1="${peBoxY + peBoxH}" x2="${peCenterX}" y2="${peBoxY + peBoxH + 22}" stroke="#15803d" stroke-width="2"/>
+    <line x1="${peCenterX - 18}" y1="${peBoxY + peBoxH + 22}" x2="${peCenterX + 18}" y2="${peBoxY + peBoxH + 22}" stroke="#15803d" stroke-width="2"/>
+    <line x1="${peCenterX - 12}" y1="${peBoxY + peBoxH + 28}" x2="${peCenterX + 12}" y2="${peBoxY + peBoxH + 28}" stroke="#15803d" stroke-width="2"/>
+    <line x1="${peCenterX - 6}" y1="${peBoxY + peBoxH + 34}" x2="${peCenterX + 6}" y2="${peBoxY + peBoxH + 34}" stroke="#15803d" stroke-width="2"/>
+    <text x="${peCenterX + 26}" y="${peBoxY + peBoxH + 26}" font-family="Arial, sans-serif" font-size="7.4" font-weight="bold" fill="#14532d">Pica Cu 2m · Ø14mm</text>
   </g>
 
-  <!-- 5. RED DISTRIBUCIÓN PÚBLICA -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- ZONA 5: ENLACE, MEDIDA BIDIRECCIONAL (-M1), CGP Y RED DISTRIBUCIÓN BT   -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
   <g id="red_distribucion">
-    <line x1="${acBoxX + acBoxW}" y1="${acBoxY + 65}" x2="${gridX}" y2="${gridY}" stroke="#000" stroke-width="2"/>
-    <text x="${(acBoxX + acBoxW + gridX) / 2}" y="${gridY - 6}" font-family="monospace" font-size="8" font-weight="bold" fill="#0369a1" text-anchor="middle">Acometida ${D.monofasico ? '230V' : '400V'}</text>
+    <rect x="${z5X}" y="${z5Y}" width="${z5W}" height="${z5H}" fill="#f8fafc" stroke="#0284c7" stroke-width="1.5" stroke-dasharray="6,3" rx="4"/>
+    <rect x="${z5X}" y="${z5Y}" width="${z5W}" height="24" fill="#e0f2fe" rx="3"/>
+    <text x="${z5X + 10}" y="${z5Y + 16}" font-family="Arial, sans-serif" font-size="9" font-weight="bold" fill="#0369a1">5. MEDIDA, CGP Y RED DISTRIBUCIÓN BT</text>
 
-    <rect x="${gridX}" y="${gridY - 45}" width="170" height="95" fill="#0f172a" stroke="#0284c7" stroke-width="2.5" rx="4"/>
-    <text x="${gridX + 85}" y="${gridY - 24}" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="#38bdf8" text-anchor="middle">RED DISTRIBUCIÓN BT</text>
-    <text x="${gridX + 85}" y="${gridY - 8}" font-family="Arial, sans-serif" font-size="9" font-weight="bold" fill="#ffffff" text-anchor="middle">${D.dist}</text>
-    <text x="${gridX + 85}" y="${gridY + 8}" font-family="Arial, sans-serif" font-size="8" fill="#94a3b8" text-anchor="middle">CUPS: ${D.cups}</text>
-    <text x="${gridX + 85}" y="${gridY + 22}" font-family="Arial, sans-serif" font-size="8" fill="#94a3b8" text-anchor="middle">Modalidad: ${D.modalTexto.split('(')[0] || 'Autoconsumo'}</text>
-    <text x="${gridX + 85}" y="${gridY + 36}" font-family="Arial, sans-serif" font-size="8" fill="#94a3b8" text-anchor="middle">Tensión Red: ${D.monofasico ? '230 V 50 Hz' : '400 V 50 Hz'}</text>
+    <!-- Línea horizontal de enlace pasando por -M1 y -CGP -->
+    <line x1="${z5X}" y1="${acBusY}" x2="${meterCx - 24}" y2="${acBusY}" stroke="#0f172a" stroke-width="2.2"/>
+    <line x1="${meterCx + 24}" y1="${acBusY}" x2="${cgpX}" y2="${acBusY}" stroke="#0f172a" stroke-width="2.2"/>
+    <line x1="${cgpX + 42}" y1="${acBusY}" x2="1484" y2="${acBusY}" stroke="#0f172a" stroke-width="2.2"/>
+    <polyline points="1484,${acBusY} 1484,${gridCardY}" fill="none" stroke="#0f172a" stroke-width="2.2" marker-end="url(#arr-dark)"/>
+
+    <!-- -M1 CONTADOR BIDIRECCIONAL COMPAÑÍA (IEC 60617) -->
+    <circle cx="${meterCx}" cy="${meterCy}" r="24" fill="#ffffff" stroke="#0f172a" stroke-width="1.8"/>
+    <text x="${meterCx}" y="${meterCy - 2}" font-family="Arial, sans-serif" font-size="9.5" font-weight="bold" fill="#0f172a" text-anchor="middle">kWh</text>
+    <text x="${meterCx}" y="${meterCy + 11}" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="#0284c7" text-anchor="middle">↔</text>
+    <text x="${meterCx}" y="${meterCy - 32}" font-family="monospace" font-size="8.5" font-weight="bold" fill="#0284c7" text-anchor="middle">-M1 (CPM)</text>
+    <text x="${meterCx}" y="${meterCy + 38}" font-family="Arial, sans-serif" font-size="7.4" fill="#334155" text-anchor="middle">Contador Bidir.</text>
+    <text x="${meterCx}" y="${meterCy + 49}" font-family="Arial, sans-serif" font-size="7" fill="#64748b" text-anchor="middle">RD 244/2019</text>
+
+    <!-- -CGP CAJA GENERAL DE PROTECCIÓN (IEC 60617 Fusible gG) -->
+    <rect x="${cgpX}" y="${cgpY - 11}" width="42" height="22" fill="#ffffff" stroke="#0f172a" stroke-width="1.8"/>
+    <line x1="${cgpX}" y1="${cgpY}" x2="${cgpX + 42}" y2="${cgpY}" stroke="#0f172a" stroke-width="1.6"/>
+    <text x="${cgpX + 21}" y="${cgpY - 22}" font-family="monospace" font-size="8.5" font-weight="bold" fill="#0f172a" text-anchor="middle">-CGP</text>
+    <text x="${cgpX + 21}" y="${cgpY + 26}" font-family="Arial, sans-serif" font-size="7.4" fill="#334155" text-anchor="middle">Fusibles gG</text>
+    <text x="${cgpX + 21}" y="${cgpY + 37}" font-family="Arial, sans-serif" font-size="7" fill="#64748b" text-anchor="middle">ITC-BT-13</text>
+
+    <!-- Acometida label -->
+    ${drawSlashes(1454, acBusY, monofasico ? 2 : 4, false)}
+    <text x="1484" y="${acBusY - 12}" font-family="monospace" font-size="7.4" font-weight="bold" fill="#0369a1" text-anchor="middle">ACOM.</text>
+
+    <!-- TARJETA RED DISTRIBUCIÓN BT (Alto contraste, sin textos solapados) -->
+    <rect x="${gridCardX}" y="${gridCardY}" width="${gridCardW}" height="${gridCardH}" fill="#ffffff" stroke="#0284c7" stroke-width="2" rx="4"/>
+    <rect x="${gridCardX}" y="${gridCardY}" width="${gridCardW}" height="28" fill="#0f172a" rx="3"/>
+    <text x="${gridCardX + 12}" y="${gridCardY + 18}" font-family="Arial, sans-serif" font-size="9.5" font-weight="bold" fill="#38bdf8">RED DISTRIBUCIÓN PÚBLICA BT</text>
+    <text x="${gridCardX + gridCardW - 14}" y="${gridCardY + 19}" font-family="Arial, sans-serif" font-size="13" font-weight="bold" fill="#fbbf24" text-anchor="end">~</text>
+
+    <text x="${gridCardX + 12}" y="${gridCardY + 48}" font-family="Arial, sans-serif" font-size="9.5" font-weight="bold" fill="#0f172a">${dist}</text>
+    <text x="${gridCardX + 12}" y="${gridCardY + 67}" font-family="monospace" font-size="8" fill="#334155">CUPS: ${cups}</text>
+    <text x="${gridCardX + 12}" y="${gridCardY + 86}" font-family="Arial, sans-serif" font-size="8.2" font-weight="bold" fill="#0369a1">Tensión: ${acVoltStr} · 50 Hz</text>
+    <text x="${gridCardX + 12}" y="${gridCardY + 104}" font-family="Arial, sans-serif" font-size="7.8" fill="#475569">Modalidad RD 244/2019:</text>
+    <text x="${gridCardX + 12}" y="${gridCardY + 119}" font-family="Arial, sans-serif" font-size="7.8" font-weight="bold" fill="#0f172a">${modalShort}</text>
+    <text x="${gridCardX + 12}" y="${gridCardY + 136}" font-family="Arial, sans-serif" font-size="7.2" fill="#64748b">Esquema de conexión a tierra: TT (ITC-BT-08)</text>
   </g>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- FRANJA TÉCNICA INFERIOR: LEYENDA + PARÁMETROS + CIRCUITOS + CARTELA     -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+
+  <!-- 1. LEYENDA DE SIMBOLOGÍA NORMALIZADA UNE-EN 60617 / IEC 60617 -->
+  <g id="leyenda_simbologia">
+    <rect x="${legX}" y="${legY}" width="${legW}" height="${legH}" fill="#ffffff" stroke="#0f172a" stroke-width="1.2"/>
+    <rect x="${legX}" y="${legY}" width="${legW}" height="24" fill="#f1f5f9"/>
+    <line x1="${legX}" y1="${legY + 24}" x2="${legX + legW}" y2="${legY + 24}" stroke="#0f172a" stroke-width="1"/>
+    <text x="${legX + 10}" y="${legY + 16}" font-family="Arial, sans-serif" font-size="9" font-weight="bold" fill="#0f172a">LEYENDA DE SIMBOLOGÍA NORMALIZADA (UNE-EN 60617 / IEC 60617)</text>
+
+    <!-- Columna Izquierda (5 símbolos) -->
+    <!-- 1. Generador FV -->
+    <rect x="${legX + 16}" y="${legY + 40}" width="24" height="20" fill="#f0f9ff" stroke="#0369a1" stroke-width="1.3"/>
+    <line x1="${legX + 16}" y1="${legY + 60}" x2="${legX + 40}" y2="${legY + 40}" stroke="#0369a1" stroke-width="1"/>
+    <text x="${legX + 50}" y="${legY + 53}" font-family="Arial, sans-serif" font-size="8" fill="#0f172a">Generador Fotovoltaico (-G)</text>
+
+    <!-- 2. Fusible gPV / gG -->
+    <rect x="${legX + 14}" y="${legY + 98}" width="28" height="14" fill="#fff" stroke="#0f172a" stroke-width="1.3"/>
+    <line x1="${legX + 10}" y1="${legY + 105}" x2="${legX + 46}" y2="${legY + 105}" stroke="#0f172a" stroke-width="1.3"/>
+    <text x="${legX + 50}" y="${legY + 108}" font-family="Arial, sans-serif" font-size="8" fill="#0f172a">Fusible Cortacircuitos gPV / gG</text>
+
+    <!-- 3. Descargador SPD -->
+    <rect x="${legX + 18}" y="${legY + 146}" width="20" height="26" fill="#fff" stroke="#0f172a" stroke-width="1.3"/>
+    <polygon points="${legX + 25},${legY + 156} ${legX + 31},${legY + 156} ${legX + 28},${legY + 162}" fill="#0f172a"/>
+    <line x1="${legX + 22}" y1="${legY + 166}" x2="${legX + 34}" y2="${legY + 166}" stroke="#0f172a" stroke-width="1.3"/>
+    <text x="${legX + 50}" y="${legY + 162}" font-family="Arial, sans-serif" font-size="8" fill="#0f172a">Descargador Sobretensiones (SPD)</text>
+
+    <!-- 4. Seccionador -->
+    <line x1="${legX + 12}" y1="${legY + 216}" x2="${legX + 36}" y2="${legY + 206}" stroke="#0f172a" stroke-width="1.6"/>
+    <line x1="${legX + 38}" y1="${legY + 210}" x2="${legX + 38}" y2="${legY + 222}" stroke="#0f172a" stroke-width="1.6"/>
+    <text x="${legX + 50}" y="${legY + 218}" font-family="Arial, sans-serif" font-size="8" fill="#0f172a">Interruptor-Seccionador en Carga</text>
+
+    <!-- 5. Inversor DC/AC -->
+    <rect x="${legX + 16}" y="${legY + 258}" width="24" height="24" fill="#eff6ff" stroke="#1d4ed8" stroke-width="1.3"/>
+    <line x1="${legX + 16}" y1="${legY + 282}" x2="${legX + 40}" y2="${legY + 258}" stroke="#1d4ed8" stroke-width="1.1"/>
+    <text x="${legX + 22}" y="${legY + 269}" font-family="Arial, sans-serif" font-size="8" font-weight="bold" fill="#1e40af">=</text>
+    <text x="${legX + 34}" y="${legY + 279}" font-family="Arial, sans-serif" font-size="8" font-weight="bold" fill="#15803d">~</text>
+    <text x="${legX + 50}" y="${legY + 273}" font-family="Arial, sans-serif" font-size="8" fill="#0f172a">Convertidor / Inversor DC-AC (-T)</text>
+
+    <!-- Columna Derecha (5 símbolos) -->
+    <!-- 6. Magnetotérmico -->
+    <line x1="${legX + 224}" y1="${legY + 52}" x2="${legX + 248}" y2="${legY + 42}" stroke="#0f172a" stroke-width="1.6"/>
+    <line x1="${legX + 246}" y1="${legY + 49}" x2="${legX + 252}" y2="${legY + 55}" stroke="#0f172a" stroke-width="1.4"/>
+    <line x1="${legX + 246}" y1="${legY + 55}" x2="${legX + 252}" y2="${legY + 49}" stroke="#0f172a" stroke-width="1.4"/>
+    <text x="${legX + 262}" y="${legY + 53}" font-family="Arial, sans-serif" font-size="8" fill="#0f172a">Interruptor Automático PIA / IGA</text>
+
+    <!-- 7. Diferencial -->
+    <ellipse cx="${legX + 234}" cy="${legY + 105}" rx="5" ry="9" fill="none" stroke="#0284c7" stroke-width="1.4"/>
+    <line x1="${legX + 222}" y1="${legY + 105}" x2="${legX + 252}" y2="${legY + 105}" stroke="#0f172a" stroke-width="1.4"/>
+    <text x="${legX + 262}" y="${legY + 108}" font-family="Arial, sans-serif" font-size="8" fill="#0f172a">Interruptor Diferencial (ID 30mA)</text>
+
+    <!-- 8. Contador Bidireccional -->
+    <circle cx="${legX + 236}" cy="${legY + 159}" r="12" fill="#fff" stroke="#0f172a" stroke-width="1.3"/>
+    <text x="${legX + 236}" y="${legY + 162}" font-family="Arial, sans-serif" font-size="6.5" font-weight="bold" fill="#0f172a" text-anchor="middle">kWh</text>
+    <text x="${legX + 262}" y="${legY + 162}" font-family="Arial, sans-serif" font-size="8" fill="#0f172a">Contador Bidireccional (-M1 / -P1)</text>
+
+    <!-- 9. Puesta a Tierra -->
+    <line x1="${legX + 236}" y1="${legY + 202}" x2="${legX + 236}" y2="${legY + 214}" stroke="#15803d" stroke-width="1.6"/>
+    <line x1="${legX + 226}" y1="${legY + 214}" x2="${legX + 246}" y2="${legY + 214}" stroke="#15803d" stroke-width="1.6"/>
+    <line x1="${legX + 230}" y1="${legY + 219}" x2="${legX + 242}" y2="${legY + 219}" stroke="#15803d" stroke-width="1.6"/>
+    <line x1="${legX + 233}" y1="${legY + 224}" x2="${legX + 239}" y2="${legY + 224}" stroke="#15803d" stroke-width="1.6"/>
+    <text x="${legX + 262}" y="${legY + 218}" font-family="Arial, sans-serif" font-size="8" fill="#0f172a">Puesta a Tierra PE (ITC-BT-18)</text>
+
+    <!-- 10. Conductores / RS485 -->
+    <line x1="${legX + 222}" y1="${legY + 270}" x2="${legX + 252}" y2="${legY + 270}" stroke="#0f172a" stroke-width="1.8"/>
+    ${drawSlashes(legX + 237, legY + 270, 3, false)}
+    <text x="${legX + 262}" y="${legY + 273}" font-family="Arial, sans-serif" font-size="8" fill="#0f172a">Nº Conductores (// 2, /// 3, ///// 5)</text>
+  </g>
+
+  <!-- 2. PARÁMETROS DE DISEÑO Y CÁLCULO ELÉCTRICO (SSOT) -->
+  <g id="tabla_parametros">
+    <rect x="${paramX}" y="${paramY}" width="${paramW}" height="${paramH}" fill="#ffffff" stroke="#0f172a" stroke-width="1.2"/>
+    <rect x="${paramX}" y="${paramY}" width="${paramW}" height="22" fill="#f1f5f9"/>
+    <line x1="${paramX}" y1="${paramY + 22}" x2="${paramX + paramW}" y2="${paramY + 22}" stroke="#0f172a" stroke-width="1"/>
+    <text x="${paramX + 10}" y="${paramY + 15}" font-family="Arial, sans-serif" font-size="8.8" font-weight="bold" fill="#0f172a">PARÁMETROS DE DISEÑO Y CÁLCULO ELÉCTRICO (REBT / IEC 62548)</text>
+    ${paramRowsXml}
+  </g>
+
+  <!-- 3. NOTAS REGLAMENTARIAS REBT -->
+  <g id="notas_rebt">
+    <rect x="${notesX}" y="${notesY}" width="${notesW}" height="${notesH}" fill="#ffffff" stroke="#0f172a" stroke-width="1.2"/>
+    <rect x="${notesX}" y="${notesY}" width="${notesW}" height="20" fill="#f1f5f9"/>
+    <line x1="${notesX}" y1="${notesY + 20}" x2="${notesX + notesW}" y2="${notesY + 20}" stroke="#0f172a" stroke-width="1"/>
+    <text x="${notesX + 10}" y="${notesY + 14}" font-family="Arial, sans-serif" font-size="8.4" font-weight="bold" fill="#0f172a">NOTAS REGLAMENTARIAS DE OBLIGADO CUMPLIMIENTO (REBT RD 842/2002)</text>
+    <text x="${notesX + 10}" y="${notesY + 34}" font-family="Arial, sans-serif" font-size="7.6" fill="#334155">1. Instalación ejecutada conforme a REBT ITC-BT-40 (Generación en BT), ITC-BT-18 (Tierra), ITC-BT-19 y ITC-BT-23 (SPD).</text>
+    <text x="${notesX + 10}" y="${notesY + 48}" font-family="Arial, sans-serif" font-size="7.6" fill="#334155">2. Cableado DC solar H1Z2Z2-K / ZZ-F 1,8/3 kV libre halógenos, resistente UV, tendido bajo tubo o bandeja independiente.</text>
+    <text x="${notesX + 10}" y="${notesY + 62}" font-family="Arial, sans-serif" font-size="7.6" fill="#334155">3. Inversor con protección anti-isla integrada certificada RD 1699/2011 y UNE-EN 50549-1 (desconexión automática &lt; 0,5 s).</text>
+    <text x="${notesX + 10}" y="${notesY + 76}" font-family="Arial, sans-serif" font-size="7.6" fill="#334155">4. Señalización obligatoria de doble alimentación en Cuadro General AC y Cuadro DC según ITC-BT-40 y IEC 62548.</text>
+    <text x="${notesX + 10}" y="${notesY + 90}" font-family="Arial, sans-serif" font-size="7.6" fill="#334155">5. Caída de tensión máxima ≤ 1,5% en cada tramo (DC y AC) y ≤ 2,5% combinada; resistencia de tierra R ≤ ${R_tierra} Ω.</text>
+  </g>
+
+  <!-- 4. CUADRO DE CONDUCTORES Y PROTECCIONES -->
+  <g id="cuadro_circuitos">
+    <rect x="${circX}" y="${circY}" width="${circW}" height="${circH}" fill="#ffffff" stroke="#0f172a" stroke-width="1.2"/>
+    <rect x="${circX}" y="${circY}" width="${circW}" height="22" fill="#f1f5f9"/>
+    <line x1="${circX}" y1="${circY + 22}" x2="${circX + circW}" y2="${circY + 22}" stroke="#0f172a" stroke-width="1"/>
+    <text x="${circX + 10}" y="${circY + 15}" font-family="Arial, sans-serif" font-size="8.8" font-weight="bold" fill="#0f172a">CUADRO RESUMEN DE CIRCUITOS, CONDUCTORES Y PROTECCIONES</text>
+    <!-- Cabecera columnas -->
+    <rect x="${circX + 1}" y="${circY + 23}" width="${circW - 2}" height="18" fill="#e2e8f0"/>
+    <text x="${circX + 12}" y="${circY + 35}" font-family="Arial, sans-serif" font-size="7.5" font-weight="bold" fill="#0f172a">CIRCUITO</text>
+    <text x="${circX + 112}" y="${circY + 35}" font-family="Arial, sans-serif" font-size="7.5" font-weight="bold" fill="#0f172a">CONDUCTOR</text>
+    <text x="${circX + 242}" y="${circY + 35}" font-family="Arial, sans-serif" font-size="7.5" font-weight="bold" fill="#0f172a" text-anchor="middle">LONG.</text>
+    <text x="${circX + 296}" y="${circY + 35}" font-family="Arial, sans-serif" font-size="7.5" font-weight="bold" fill="#0f172a" text-anchor="middle">ΔV (%)</text>
+    <text x="${circX + 340}" y="${circY + 35}" font-family="Arial, sans-serif" font-size="7.5" font-weight="bold" fill="#0f172a">PROTECCIÓN</text>
+    ${circRowsXml}
+  </g>
+
+  <!-- 5. CARTELA NORMALIZADA ISO 7200 -->
+  ${cartelaXml}
 </svg>`;
 }
 
@@ -3094,7 +3487,9 @@ async function generateDeliveryPack(skipPricingModal) {
       S_str: d.S_str, S_mdc: d.S_mdc, S_ac: d.S_ac, useFuses: d.useFuses, mlpeCount: d.mlpeCount,
       fuse_std: d.fuse_std, I_iga: d.I_iga, dif_amp: d.dif_amp, R_tierra: d.R_tierra,
       L_dc: d.L_dc, L_ac: d.L_ac, dVdc_p: d.dVdc_p, dVac_p: d.dVac_p,
-      inverter: d.inverter, battery: d.battery, hasBattery: d.hasBattery, V_max_inv: d.V_max_inv
+      inverter: d.inverter, battery: d.battery, hasBattery: d.hasBattery,
+      isMicroinverter: !!d.isMicroinverter, rcdType: d.rcdType || 'Clase A Superinm.',
+      spdClaseLabel: d.spdClaseLabel || 'Tipo II', V_max_inv: d.V_max_inv
     };
 
     const unifilarSvg = buildUnifilarSvg(unifPayload);
