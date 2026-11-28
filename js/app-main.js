@@ -1099,7 +1099,7 @@ if (globe) {
 }
 scene.backgroundColor = Cesium.Color.fromCssColorString('#0284c7');
 
-// Vista inicial cinematográfica: arranque orbital a 340 m y descenso suave tipo dron hasta 135 m
+// Vista inicial cinematográfica: espera a que la fotogrametría esté definida antes de iniciar el descenso
 camera.setView({
   destination : Cesium.Cartesian3.fromDegrees(2.1722, 41.3838, 340),
   orientation : {
@@ -1108,20 +1108,28 @@ camera.setView({
     roll   : 0
   },
 });
-setTimeout(() => {
-  if (camera && typeof camera.flyTo === 'function') {
-    camera.flyTo({
-      destination: Cesium.Cartesian3.fromDegrees(2.1734, 41.3851, 135),
-      orientation: {
-        heading: Cesium.Math.toRadians(30),
-        pitch  : Cesium.Math.toRadians(-35),
-        roll   : 0
-      },
-      duration: 2.4,
-      easingFunction: (typeof Cesium !== 'undefined' && Cesium.EasingFunction) ? Cesium.EasingFunction.CUBIC_IN_OUT : undefined
-    });
-  }
-}, 150);
+(function () {
+  let _flyInStarted = false;
+  window._raStartDroneFlyIn = function () {
+    if (_flyInStarted) return;
+    _flyInStarted = true;
+    if (camera && typeof camera.flyTo === 'function') {
+      camera.flyTo({
+        destination: Cesium.Cartesian3.fromDegrees(2.1734, 41.3851, 135),
+        orientation: {
+          heading: Cesium.Math.toRadians(30),
+          pitch  : Cesium.Math.toRadians(-35),
+          roll   : 0
+        },
+        duration: 2.4,
+        easingFunction: (typeof Cesium !== 'undefined' && Cesium.EasingFunction) ? Cesium.EasingFunction.CUBIC_IN_OUT : undefined
+      });
+    }
+  };
+  setTimeout(function () {
+    if (typeof window._raStartDroneFlyIn === 'function') window._raStartDroneFlyIn();
+  }, 3500);
+})();
 
 // ── Variables de Capas y Primitivas ────────────────────────────────────────
 window.currentEngine = window.currentEngine || 'google';

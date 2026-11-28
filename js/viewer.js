@@ -323,6 +323,7 @@ function attachTilesetLoadMonitor(tileset, name) {
     tileset.allTilesLoaded.addEventListener(() => {
       _clearTileWatchdogs();
       _stopRefining();
+      if (typeof window._raStartDroneFlyIn === 'function') window._raStartDroneFlyIn();
       if (_tilesMonitorState.burstFailed === 0) {
         _configureTileRequestScheduler(4);
         tileset._raRecoveryMode = false;
