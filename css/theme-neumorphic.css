@@ -423,7 +423,9 @@
 #ra-scenario-comparator-modal,
 #ra-a11y-modal,
 #ra-async-confirm-modal {
-  background: rgba(213, 220, 230, 0.78) !important;
+  background: rgba(188, 199, 214, 0.34) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
   backdrop-filter: blur(10px) !important;
   -webkit-backdrop-filter: blur(10px) !important;
 }
