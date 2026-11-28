@@ -1617,6 +1617,33 @@ body[data-ra-step="3"] #btn-toggle-cable-audit {
   color: var(--nm-text-muted) !important;
 }
 
+/* ── 15. Contraste y Legibilidad sobre Gris Azulado ───────────────────────── */
+::placeholder {
+  color: #334155 !important;
+  opacity: 0.85 !important;
+}
+
+.step-tab.disabled,
+.wp-step-btn.disabled,
+button:disabled,
+[disabled] {
+  opacity: 0.72 !important;
+  color: #334155 !important;
+}
+
+.wp-step-btn.active span,
+.step-tab.active span {
+  color: #b45309 !important;
+}
+
+.ra-cta-primary,
+#wp-define-plane-btn,
+#btn-definir-plano {
+  background: linear-gradient(135deg, #d97706 0%, #c2410c 100%) !important;
+  color: #ffffff !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25) !important;
+}
+
 /* ── 15. Barra de Estado CAD (#ra-cad-status-bar) Siempre Visible ────────── */
 #ra-cad-status-bar {
   top: 22px !important;
