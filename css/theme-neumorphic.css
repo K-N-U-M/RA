@@ -1756,4 +1756,49 @@ body:has(#ra-sidebar:not(.collapsed)) #ra-cad-status-bar {
   color: var(--nm-text-muted) !important;
 }
 
+/* ── 18. Armonía Tipográfica y Cromática Global (Director de Imagen) ──────── */
+#ra-sidebar,
+[id$="-modal"],
+[role="dialog"]:not(#cesiumContainer):not(.cesium-viewer),
+#ra-cad-status-bar,
+#ra-floating-settings-popover,
+#ra-solar-time-hud,
+#ra-cad-outliner-panel,
+#ra-bom-tree-hud {
+  font-family: var(--font-sans, 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif) !important;
+}
+
+#ra-sidebar [style*="monospace"],
+[id$="-modal"] [style*="monospace"],
+[role="dialog"] [style*="monospace"],
+.stat-pill-value,
+.mono,
+code {
+  font-family: var(--font-mono, 'JetBrains Mono', monospace) !important;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Suelo mínimo legible (erradicar micro-textos < 10px) */
+#ra-sidebar :is([style*="font-size:8px"], [style*="font-size: 8px"], [style*="font-size:8.5px"], [style*="font-size: 8.5px"], [style*="font-size:9px"], [style*="font-size: 9px"], [style*="font-size:9.5px"], [style*="font-size: 9.5px"]),
+[id$="-modal"] :is([style*="font-size:8px"], [style*="font-size: 8px"], [style*="font-size:8.5px"], [style*="font-size: 8.5px"], [style*="font-size:9px"], [style*="font-size: 9px"], [style*="font-size:9.5px"], [style*="font-size: 9.5px"]) {
+  font-size: 10.5px !important;
+  line-height: 1.35 !important;
+}
+
+/* Normalización de acentos neón heredados de fondo oscuro a tonos nítidos sobre gris azulado */
+#ra-sidebar :is([style*="color:#38bdf8"], [style*="color: #38bdf8"], [style*="color:#38BDF8"], [style*="color: #38BDF8"]):not(button):not(button *),
+[id$="-modal"] :is([style*="color:#38bdf8"], [style*="color: #38bdf8"], [style*="color:#38BDF8"], [style*="color: #38BDF8"]):not(button):not(button *) {
+  color: #0369a1 !important;
+}
+
+#ra-sidebar :is([style*="color:#fbbf24"], [style*="color: #fbbf24"], [style*="color:#FBBF24"], [style*="color: #FBBF24"], [style*="color:#f59e0b"], [style*="color: #f59e0b"]):not(button):not(button *),
+[id$="-modal"] :is([style*="color:#fbbf24"], [style*="color: #fbbf24"], [style*="color:#FBBF24"], [style*="color: #FBBF24"], [style*="color:#f59e0b"], [style*="color: #f59e0b"]):not(button):not(button *) {
+  color: #b45309 !important;
+}
+
+#ra-sidebar :is([style*="color:#34d399"], [style*="color: #34d399"], [style*="color:#4ade80"], [style*="color: #4ade80"]):not(button):not(button *),
+[id$="-modal"] :is([style*="color:#34d399"], [style*="color: #34d399"], [style*="color:#4ade80"], [style*="color: #4ade80"]):not(button):not(button *) {
+  color: #047857 !important;
+}
+
 /* Los breakpoints responsivos (<=1280px, <=1024px, <=768px, <=480px) residen en css/responsive.css */
