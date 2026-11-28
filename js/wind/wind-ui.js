@@ -784,7 +784,7 @@
       html += '  <div style="display:flex;gap:3px;align-items:center;" onclick="event.stopPropagation();">';
       html += '    <button title="' + (isEnabled ? 'Desactivar' : 'Activar') + '" onclick="if(window.RAWind && window.RAWind.Entity){window.RAWind.Entity.updateProp(\'' + t.id + '\',\'enabled\',' + !isEnabled + ');}" style="background:none;border:none;color:' + (isEnabled ? '#10B981' : '#64748B') + ';cursor:pointer;font-size:11px;">' + (isEnabled ? '⚡' : '⚪') + '</button>';
       html += '    <button title="Centrar cámara" onclick="if(window.RAWindUI){window.RAWindUI.focusTurbine(\'' + t.id + '\');}" style="background:none;border:none;color:#38BDF8;cursor:pointer;font-size:11px;">🔍</button>';
-      html += '    <button title="Eliminar" onclick="if(confirm(\'¿Eliminar aerogenerador?\')){if(window.RAWind && window.RAWind.Entity)window.RAWind.Entity.removeFromScene(\'' + t.id + '\');}" style="background:none;border:none;color:#EF4444;cursor:pointer;font-size:11px;">🗑</button>';
+      html += '    <button title="Eliminar" onclick="(window.raConfirmAsync ? window.raConfirmAsync(\'¿Eliminar aerogenerador?\', { title: \'Eliminar aerogenerador\', danger: true }).then(function(ok){ if(ok && window.RAWind && window.RAWind.Entity) window.RAWind.Entity.removeFromScene(\'' + t.id + '\'); }) : (confirm(\'¿Eliminar aerogenerador?\') && window.RAWind && window.RAWind.Entity && window.RAWind.Entity.removeFromScene(\'' + t.id + '\')));" style="background:none;border:none;color:#EF4444;cursor:pointer;font-size:11px;">🗑</button>';
       html += '  </div>';
       html += '</div>';
     });

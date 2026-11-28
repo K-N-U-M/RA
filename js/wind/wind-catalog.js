@@ -691,6 +691,15 @@
 
     // ── Callback: eliminar turbina ────────────────────────────────────
     _onDeleteTurbine: function (id) {
+      var self = this;
+      if (typeof window !== 'undefined' && typeof window.raConfirmAsync === 'function') {
+        window.raConfirmAsync('¿Eliminar este aerogenerador del catálogo?', { title: 'Eliminar del catálogo', danger: true }).then(function (ok) {
+          if (!ok) return;
+          self.remove(id);
+          self.refreshPanel();
+        });
+        return;
+      }
       if (!confirm('¿Eliminar este aerogenerador del catálogo?')) return;
       this.remove(id);
       this.refreshPanel();

@@ -2809,7 +2809,7 @@
   const dV_ac = factorPhaseOpt * I_ac * L_ac * ((rho90 / S_ac_opt) * cosPAcOpt + xMeterAcOpt * sinPAcOpt);
   const dVac_pct = (dV_ac / V_ac) * 100;
 
-  const isCompliantREBT = isDcCompliant && (dVdc_pct <= 1.5) && isAcCompliant && (dVac_pct <= 1.5);
+  const isCompliantREBT = isDcCompliant && (dVdc_pct <= ELEC_CONSTANTS.DV_MAX_DC_PCT) && isAcCompliant && (dVac_pct <= ELEC_CONSTANTS.DV_MAX_AC_PCT) && ((dVdc_pct + dVac_pct) <= ELEC_CONSTANTS.DV_MAX_TOTAL_PCT);
 
   const STD_IGA = [16, 20, 25, 32, 40, 50, 63, 80, 100, 125, 160, 200, 250];
   const I_iga = STD_IGA.find(i => i >= I_ac_design) || (I_ac_design > 125 ? Math.ceil(I_ac_design / 10) * 10 : 63);
