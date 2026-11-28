@@ -203,15 +203,16 @@
         freq1PHz.toFixed(2) + ' Hz / ' + bladeCount + 'P=' + freqBladePassHz.toFixed(2) + ' Hz).';
     }
 
-    // [AUD-2026 · E-03] Con la información disponible NO se puede declarar "segura":
+    // [AUD-2026 · E-03] En suelo sin estudio geotécnico NO se puede declarar "segura":
     // falta presión admisible del terreno, comprobación de despegue (e ≤ L/6),
-    // pandeo del mástil y fatiga. Se calcula lo que sí es calculable y se degrada
-    // el veredicto a "predimensionamiento", que es lo que realmente es.
-    var bearingKpa = Number(
+    // pandeo del mástil y fatiga. En cubierta (rooftop) los apoyos son anclajes/lastre
+    // sobre forjado (CTE DB-SE-AE) y no requieren estudio geotécnico del terreno.
+    var isRooftop = (mountingType === 'rooftop');
+    var bearingKpa = isRooftop ? 0 : Number(
       (turbineInstance && (turbineInstance.bearingCapacityKpa || turbineInstance.geotechnicalBearingKpa)) ||
       (typeof global !== 'undefined' && global.raGeotechnicalBearingKpa) || 0
     );
-    var hasGeotech = bearingKpa > 0;
+    var hasGeotech = isRooftop ? false : (bearingKpa > 0);
     var axialForEcc = (typeof totalVerticalWeightKn === 'number' && totalVerticalWeightKn > 0)
       ? totalVerticalWeightKn
       : totalAxialLoadKn;
@@ -241,7 +242,7 @@
       ((typeof safetyFactorSliding !== 'number') || safetyFactorSliding >= 1.5) &&
       (hasUplift !== true);
 
-    if (!hasGeotech && !structuralWarning) {
+    if (!isRooftop && !hasGeotech && !structuralWarning) {
       structuralWarning = 'Predimensionamiento: falta estudio geotécnico (presión admisible) y las comprobaciones de despegue, pandeo y fatiga. No apto para proyecto de ejecución.';
     }
 
@@ -280,10 +281,10 @@
         bearingCapacityKpa: hasGeotech ? bearingKpa : null,
         meetsBearingCapacity: meetsBearing
       },
-      // Solo es "segura" si hay geotecnia y no despega.
-      isSafe: !!(hasGeotech && preliminarilyStable),
+      // En suelo requiere geotecnia y no despegar; en cubierta depende de estabilidad y sobrecarga en forjado.
+      isSafe: isRooftop ? !!preliminarilyStable : !!(hasGeotech && preliminarilyStable),
       preliminarilyStable: preliminarilyStable,
-      requiresGeotechnicalStudy: !hasGeotech,
+      requiresGeotechnicalStudy: isRooftop ? false : !hasGeotech,
       structuralWarning: structuralWarning
     };
 

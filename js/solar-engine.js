@@ -555,7 +555,11 @@ function runPhysicalModel(kwp, latDeg, lonDeg, tiltDeg, azimutDeg, cfg, customMo
   const pAcNominal = (cfg && cfg.pAcNominalW > 0) ? cfg.pAcNominalW : 0;
   const zone = getClimaticZone(latDeg, lonDeg);
   const tAmb = T_AMB_MONTHLY_ESP[zone];
-  const gamma = cfg && cfg.tecnologia && cfg.tecnologia.includes('N-Type') ? -0.0028 : -0.0034;
+  const _rawGammaVal = cfg ? (cfg.gammaPmp ?? cfg.tempCoeffPmax ?? cfg.gammaPmax ?? cfg.gamma) : null;
+  const _rawGammaNum = (_rawGammaVal !== null && _rawGammaVal !== undefined && _rawGammaVal !== '') ? Number(_rawGammaVal) : NaN;
+  const gamma = (Number.isFinite(_rawGammaNum) && _rawGammaNum !== 0)
+    ? -Math.abs(Math.abs(_rawGammaNum) > 0.05 ? _rawGammaNum / 100.0 : _rawGammaNum)
+    : (cfg && cfg.tecnologia && String(cfg.tecnologia).includes('N-Type') ? -0.0028 : -0.0034);
   const NOCT = 45;
   const Pstc = (cfg && cfg.potencia) || 450;
   const targetGHIList = (cfg && cfg.monthlyGHI) || customMonthlyGHI || null;
@@ -634,9 +638,9 @@ function runPhysicalModel(kwp, latDeg, lonDeg, tiltDeg, azimutDeg, cfg, customMo
       const tempLossW = calcPpanel(Pstc * kwp * 1000 / Pstc, GPOA, 25, gamma) - P_raw;
       const iamLossW = Math.max(0, calcPpanel(Pstc * kwp * 1000 / Pstc, GPOA_raw, Tcell, gamma) - P_raw);
 
-      const loadFrac = P_raw / (pAcNominal > 0 ? pAcNominal : Math.max(1, kwp * 1000));
-      const eta_inv = invEfficiency(loadFrac);
       const P_dc_net = P_raw * (1 - loss_wiring) * (1 - loss_mismatch) * (1 - loss_soiling) * (1 - loss_avail);
+      const loadFrac = P_dc_net / (pAcNominal > 0 ? pAcNominal : Math.max(1, kwp * 1000));
+      const eta_inv = invEfficiency(loadFrac);
       let P_ac = P_dc_net * eta_inv;
       const invLossW = Math.max(0, P_dc_net - P_ac);
       if (pAcNominal > 0 && P_ac > pAcNominal) {

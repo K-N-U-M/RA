@@ -505,20 +505,25 @@
     if (typeof scene.drillPick === 'function') {
       try {
         const drilled = scene.drillPick(screenPos, 20);
-        if (Array.isArray(drilled)) {
+        if (Array.isArray(drilled) && Array.isArray(global.obstacles) && global.obstacles.length > 0) {
+          const obsMap = new Map();
+          for (let oi = 0; oi < global.obstacles.length; oi++) {
+            const o = global.obstacles[oi];
+            if (o && o.id !== undefined) obsMap.set(o.id, o);
+          }
+          const seenObsIds = new Set();
           drilled.forEach(item => {
             if (!item || !item.id) return;
             const rawId = (typeof item.id === 'string') ? item.id : (item.id.id || '');
             const idStr = rawId.replace(/^(obs_box_prim_|obs_tree_trunk_prim_|obs_tree_canopy_prim_|obs_buffer_prim_)/, '');
-            if (global.obstacles && global.obstacles.some(o => o.id === idStr)) {
-              const obsObj = global.obstacles.find(o => o.id === idStr);
-              if (!candidates.some(c => c.type === 'obstacle' && c.id === idStr)) {
-                candidates.push({
-                  type: 'obstacle',
-                  id: idStr,
-                  label: `Obstáculo: ${obsObj ? obsObj.name : 'Chimenea/Casetón'}`
-                });
-              }
+            const obsObj = obsMap.get(idStr);
+            if (obsObj && !seenObsIds.has(idStr)) {
+              seenObsIds.add(idStr);
+              candidates.push({
+                type: 'obstacle',
+                id: idStr,
+                label: `Obstáculo: ${obsObj.name || 'Chimenea/Casetón'}`
+              });
             }
           });
         }

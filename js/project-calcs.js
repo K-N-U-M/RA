@@ -69,13 +69,20 @@ function getProjectCalcs() {
     mlpeCount = activeRPanels.filter(p => p.hasMLPE).length;
   }
 
+  let faldonTilt = (pa && typeof pa.tiltDeg === 'number') ? pa.tiltDeg : null;
   let tiltDeg = (pa && typeof pa.tiltDeg === 'number') ? pa.tiltDeg : null;
   let azimutDeg = (pa && typeof pa.azimuthDeg === 'number') ? pa.azimuthDeg : null;
+  let _selPolyRef = null;
+  let _selPolyInfo = null;
+  let _firstPanelRef = null;
   if (typeof WP !== 'undefined' && WP && Array.isArray(WP.polylines) && WP.polylines.length > 0) {
     const selIdx = (WP.selectedPolyIdx >= 0 && WP.selectedPolyIdx < WP.polylines.length) ? WP.selectedPolyIdx : 0;
     const selPoly = WP.polylines[selIdx];
+    _selPolyRef = selPoly;
     const pInf = selPoly && (selPoly.roofInfo || (typeof computeSinglePolylineRoofInfo === 'function' ? computeSinglePolylineRoofInfo(selPoly.points, selPoly) : null));
+    _selPolyInfo = pInf;
     if (pInf) {
+      if (typeof pInf.tiltDeg === 'number') faldonTilt = pInf.tiltDeg;
       if (typeof pInf.moduleTiltDeg === 'number') tiltDeg = pInf.moduleTiltDeg;
       else if (tiltDeg === null && typeof pInf.tiltDeg === 'number') tiltDeg = pInf.tiltDeg;
       if (typeof pInf.moduleAzimuthDeg === 'number') azimutDeg = pInf.moduleAzimuthDeg;
@@ -85,6 +92,9 @@ function getProjectCalcs() {
       if (typeof pInf.lonDeg === 'number') lonDeg = pInf.lonDeg;
     }
   }
+  if (faldonTilt === null && _lastRI && typeof _lastRI.tiltDeg === 'number') {
+    faldonTilt = _lastRI.tiltDeg;
+  }
   if (tiltDeg === null && _lastRI) {
     if (typeof _lastRI.moduleTiltDeg === 'number') tiltDeg = _lastRI.moduleTiltDeg;
     else if (typeof _lastRI.tiltDeg === 'number') tiltDeg = _lastRI.tiltDeg;
@@ -93,11 +103,11 @@ function getProjectCalcs() {
     if (typeof _lastRI.moduleAzimuthDeg === 'number') azimutDeg = _lastRI.moduleAzimuthDeg;
     else if (typeof _lastRI.azimuthDeg === 'number') azimutDeg = _lastRI.azimuthDeg;
   }
-  if ((tiltDeg === null || azimutDeg === null) && typeof window !== 'undefined' && Array.isArray(window.allRenderedPanels) && window.allRenderedPanels.length > 0) {
-    const _firstP = window.allRenderedPanels.find(p => p && !p.isGhost && !p.deleted && !p.disabled);
-    if (_firstP) {
-      if (tiltDeg === null && typeof _firstP.tiltDeg === 'number') tiltDeg = _firstP.tiltDeg;
-      if (azimutDeg === null && typeof _firstP.azimuthDeg === 'number') azimutDeg = _firstP.azimuthDeg;
+  if (typeof window !== 'undefined' && Array.isArray(window.allRenderedPanels) && window.allRenderedPanels.length > 0) {
+    _firstPanelRef = window.allRenderedPanels.find(p => p && !p.isGhost && !p.deleted && !p.disabled) || null;
+    if (_firstPanelRef && (tiltDeg === null || azimutDeg === null)) {
+      if (tiltDeg === null && typeof _firstPanelRef.tiltDeg === 'number') tiltDeg = _firstPanelRef.tiltDeg;
+      if (azimutDeg === null && typeof _firstPanelRef.azimuthDeg === 'number') azimutDeg = _firstPanelRef.azimuthDeg;
     }
   }
   if (tiltDeg === null) tiltDeg = 30;
@@ -337,57 +347,75 @@ function getProjectCalcs() {
     ? _cachedFin.paybackYears.toFixed(1)
     : (ahorro_anual > 0 ? (total_pres / ahorro_anual).toFixed(1) : '—');
 
-  // Potencia AC nominal total del inversor seleccionado (para clipping en los motores de energía)
+  const _isMicroTopo = !!(_scCfg && _scCfg.selectedTopology === 'microinverter');
+  const _microList = (_scCat && Array.isArray(_scCat.microinverters)) ? _scCat.microinverters : [];
+  const _microObjItem = _isMicroTopo
+    ? ((_scCfg && _scCfg.selectedMicroinverterId ? _microList.find(m => m && m.id === _scCfg.selectedMicroinverterId) : null)
+      || _microList.find(m => m && !(m.type && m.type.includes('Optimizador')))
+      || _microList[0]
+      || null)
+    : null;
+  const _invObjItem = (!_isMicroTopo && _scCat && _scCfg && _scCfg.selectedInverterId)
+    ? ((_scCat.inverters || []).find(i => i.id === _scCfg.selectedInverterId) || ((_scCfg.lastVirtualInverter && _scCfg.lastVirtualInverter.id === _scCfg.selectedInverterId) ? _scCfg.lastVirtualInverter : null))
+    : null;
+
+  const _miRatioFallback = (_microObjItem && typeof window !== 'undefined' && typeof window.raGetMicroinverterRatio === 'function')
+    ? Math.max(1, window.raGetMicroinverterRatio(_microObjItem))
+    : 2;
+  let _invObjCount = _isMicroTopo
+    ? ((_scCfg && _scCfg.autoSizing && _scCfg.autoSizing.microinverters && _scCfg.autoSizing.microinverters.count > 0)
+        ? _scCfg.autoSizing.microinverters.count
+        : Math.max(1, Math.ceil((numPanels || 1) / _miRatioFallback)))
+    : ((_scCfg && _scCfg.autoSizing && _scCfg.autoSizing.inverters && _scCfg.autoSizing.inverters.count) || 1);
+
+  const _activeEquipItem = _isMicroTopo ? _microObjItem : _invObjItem;
+  const _activeEquipKw = _activeEquipItem
+    ? (_activeEquipItem.kw || _activeEquipItem.kw_nominal || (_activeEquipItem.va ? _activeEquipItem.va / 1000 : 0) || (_isMicroTopo ? 0.8 : eng.inv_kW))
+    : eng.inv_kW;
+
+  // Potencia AC nominal total del inversor o microinversores seleccionados (para clipping en los motores de energía)
   let pAcNominalW = 0;
   try {
-    const _cat = window.equipmentCatalog;
-    const _sc = window.solarProjectConfig;
-    if (_cat && _sc && _sc.selectedInverterId) {
-      const _inv = _cat.inverters.find(i => i.id === _sc.selectedInverterId);
-      if (_inv && _inv.kw > 0) {
-        const _invCount = (_sc.autoSizing && _sc.autoSizing.inverters && _sc.autoSizing.inverters.count) || 1;
-        pAcNominalW = _inv.kw * _invCount * 1000;
-      }
+    if (_activeEquipItem && _activeEquipKw > 0) {
+      pAcNominalW = _activeEquipKw * _invObjCount * 1000;
     }
   } catch (e) { /* catálogo no disponible */ }
   cfg.pAcNominalW = pAcNominalW;
 
-  const _invObjItem = (_scCat && _scCfg && _scCfg.selectedInverterId)
-    ? ((_scCat.inverters || []).find(i => i.id === _scCfg.selectedInverterId) || ((_scCfg.lastVirtualInverter && _scCfg.lastVirtualInverter.id === _scCfg.selectedInverterId) ? _scCfg.lastVirtualInverter : null))
-    : null;
-  let _invObjCount = (_scCfg && _scCfg.autoSizing && _scCfg.autoSizing.inverters && _scCfg.autoSizing.inverters.count) || 1;
-  const inverterObj = _invObjItem ? {
-    id: _invObjItem.id,
-    brand: _invObjItem.brand || '',
-    model: _invObjItem.model || '',
-    fullName: (_invObjItem.brand ? (_invObjItem.brand + ' ') : '') + (_invObjItem.model || ('Inversor ' + eng.inv_kW + ' kW')),
-    kw: (_invObjItem.kw || _invObjItem.kw_nominal || eng.inv_kW),
-    totalKw: (_invObjItem.kw || _invObjItem.kw_nominal || eng.inv_kW) * _invObjCount,
+  const inverterObj = _activeEquipItem ? {
+    id: _activeEquipItem.id,
+    brand: _activeEquipItem.brand || '',
+    model: _activeEquipItem.model || '',
+    fullName: (_activeEquipItem.brand ? (_activeEquipItem.brand + ' ') : '') + (_activeEquipItem.model || (_isMicroTopo ? 'Microinversor MLPE' : ('Inversor ' + eng.inv_kW + ' kW'))),
+    kw: _activeEquipKw,
+    totalKw: Number((_activeEquipKw * _invObjCount).toFixed(3)),
     count: _invObjCount,
-    mpptCount: _invObjItem.mppt || _invObjItem.mpptCount || _invObjItem.mppts || (eng.numStrings > 1 ? 2 : 1),
-    vDcMax: _invObjItem.vDcMax || _invObjItem.vMax || _invObjItem.vMaxDc || eng.V_max_inv || 1000,
-    vMpptMin: _invObjItem.vMpptMin || eng.V_mppt_min || 160,
-    vMpptMax: _invObjItem.vMpptMax || eng.V_mppt_max || 850,
-    iMaxScA: _invObjItem.iMaxScA ?? _invObjItem.maxShortCircuitCurrent ?? undefined,
-    iMaxOperA: _invObjItem.iMaxOperA ?? _invObjItem.maxCurrentPerMppt ?? undefined,
-    efficiency: _invObjItem.efficiency || 98.4,
-    phases: (typeof _invObjItem.phases === 'number') ? _invObjItem.phases : (eng.monofasico ? 1 : 3),
-    topology: _scCfg ? (_scCfg.selectedTopology || 'inverter') : 'inverter'
+    mpptCount: _activeEquipItem.mppt || _activeEquipItem.mpptCount || _activeEquipItem.mppts || (_isMicroTopo ? (_activeEquipItem.inputs || _miRatioFallback || 1) : (eng.numStrings > 1 ? 2 : 1)),
+    vDcMax: _activeEquipItem.vDcMax || _activeEquipItem.vMax || _activeEquipItem.vMaxDc || (_isMicroTopo ? 60 : (eng.V_max_inv || 1000)),
+    vMpptMin: _activeEquipItem.vMpptMin || (_isMicroTopo ? 16 : (eng.V_mppt_min || 160)),
+    vMpptMax: _activeEquipItem.vMpptMax || (_isMicroTopo ? 60 : (eng.V_mppt_max || 850)),
+    iMaxScA: _activeEquipItem.iMaxScA ?? _activeEquipItem.maxShortCircuitCurrent ?? undefined,
+    iMaxOperA: _activeEquipItem.iMaxOperA ?? _activeEquipItem.maxCurrentPerMppt ?? undefined,
+    efficiency: _activeEquipItem.efficiency || _activeEquipItem.eff || (_isMicroTopo ? 97.5 : 98.4),
+    phases: (typeof _activeEquipItem.phases === 'number') ? _activeEquipItem.phases : (eng.monofasico ? 1 : 3),
+    topology: _scCfg ? (_scCfg.selectedTopology || 'inverter') : 'inverter',
+    isMicroinverter: _isMicroTopo
   } : {
-    id: 'inv_default',
-    fullName: 'Inversor Solar Multi-MPPT ' + eng.inv_kW + ' kW',
+    id: _isMicroTopo ? 'micro_default' : 'inv_default',
+    fullName: _isMicroTopo ? 'Sistema Microinversores MLPE' : ('Inversor Solar Multi-MPPT ' + eng.inv_kW + ' kW'),
     brand: 'Genérico Certificado',
-    model: 'Multi-MPPT ' + eng.inv_kW + ' kW',
-    kw: eng.inv_kW,
-    totalKw: eng.inv_kW,
-    count: 1,
-    mpptCount: eng.numStrings > 1 ? 2 : 1,
-    vDcMax: eng.V_max_inv || 1000,
-    vMpptMin: eng.V_mppt_min || 160,
-    vMpptMax: eng.V_mppt_max || 850,
-    efficiency: 98.2,
+    model: _isMicroTopo ? 'Microinversor MLPE' : ('Multi-MPPT ' + eng.inv_kW + ' kW'),
+    kw: _isMicroTopo ? 0.8 : eng.inv_kW,
+    totalKw: _isMicroTopo ? Number((0.8 * _invObjCount).toFixed(3)) : eng.inv_kW,
+    count: _isMicroTopo ? _invObjCount : 1,
+    mpptCount: _isMicroTopo ? 1 : (eng.numStrings > 1 ? 2 : 1),
+    vDcMax: _isMicroTopo ? 60 : (eng.V_max_inv || 1000),
+    vMpptMin: _isMicroTopo ? 16 : (eng.V_mppt_min || 160),
+    vMpptMax: _isMicroTopo ? 60 : (eng.V_mppt_max || 850),
+    efficiency: _isMicroTopo ? 97.5 : 98.2,
     phases: eng.monofasico ? 1 : 3,
-    topology: 'inverter'
+    topology: _isMicroTopo ? 'microinverter' : (_scCfg ? (_scCfg.selectedTopology || 'inverter') : 'inverter'),
+    isMicroinverter: _isMicroTopo
   };
 
   const _batObjCount = Math.max(1, (_scCfg && _scCfg.autoSizing && _scCfg.autoSizing.batteries && _scCfg.autoSizing.batteries.count) || 1);
@@ -406,6 +434,52 @@ function getProjectCalcs() {
     dod: _batItem.dod || 90,
     costEur: pres_bat
   } : null;
+
+  const _resolvedIsMicro = Boolean(eng.isMicroinverter || _isMicroTopo);
+  const _resolvedInvKw = (_resolvedIsMicro && _microObjItem) ? inverterObj.kw : eng.inv_kW;
+  const _resolvedInvCount = (_resolvedIsMicro && _microObjItem) ? inverterObj.count : (eng.invCount || 1);
+  const _resolvedTotalPacKw = (_resolvedIsMicro && _microObjItem) ? inverterObj.totalKw : (eng.total_P_ac_kW || (eng.inv_kW * (eng.invCount || 1)));
+  const _resolvedPacKw = (_resolvedIsMicro && _microObjItem) ? inverterObj.totalKw : (eng.P_ac_kW || eng.inv_kW);
+
+  const _structTypeStr = String(
+    (_selPolyRef && (_selPolyRef.structureType || (_selPolyRef.estructura && _selPolyRef.estructura.tipo)))
+    || (_selPolyInfo && (_selPolyInfo.structureType || (_selPolyInfo.estructura && _selPolyInfo.estructura.tipo)))
+    || (_lastRI && (_lastRI.structureType || (_lastRI.estructura && _lastRI.estructura.tipo)))
+    || (_firstPanelRef && _firstPanelRef.structureType)
+    || ''
+  ).toLowerCase();
+  const _isNonCoplanarStruct = _structTypeStr.includes('triangle')
+    || _structTypeStr.includes('balast')
+    || _structTypeStr.includes('ballast')
+    || _structTypeStr.includes('pergola')
+    || _structTypeStr.includes('east_west');
+  const _isExplicitCoplanarStruct = _structTypeStr.includes('coplanar');
+  const _polyArrangement = _selPolyRef ? String(_selPolyRef.arrangementMode || '').toLowerCase() : '';
+  const _explicitCoplanarBool = (_selPolyInfo && typeof _selPolyInfo.coplanar === 'boolean')
+    ? _selPolyInfo.coplanar
+    : ((_lastRI && typeof _lastRI.coplanar === 'boolean')
+        ? _lastRI.coplanar
+        : ((_firstPanelRef && typeof _firstPanelRef.coplanar === 'boolean') ? _firstPanelRef.coplanar : null));
+
+  let _isCoplanarResolved;
+  if (_isNonCoplanarStruct) {
+    _isCoplanarResolved = false;
+  } else if (faldonTilt !== null) {
+    const _tiltDiff = Math.abs(tiltDeg - faldonTilt);
+    if (_tiltDiff > 5) {
+      _isCoplanarResolved = false;
+    } else if (_explicitCoplanarBool !== null) {
+      _isCoplanarResolved = _explicitCoplanarBool;
+    } else {
+      _isCoplanarResolved = _isExplicitCoplanarStruct || _polyArrangement === 'coplanar' || (faldonTilt > 5);
+    }
+  } else if (_explicitCoplanarBool !== null) {
+    _isCoplanarResolved = _explicitCoplanarBool;
+  } else if (_isExplicitCoplanarStruct || _polyArrangement === 'coplanar') {
+    _isCoplanarResolved = true;
+  } else {
+    _isCoplanarResolved = (tiltDeg > 5);
+  }
 
   return {
     inverter: inverterObj,
@@ -434,13 +508,14 @@ function getProjectCalcs() {
     potMod: cfg.potencia,
     tipoMod: (typeof panelConfig !== 'undefined' && panelConfig.name) ? panelConfig.name : 'Monocristalino Tier-1 TOPCon / PERC',
     dimMod: cfg.largo + ' x ' + cfg.ancho + ' m',
-    inv_kW: eng.inv_kW,
-    tipoInv: (eng.monofasico ? 'Monofásico 230 V' : 'Trifásico 400 V') + ' · Multi-MPPT Inteligente',
+    inv_kW: _resolvedInvKw,
+    tipoInv: (eng.monofasico ? 'Monofásico 230 V' : 'Trifásico 400 V') + (_resolvedIsMicro ? ' · Microinversores MLPE' : ' · Multi-MPPT Inteligente'),
     monofasico: eng.monofasico,
     V_ac: eng.V_ac,
     I_ac: eng.I_ac,
     I_ac_d: eng.I_ac_design,
     numStrings: eng.numStrings,
+    stringsPerMpptMax: eng.stringsPerMpptMax || 1,
     modsPerStr: eng.modsPerString,
     minModsPerStr: eng.minModsPerString,
     maxModsPerStr: eng.maxModsPerString,
@@ -458,7 +533,7 @@ function getProjectCalcs() {
     S_ac: eng.S_ac,
     S_ac_branch: eng.S_ac_branch || eng.S_ac,
     S_earth: eng.S_earth || (eng.hasExternalLightningRod ? 16 : 6),
-    isMicroinverter: !!eng.isMicroinverter,
+    isMicroinverter: _resolvedIsMicro,
     hasExternalLightningRod: !!eng.hasExternalLightningRod,
     includeBackupBox: !!(hasBat && _scCfg && _scCfg.includeBackupBox !== false),
     needsExternalDcPanel: eng.needsExternalDcPanel !== false,
@@ -473,9 +548,9 @@ function getProjectCalcs() {
     T_min: -10,
     Voc_string: eng.Voc_str_stc,
     P_dc_kW: eng.P_dc_kW,
-    P_ac_kW: eng.P_ac_kW || eng.inv_kW,
-    invCount: eng.invCount || 1,
-    total_P_ac_kW: eng.total_P_ac_kW || (eng.inv_kW * (eng.invCount || 1)),
+    P_ac_kW: _resolvedPacKw,
+    invCount: _resolvedInvCount,
+    total_P_ac_kW: _resolvedTotalPacKw,
     I_ac_d: eng.I_ac_design,
     monofasico: eng.monofasico,
     numStrings: eng.numStrings,
@@ -531,7 +606,7 @@ function getProjectCalcs() {
     L_ac_esMedida3D: !!(window.inverterEquipmentState && window.inverterEquipmentState.gridMeter && window.inverterEquipmentState.gridMeter.position && window.inverterEquipmentState.L_ac_measured > 0),
     S_dc_real: (window.inverterEquipmentState && window.inverterEquipmentState.S_dc_recommended) ? window.inverterEquipmentState.S_dc_recommended : eng.S_str,
     S_ac_real: (window.inverterEquipmentState && window.inverterEquipmentState.S_ac_recommended) ? window.inverterEquipmentState.S_ac_recommended : eng.S_ac,
-    isCoplanar: (tiltDeg > 5),
+    isCoplanar: _isCoplanarResolved,
 };
 }
 

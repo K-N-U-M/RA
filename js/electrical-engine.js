@@ -45,6 +45,16 @@
     return palette[index % palette.length];
   }
 
+  // Zonificación térmica peninsular de diseño en frío (CTE DB-HE1 / UNE 206007 / IDAE)
+  function getCTEZonificationTmin(lat, lng, altitudM) {
+    if (typeof lat !== 'number') return ELEC_CONSTANTS.T_MIN_SPAIN;
+    const altitude = (typeof altitudM === 'number') ? altitudM : 600;
+    if ((lat < 39.0 && lng > -4.5) || (lng > -0.5 && lat < 42.0)) return -4.0; // Costal Mediterráneo / Sur
+    if (lat > 42.8 && lng < -1.5 && altitude < 400) return -6.0;               // Cornisa Cantábrica
+    if (altitude > 900 || (lat > 40.0 && lat < 42.5 && lng > -5.5 && lng < -1.5)) return -14.0; // Meseta Central elevada
+    return ELEC_CONSTANTS.T_MIN_SPAIN;
+  }
+
   /**
    * Calcula los límites normativos admisibles de módulos por String
    * según tensiones en frío (-10°C) y arranque MPPT en caliente (+70°C).
@@ -68,16 +78,6 @@
     const Vmax_inv   = invParams.Vmax     || invParams.vDcMax || invParams.vMax || (liveInv ? (liveInv.vDcMax || liveInv.vMax || 1000) : 1000.0);
     const Vmppt_min  = invParams.VmpptMin || invParams.vMpptMin || invParams.vMpptNomMin || (liveInv ? (liveInv.vMpptMin || liveInv.vMpptNomMin || 200) : 200.0);
     const Vmppt_max  = invParams.VmpptMax || invParams.vMpptMax || invParams.vMpptNomMax || (liveInv ? (liveInv.vMpptMax || liveInv.vMpptNomMax || 850) : 850.0);
-
-    // Zonificación térmica peninsular de diseño en frío (CTE DB-HE1 / UNE 206007 / IDAE)
-    function getCTEZonificationTmin(lat, lng, altitudM) {
-      if (typeof lat !== 'number') return ELEC_CONSTANTS.T_MIN_SPAIN;
-      const altitude = (typeof altitudM === 'number') ? altitudM : 600;
-      if ((lat < 39.0 && lng > -4.5) || (lng > -0.5 && lat < 42.0)) return -4.0; // Costal Mediterráneo / Sur
-      if (lat > 42.8 && lng < -1.5 && altitude < 400) return -6.0;               // Cornisa Cantábrica
-      if (altitude > 900 || (lat > 40.0 && lat < 42.5 && lng > -5.5 && lng < -1.5)) return -14.0; // Meseta Central elevada
-      return ELEC_CONSTANTS.T_MIN_SPAIN;
-    }
 
     const projLat = climParams.lat ?? climParams.latitude ?? (root.solarProjectConfig && (root.solarProjectConfig.lat ?? root.solarProjectConfig.latitude));
     const projLng = climParams.lng ?? climParams.longitude ?? climParams.lon ?? (root.solarProjectConfig && (root.solarProjectConfig.lng ?? root.solarProjectConfig.longitude ?? root.solarProjectConfig.lon));
@@ -2480,9 +2480,29 @@
   const rawGamma = cfg.gammaPmp || cfg.tempCoeffPmax || -0.0035;
   const gammaPmp = -Math.abs(Math.abs(rawGamma) > 0.05 ? rawGamma / 100.0 : rawGamma);
 
-  const T_min = (typeof SOLAR_ENGINE_CONSTANTS !== 'undefined' && SOLAR_ENGINE_CONSTANTS.T_MIN_SPAIN)
+  const _cfgAc = (generator && generator.solarProjectConfig)
+    || ((typeof window !== 'undefined' && window.solarProjectConfig) ? window.solarProjectConfig : ((typeof root !== 'undefined' && root.solarProjectConfig) ? root.solarProjectConfig : null));
+  const _eqCat = (typeof window !== 'undefined' && window.equipmentCatalog)
+    ? window.equipmentCatalog
+    : ((typeof root !== 'undefined' && root.equipmentCatalog) ? root.equipmentCatalog : null);
+  const isMicroinverter = !!((generator && (generator.selectedTopology === 'microinverter' || generator.topology === 'microinverter'))
+    || (_cfgAc && _cfgAc.selectedTopology === 'microinverter'));
+
+  const _climGen = (generator && generator.climParams) ? generator.climParams : {};
+  const _climLat = _climGen.lat ?? _climGen.latitude ?? (generator && (generator.latDeg ?? generator.lat ?? generator.latitude)) ?? (_cfgAc && (_cfgAc.lat ?? _cfgAc.latitude));
+  const _climLng = _climGen.lng ?? _climGen.longitude ?? _climGen.lon ?? (generator && (generator.lonDeg ?? generator.lng ?? generator.longitude ?? generator.lon)) ?? (_cfgAc && (_cfgAc.lng ?? _cfgAc.longitude ?? _cfgAc.lon));
+  const _climAlt = _climGen.altitudM ?? _climGen.altitude ?? (generator && (generator.altitudM ?? generator.altitude)) ?? (_cfgAc && (_cfgAc.altitudM ?? _cfgAc.altitude));
+  const _explicitTmin = _climGen.Tmin ?? _climGen.tMinCold ?? (generator && (generator.Tmin ?? generator.tMinCold ?? generator.tempMinC)) ?? (_cfgAc && typeof _cfgAc.tempMinC === 'number' ? _cfgAc.tempMinC : undefined);
+  const _fallbackTmin = (typeof SOLAR_ENGINE_CONSTANTS !== 'undefined' && typeof SOLAR_ENGINE_CONSTANTS.T_MIN_SPAIN === 'number')
     ? SOLAR_ENGINE_CONSTANTS.T_MIN_SPAIN
-    : -10;
+    : ELEC_CONSTANTS.T_MIN_SPAIN;
+  const _zonifiedTmin = (_climLat != null && _climLng != null)
+    ? getCTEZonificationTmin(Number(_climLat), Number(_climLng), _climAlt != null ? Number(_climAlt) : undefined)
+    : _fallbackTmin;
+  const T_min = (_explicitTmin !== undefined && _explicitTmin !== null && Number.isFinite(Number(_explicitTmin)))
+    ? Number(_explicitTmin)
+    : _zonifiedTmin;
+
   const T_amb_max = (typeof SOLAR_ENGINE_CONSTANTS !== 'undefined' && SOLAR_ENGINE_CONSTANTS.T_AMB_MAX_SPAIN)
     ? SOLAR_ENGINE_CONSTANTS.T_AMB_MAX_SPAIN
     : 40;
@@ -2490,30 +2510,41 @@
   const T_cell_max = (typeof computeCellTemperature === 'function')
     ? computeCellTemperature(T_amb_max, 1000, true, 1.0)
     : (T_amb_max + 25);
+  const _explicitTmax = _climGen.TmaxCell ?? _climGen.tMaxHot ?? (generator && (generator.TmaxCell ?? generator.tMaxHot ?? generator.tempMaxCellC)) ?? (_cfgAc && typeof _cfgAc.tempMaxCellC === 'number' ? _cfgAc.tempMaxCellC : undefined);
+  const T_cell_max_eff = (_explicitTmax !== undefined && _explicitTmax !== null && Number.isFinite(Number(_explicitTmax)))
+    ? Number(_explicitTmax)
+    : T_cell_max;
   const rawBetaVmp = cfg.betaVmp || cfg.gammaVmp || cfg.tempCoeffVmp || gammaPmp || -0.0035;
   const betaVmp = -Math.abs(Math.abs(rawBetaVmp) > 0.05 ? rawBetaVmp / 100.0 : rawBetaVmp);
 
-  // [P0.1] Desacoplar inversor: usar el inversor seleccionado del catálogo en lugar de 1000/160/850 fijos
+  // [P0.1] Desacoplar inversor/microinversor: usar equipo seleccionado del catálogo
   let activeInv = null;
-  if (typeof window !== 'undefined' && window.solarProjectConfig && window.equipmentCatalog && Array.isArray(window.equipmentCatalog.inverters)) {
-    const invId = window.solarProjectConfig.selectedInverterId;
-    activeInv = window.equipmentCatalog.inverters.find(i => i && i.id === invId);
+  if (isMicroinverter) {
+    const microCatalog = (_eqCat && Array.isArray(_eqCat.microinverters)) ? _eqCat.microinverters : [];
+    const microId = (generator && generator.selectedMicroinverterId) || (_cfgAc && _cfgAc.selectedMicroinverterId);
+    activeInv = (microId ? microCatalog.find(m => m && m.id === microId) : null)
+      || microCatalog.find(m => m && !(m.type && m.type.indexOf('Optimizador') !== -1))
+      || microCatalog[0]
+      || null;
+  } else if (_eqCat && Array.isArray(_eqCat.inverters)) {
+    const invId = (generator && generator.selectedInverterId) || (_cfgAc && _cfgAc.selectedInverterId);
+    activeInv = _eqCat.inverters.find(i => i && i.id === invId) || null;
   }
-  const V_dc_max   = (activeInv && (activeInv.vDcMax || activeInv.vMax || activeInv.vMaxDc)) ? (activeInv.vDcMax || activeInv.vMax || activeInv.vMaxDc) : 1000;
-  const V_mppt_min = (activeInv && activeInv.vMpptMin) ? activeInv.vMpptMin : 160;
-  const V_mppt_max = (activeInv && activeInv.vMpptMax) ? activeInv.vMpptMax : 850;
+  const V_dc_max   = (activeInv && (activeInv.vDcMax || activeInv.vMax || activeInv.vMaxDc)) ? (activeInv.vDcMax || activeInv.vMax || activeInv.vMaxDc) : (isMicroinverter ? 65 : 1000);
+  const V_mppt_min = (activeInv && activeInv.vMpptMin) ? activeInv.vMpptMin : (isMicroinverter ? 16 : 160);
+  const V_mppt_max = (activeInv && activeInv.vMpptMax) ? activeInv.vMpptMax : (isMicroinverter ? 60 : 850);
 
-  let maxModsPerString = 20;
-  let minModsPerString = 6;
+  let maxModsPerString = isMicroinverter ? 1 : 20;
+  let minModsPerString = isMicroinverter ? 1 : 6;
   let Voc_cold = Voc * (1 + betaVoc * (T_min - 25));
-  let Vmp_hot = Vmp * (1 + betaVmp * (T_cell_max - 25));
+  let Vmp_hot = Vmp * (1 + betaVmp * (T_cell_max_eff - 25));
   let Vmp_cold = Vmp * (1 + betaVmp * (T_min - 25));
 
   if (typeof window !== 'undefined' && window.RA && window.RA.Electrical && typeof window.RA.Electrical.calculateDynamicMPPTStringLimits === 'function') {
     const limits = window.RA.Electrical.calculateDynamicMPPTStringLimits(
       { Voc, Vmp, betaVoc, betaVmp, gammaPmp },
       { Vmax: V_dc_max, VmpptMin: V_mppt_min, VmpptMax: V_mppt_max },
-      { Tmin: T_min, TmaxCell: T_cell_max }
+      { Tmin: T_min, TmaxCell: T_cell_max_eff, lat: _climLat, lng: _climLng, altitudM: _climAlt }
     );
     maxModsPerString = limits.Ns_max;
     minModsPerString = limits.Ns_min;
@@ -2524,46 +2555,83 @@
     const N_max_dc   = Math.floor(V_dc_max / Voc_cold);
     const N_max_mppt = Math.floor(V_mppt_max / Vmp_cold);
     const N_min_mppt = Math.ceil(V_mppt_min / Vmp_hot);
-    maxModsPerString = Math.min(N_max_dc, N_max_mppt);
-    minModsPerString = N_min_mppt;
+    maxModsPerString = Math.max(1, Math.min(N_max_dc, N_max_mppt));
+    minModsPerString = Math.max(1, N_min_mppt);
   }
 
   const activeInvKw = (activeInv && (activeInv.kw || activeInv.kw_nominal || activeInv.acKw)) ? (activeInv.kw || activeInv.kw_nominal || activeInv.acKw) : 0;
-  const invCount = Math.max(1, (generator && (generator.invCount || generator.inverterCount))
-    || (cfg && (cfg.inverterCount || (cfg.autoSizing && cfg.autoSizing.inverters && cfg.autoSizing.inverters.count)))
-    || (typeof window !== 'undefined' && window.solarProjectConfig && window.solarProjectConfig.autoSizing && window.solarProjectConfig.autoSizing.inverters && window.solarProjectConfig.autoSizing.inverters.count)
-    || 1);
-  const _cfgAc = (typeof window !== 'undefined' && window.solarProjectConfig) ? window.solarProjectConfig : null;
-  const _selInv = (_cfgAc && _cfgAc.calculatedLimits && _cfgAc.calculatedLimits.inverter) || null;
+  const _miRatio = isMicroinverter ? Math.max(1, raGetMicroinverterRatio(activeInv)) : 1;
+  const _miAutoCount = (_cfgAc && _cfgAc.autoSizing && _cfgAc.autoSizing.microinverters && Number.isFinite(_cfgAc.autoSizing.microinverters.count) && _cfgAc.autoSizing.microinverters.count > 0)
+    ? _cfgAc.autoSizing.microinverters.count
+    : 0;
+  const invCount = isMicroinverter
+    ? Math.max(1, (generator && (generator.microCount || generator.invCount || generator.inverterCount))
+        || (cfg && cfg.autoSizing && cfg.autoSizing.microinverters && cfg.autoSizing.microinverters.count > 0 ? cfg.autoSizing.microinverters.count : 0)
+        || _miAutoCount
+        || Math.ceil(numPanels / _miRatio))
+    : Math.max(1, (generator && (generator.invCount || generator.inverterCount))
+        || (cfg && (cfg.inverterCount || (cfg.autoSizing && cfg.autoSizing.inverters && cfg.autoSizing.inverters.count)))
+        || (_cfgAc && _cfgAc.autoSizing && _cfgAc.autoSizing.inverters && _cfgAc.autoSizing.inverters.count)
+        || 1);
+  const _selInv = (!isMicroinverter && _cfgAc && _cfgAc.calculatedLimits && _cfgAc.calculatedLimits.inverter) || null;
   const _resolvedInvForLimits = activeInv || _selInv || null;
-  const isMicroinverter = !!(_cfgAc && _cfgAc.selectedTopology === 'microinverter');
-  const mpptPerInv = Math.max(1, Number((_resolvedInvForLimits && (_resolvedInvForLimits.mppt || _resolvedInvForLimits.mpptCount || _resolvedInvForLimits.mppts)) || 2));
-  const inputsPerMppt = Math.max(1, Number((_resolvedInvForLimits && (_resolvedInvForLimits.inputsPerMppt || _resolvedInvForLimits.stringsPerMppt)) || 1));
+  const mpptPerInv = isMicroinverter
+    ? _miRatio
+    : Math.max(1, Number((_resolvedInvForLimits && (_resolvedInvForLimits.mppt || _resolvedInvForLimits.mpptCount || _resolvedInvForLimits.mppts)) || 2));
+  const inputsPerMppt = isMicroinverter
+    ? 1
+    : Math.max(1, Number((_resolvedInvForLimits && (_resolvedInvForLimits.inputsPerMppt || _resolvedInvForLimits.stringsPerMppt)) || 1));
   const totalMpptsInv = mpptPerInv * invCount;
   const totalDcInputsInv = totalMpptsInv * inputsPerMppt;
 
-  const minStringsForInverters = (!isMicroinverter && numPanels >= invCount * minModsPerString) ? invCount : 1;
-  let numStrings = Math.max(minStringsForInverters, Math.ceil(numPanels / maxModsPerString));
-  let modsPerString = Math.ceil(numPanels / numStrings);
+  const _renderedPanels = (typeof window !== 'undefined' && Array.isArray(window.allRenderedPanels))
+    ? window.allRenderedPanels
+    : ((typeof root !== 'undefined' && Array.isArray(root.allRenderedPanels)) ? root.allRenderedPanels : []);
+  const _realStringPanels = _renderedPanels.filter(p => p && !p.isGhost && !p.deleted && !p.disabled && typeof p.stringName === 'string' && p.stringName.length > 0);
+  const _realStringCounts = new Map();
+  _realStringPanels.forEach(p => {
+    _realStringCounts.set(p.stringName, (_realStringCounts.get(p.stringName) || 0) + 1);
+  });
+  const _hasRealPartitionedStrings = !isMicroinverter && (_realStringPanels.length === numPanels) && (_realStringCounts.size > 0);
 
-  if (modsPerString < minModsPerString && numPanels >= minModsPerString) {
-    numStrings = Math.max(1, Math.floor(numPanels / minModsPerString));
+  let numStrings;
+  let modsPerString;
+  let minModsInStrings;
+  if (isMicroinverter) {
+    numStrings = numPanels;
+    modsPerString = 1;
+    minModsInStrings = 1;
+  } else if (_hasRealPartitionedStrings) {
+    const _realCountsArr = Array.from(_realStringCounts.values());
+    numStrings = _realStringCounts.size;
+    modsPerString = Math.max(..._realCountsArr);
+    minModsInStrings = Math.min(..._realCountsArr);
+  } else {
+    const minStringsForInverters = (numPanels >= invCount * minModsPerString) ? invCount : 1;
+    numStrings = Math.max(minStringsForInverters, Math.ceil(numPanels / maxModsPerString));
     modsPerString = Math.ceil(numPanels / numStrings);
+
+    if (modsPerString < minModsPerString && numPanels >= minModsPerString) {
+      numStrings = Math.max(1, Math.floor(numPanels / minModsPerString));
+      modsPerString = Math.ceil(numPanels / numStrings);
+    }
+    minModsInStrings = modsPerString;
   }
 
   const Voc_str_stc = modsPerString * Voc;
   const Voc_str_max = modsPerString * Voc_cold;
-  const Vmp_str_hot = modsPerString * Vmp_hot;
+  const Vmp_str_hot = minModsInStrings * Vmp_hot;
   const I_total_dc = numStrings * Isc;
 
   const INV_SIZES = [0.6, 1.0, 1.5, 2.0, 3.0, 3.68, 4.0, 5.0, 6.0, 8.0, 10.0, 12.0, 15.0, 20.0, 25.0, 30.0, 50.0, 100.0];
   const P_ac_unit_target = activeInvKw > 0 ? activeInvKw : ((P_dc_kW / 1.15) / invCount);
-  const inv_kW = activeInvKw > 0 ? activeInvKw : (INV_SIZES.find(s => s >= P_ac_unit_target) || Math.ceil(P_ac_unit_target));
+  const inv_kW = activeInvKw > 0
+    ? activeInvKw
+    : (isMicroinverter ? Math.round(P_ac_unit_target * 1000) / 1000 : (INV_SIZES.find(s => s >= P_ac_unit_target) || Math.ceil(P_ac_unit_target)));
   const P_ac_kW = inv_kW;
   const total_P_ac_kW = inv_kW * invCount;
   const total_ac_kW = total_P_ac_kW;
-  const _invCountAc = (_cfgAc && _cfgAc.autoSizing && _cfgAc.autoSizing.inverters && Number.isFinite(_cfgAc.autoSizing.inverters.count))
-    ? Math.max(1, _cfgAc.autoSizing.inverters.count) : 1;
+  const _invCountAc = invCount;
   const _resolvedInv = activeInv || _selInv || { kw: inv_kW };
   let monofasico = raResolveAcPhases(_resolvedInv, _invCountAc, _cfgAc) === 1;
   // Salvaguarda RD 1699/2011 Art. 12.2 (mod. RD 244/2019): Pn > 15 kW nominales AC exige conexión trifásica
@@ -2581,15 +2649,19 @@
     ? SOLAR_ENGINE_CONSTANTS.RHO_CU_90
     : 0.023;
   const _sState = (typeof window !== 'undefined' && window.inverterEquipmentState) ? window.inverterEquipmentState : null;
-  const L_dc_string = (_sState && _sState.L_dc_string_measured > 0)
-    ? _sState.L_dc_string_measured
+  const L_dc_string = isMicroinverter
+    ? 0
+    : ((_sState && _sState.L_dc_string_measured > 0)
+        ? _sState.L_dc_string_measured
+        : ((_sState && _sState.L_dc_measured > 0) ? _sState.L_dc_measured : 30));
+  const L_dc = isMicroinverter
+    ? 0
     : ((_sState && _sState.L_dc_measured > 0) ? _sState.L_dc_measured : 30);
-  const L_dc = (_sState && _sState.L_dc_measured > 0)
-    ? _sState.L_dc_measured
-    : 30;
-  const L_mdc_meas = (_sState && _sState.L_dc_trunk_measured > 0)
-    ? _sState.L_dc_trunk_measured
-    : Math.max(5, Math.round(L_dc_string * 0.35));
+  const L_mdc_meas = isMicroinverter
+    ? 0
+    : ((_sState && _sState.L_dc_trunk_measured > 0)
+        ? _sState.L_dc_trunk_measured
+        : Math.max(5, Math.round(L_dc_string * 0.35)));
   const L_ac = (_sState && _sState.L_ac_measured > 0)
     ? _sState.L_ac_measured
     : 15;
@@ -2612,37 +2684,44 @@
   // Línea general AC hacia CGBT/contador es un único circuito agrupado (kGroupMain = 1.0);
   // kGroupAc aplica solo a las ramas paralelas Inversor -> Subcuadro Agrupador cuando invCount > 1.
   const K_AMPACITY_AC_MAIN = 0.90;
-  const kGroupAc = invCount <= 1 ? 1.0 : (invCount === 2 ? 0.80 : (invCount === 3 ? 0.70 : 0.65));
+  const microBranches = isMicroinverter ? Math.max(1, Math.ceil(total_ac_kW / (monofasico ? 3.68 : 11.0))) : 0;
+  const _acBranchCount = isMicroinverter ? microBranches : invCount;
+  const kGroupAc = _acBranchCount <= 1 ? 1.0 : (_acBranchCount === 2 ? 0.80 : (_acBranchCount === 3 ? 0.70 : 0.65));
   const K_AMPACITY_AC_BRANCH = 0.90 * kGroupAc;
 
-  let S_str_opt = null;
-  for (let i = 0; i < SEC_DC_AVAIL.length; i++) {
-    const s = SEC_DC_AVAIL[i];
-    const imax = IMAX_DC_ZZF[i];
-    const dV = (2 * rho90 * L_dc_string * I_dc_working) / s;
-    const vStrBase = Math.max(Vmp_str_hot, 1.0);
-    const dV_pct = (dV / vStrBase) * 100;
-    if ((imax * K_AMPACITY_DC) >= I_dc_design && dV_pct <= 1.5) {
-      S_str_opt = s;
-      break;
+  let S_str_opt = isMicroinverter ? SEC_DC_AVAIL[0] : null;
+  if (!isMicroinverter) {
+    for (let i = 0; i < SEC_DC_AVAIL.length; i++) {
+      const s = SEC_DC_AVAIL[i];
+      const imax = IMAX_DC_ZZF[i];
+      const dV = (2 * rho90 * L_dc_string * I_dc_working) / s;
+      const vStrBase = Math.max(Vmp_str_hot, 1.0);
+      const dV_pct = (dV / vStrBase) * 100;
+      if ((imax * K_AMPACITY_DC) >= I_dc_design && dV_pct <= 1.5) {
+        S_str_opt = s;
+        break;
+      }
     }
   }
-  const isDcCompliant = (S_str_opt !== null);
+  const isDcCompliant = isMicroinverter || (S_str_opt !== null);
   if (!S_str_opt) S_str_opt = SEC_DC_AVAIL[SEC_DC_AVAIL.length - 1];
 
   // Troncal DC desde Combiner Box / Nodo Paralelo Y -> Inversor (S_mdc)
-  const isParallelTopo = !!(_cfgAc && (_cfgAc.dcTopology === 'parallel' || _cfgAc.dcTopology === 'parallel_y' || _cfgAc.selectedTopology === 'parallel' || _cfgAc.selectedTopology === 'parallel_y'));
-  const hasCombinerTopo = !!((_sState && _sState.combinerBox && _sState.combinerBox.position && _sState.combinerBox.isEnabled)
+  const isParallelTopo = !isMicroinverter && !!(_cfgAc && (_cfgAc.dcTopology === 'parallel' || _cfgAc.dcTopology === 'parallel_y' || _cfgAc.selectedTopology === 'parallel' || _cfgAc.selectedTopology === 'parallel_y'));
+  const hasCombinerTopo = !isMicroinverter && !!((_sState && _sState.combinerBox && _sState.combinerBox.position && _sState.combinerBox.isEnabled)
     || (_cfgAc && (_cfgAc.dcTopology === 'combiner' || _cfgAc.dcTopology === 'combiner_box' || _cfgAc.selectedTopology === 'combiner' || _cfgAc.selectedTopology === 'combiner_box')));
   let stringsPerTrunk = 1;
-  if (isParallelTopo && numStrings >= 2) {
-    stringsPerTrunk = Math.max(2, numStrings);
-  } else if (numStrings > 2 || (hasCombinerTopo && numStrings >= 2)) {
-    stringsPerTrunk = Math.max(2, Math.ceil(numStrings / totalMpptsInv));
+  if (!isMicroinverter) {
+    if (isParallelTopo && numStrings >= 2) {
+      stringsPerTrunk = Math.max(2, numStrings);
+    } else if (numStrings > 2 || (hasCombinerTopo && numStrings >= 2)) {
+      stringsPerTrunk = Math.max(2, Math.ceil(numStrings / totalMpptsInv));
+    }
   }
+  const hasDcTrunk = !isMicroinverter && (numStrings > 2 || ((isParallelTopo || hasCombinerTopo) && numStrings >= 2));
 
   let S_mdc_opt = S_str_opt;
-  if (numStrings > 2 || ((isParallelTopo || hasCombinerTopo) && numStrings >= 2)) {
+  if (hasDcTrunk) {
     const I_mdc_design = stringsPerTrunk * I_dc_design;
     const I_mdc_working = stringsPerTrunk * I_dc_working;
     const L_mdc = L_mdc_meas;
@@ -2662,12 +2741,17 @@
     if (S_mdc_opt < S_str_opt) S_mdc_opt = S_str_opt;
   }
 
-  const dV_dc_str = (2 * rho90 * L_dc_string * I_dc_working) / S_str_opt;
-  const dV_dc_trk = (_sState && _sState.L_dc_trunk_measured > 0)
-    ? ((2 * rho90 * _sState.L_dc_trunk_measured * (Math.max(1, stringsPerTrunk) * I_dc_working)) / S_mdc_opt)
+  const dV_dc_str = isMicroinverter ? 0 : ((2 * rho90 * L_dc_string * I_dc_working) / S_str_opt);
+  const _effTrunkLen = isMicroinverter
+    ? 0
+    : ((_sState && _sState.L_dc_trunk_measured > 0)
+        ? _sState.L_dc_trunk_measured
+        : (hasDcTrunk && L_mdc_meas > 0 ? L_mdc_meas : 0));
+  const dV_dc_trk = (!isMicroinverter && _effTrunkLen > 0)
+    ? ((2 * rho90 * _effTrunkLen * (Math.max(1, stringsPerTrunk) * I_dc_working)) / S_mdc_opt)
     : 0;
   const dV_dc = dV_dc_str + dV_dc_trk;
-  const dVdc_pct = (dV_dc / Math.max(Vmp_str_hot, 1.0)) * 100;
+  const dVdc_pct = isMicroinverter ? 0 : ((dV_dc / Math.max(Vmp_str_hot, 1.0)) * 100);
 
   const I_ac_design = 1.25 * I_ac;
   // [AUD-2026 · C-05] Misma fuente única que el tramo DC.
@@ -2692,12 +2776,13 @@
   const isAcCompliant = (S_ac_opt !== null);
   if (!S_ac_opt) S_ac_opt = SEC_AC_AVAIL[SEC_AC_AVAIL.length - 1];
 
-  // Rama AC individual Inversor -> Subcuadro Agrupador cuando invCount > 1
+  // Rama AC individual Inversor -> Subcuadro Agrupador (cuando invCount > 1) o Ramal Bus AC en microinversores
   let S_ac_branch_opt = S_ac_opt;
-  if (invCount > 1) {
-    const I_ac_unit = I_ac / invCount;
+  if (isMicroinverter || invCount > 1) {
+    const _branchDivisor = isMicroinverter ? Math.max(1, microBranches) : invCount;
+    const I_ac_unit = I_ac / _branchDivisor;
     const I_ac_unit_design = 1.25 * I_ac_unit;
-    const L_ac_branch = 5;
+    const L_ac_branch = isMicroinverter ? 10 : 5;
     let foundAcBranch = null;
     for (let i = 0; i < SEC_AC_AVAIL.length; i++) {
       const s = SEC_AC_AVAIL[i];
@@ -2799,7 +2884,6 @@
   const maxModFuseA = Number(cfg && (cfg.maxSeriesFuseA || cfg.maxFuseA || 30)) || 30;
   const fuseExceedsModRating = Boolean(useFuses && fuse_std && fuse_std > maxModFuseA);
   const S_earth = hasExternalLightningRod ? 16 : 6;
-  const microBranches = isMicroinverter ? Math.max(1, Math.ceil(total_ac_kW / (monofasico ? 3.68 : 11.0))) : 0;
   const hasIntegratedDcSwitch = !activeInv || (activeInv.integratedDcSwitch !== false);
   const needsExternalDcPanel = !isMicroinverter && (useFuses || hasExternalLightningRod || L_dc_string > 10 || !hasIntegratedDcSwitch);
 

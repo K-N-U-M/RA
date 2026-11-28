@@ -62,6 +62,28 @@ assert.ok(!withGeo.isSafe || (withGeo.preliminarilyStable === true), 'isSafe no 
 assert.ok(!noGeo.isSafe, 'Sin geotecnia isSafe debe ser siempre false');
 console.log('  ✓ PASS: isSafe nunca contradice la estabilidad preliminar');
 
+// 4. En cubierta (rooftop): no requiere estudio geotécnico ni emite aviso geotécnico.
+const rooftopOk = S.evaluateStructuralSafety(makeTurbine({
+  mountingType: 'rooftop',
+  roofAccessible: true,
+  supportStructure: { hubHeightM: 3.5 },
+  _catalog: {
+    ratedPowerW: 1000,
+    rotorDiameterM: 1.2,
+    bladeCount: 3,
+    survivalSpeedMs: 40,
+    ratedSpeedMs: 11,
+    structural: { nacelleMassKg: 20, rotorMassKg: 8, maxThrustKn: 0.3, naturalFrequencyHz: 1.8, ballastWeightKn: 3.8 }
+  }
+}), null);
+assert.ok(rooftopOk, 'Debe devolver informe para cubierta');
+assert.strictEqual(rooftopOk.mountingType, 'rooftop');
+assert.strictEqual(rooftopOk.requiresGeotechnicalStudy, false, 'En cubierta no se exige estudio geotécnico');
+assert.ok(!/geot[eé]cnico/i.test(rooftopOk.structuralWarning || ''), 'En cubierta no debe emitir aviso de falta de estudio geotécnico');
+assert.strictEqual(rooftopOk.isSafe, rooftopOk.preliminarilyStable, 'En cubierta isSafe debe depender de preliminarilyStable');
+assert.strictEqual(rooftopOk.isSafe, true, 'Turbina ligera estable en cubierta debe ser isSafe=true sin bearingCapacityKpa');
+console.log('  ✓ PASS: rooftop sin geotecnia -> requiresGeotechnicalStudy=false, isSafe=true, sin aviso geotécnico');
+
 console.log('═════════════════════════════════════════════════════════════════════');
 console.log('🎉 DICTAMEN ESTRUCTURAL: TODAS LAS COMPROBACIONES PASARON');
 console.log('═════════════════════════════════════════════════════════════════════');

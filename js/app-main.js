@@ -913,8 +913,12 @@ if (sscc) {
   var _initTriadDone = false;
   var _initTriadRemove = null;
   function _initTriadOnce() {
-    if (_initTriadDone) return;
+    if (_initTriadDone || window._triadInitializedOnce) {
+      if (_initTriadRemove) { _initTriadRemove(); _initTriadRemove = null; }
+      return;
+    }
     _initTriadDone = true;
+    window._triadInitializedOnce = true;
     try { ensureTriadCanvas(); } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
     try { initTriad3DEntities(); } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
     if (_initTriadRemove) { _initTriadRemove(); _initTriadRemove = null; }
@@ -7381,24 +7385,35 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
 
     // Filtrar módulos marcados en la lista de exclusión persistente poly.deletedPanels
     if (pInfo && pInfo.panels && Array.isArray(poly.deletedPanels) && poly.deletedPanels.length > 0) {
-      pInfo.panels = pInfo.panels.filter((p, pIdx) => {
-        const isDeleted = poly.deletedPanels.some(dp => {
-          // A. Coincidencia por panelId unívoco
-          if (p.panelId && dp.panelId && p.panelId === dp.panelId) return true;
+      const deletedIdSet = new Set();
+      const deletedSpatial = [];
+      for (let di = 0; di < poly.deletedPanels.length; di++) {
+        const dp = poly.deletedPanels[di];
+        if (!dp) continue;
+        if (dp.panelId) deletedIdSet.add(dp.panelId);
+        if ((typeof dp.u === 'number' && typeof dp.v === 'number') || dp.center) {
+          deletedSpatial.push(dp);
+        }
+      }
+      const spatialLen = deletedSpatial.length;
+      pInfo.panels = pInfo.panels.filter(p => {
+        if (!p) return false;
+        // A. Coincidencia O(1) por panelId unívoco
+        if (p.panelId && deletedIdSet.has(p.panelId)) return false;
+        if (spatialLen === 0) return true;
+        const hasUV = typeof p.u === 'number' && typeof p.v === 'number';
+        for (let di = 0; di < spatialLen; di++) {
+          const dp = deletedSpatial[di];
           // B. Coincidencia por coordenadas locales u, v en el plano del faldón (inmune a variaciones Z de altura)
-          if (typeof p.u === 'number' && typeof p.v === 'number' && typeof dp.u === 'number' && typeof dp.v === 'number') {
-            const du = Math.abs(p.u - dp.u);
-            const dv = Math.abs(p.v - dp.v);
-            if (du < 0.40 && dv < 0.40) return true;
+          if (hasUV && typeof dp.u === 'number' && typeof dp.v === 'number') {
+            if (Math.abs(p.u - dp.u) < 0.40 && Math.abs(p.v - dp.v) < 0.40) return false;
           }
           // D. Coincidencia por proximidad espacial 3D (tolerancia ampliada a 0.65m para módulos inclinados o en pérgola)
           if (p.center && dp.center) {
-            const d = Cesium.Cartesian3.distance(p.center, dp.center);
-            if (d < 0.65) return true;
+            if (Cesium.Cartesian3.distance(p.center, dp.center) < 0.65) return false;
           }
-          return false;
-        });
-        return !isDeleted;
+        }
+        return true;
       });
     }
 

@@ -73,6 +73,16 @@ assert.ok(optResult && optResult.allScenarios && optResult.allScenarios.length >
 assert.ok(optResult.bestEnergy.kwhYear > 0, 'Escenario de máxima energía debe tener kWh/año positivo');
 console.log('✔ PASS 4: Optimizador multivariable ejecutado con recurso solar geolocalizado (' + optResult.bestEnergy.kwhYear + ' kWh/año).');
 
+// TEST 5: Normalización de gammaPmp/tempCoeffPmax y loadFrac post-pérdidas DC
+{
+  const resPct = window.runPhysicalModel(5.0, 40.4, -3.7, 30, 180, { pAcNominalW: 5000, gammaPmp: -0.45 });
+  const resFrac = window.runPhysicalModel(5.0, 40.4, -3.7, 30, 180, { pAcNominalW: 5000, tempCoeffPmax: -0.0045 });
+  const resDefault = window.runPhysicalModel(5.0, 40.4, -3.7, 30, 180, { pAcNominalW: 5000, tecnologia: 'N-Type' });
+  assert.strictEqual(resPct.annualKWh, resFrac.annualKWh, 'gammaPmp en % (-0.45) y tempCoeffPmax en fracción (-0.0045) deben ser idénticos');
+  assert.ok(resPct.annualKWh < resDefault.annualKWh, 'Un coeficiente más negativo (-0.45%/°C) debe reducir la producción respecto al N-Type (-0.28%/°C)');
+  console.log('✔ PASS 5: Normalización gammaPmp/tempCoeffPmax verificada (' + resPct.annualKWh + ' vs N-Type ' + resDefault.annualKWh + ' kWh/año).');
+}
+
 console.log('═════════════════════════════════════════════════════════════════════');
 console.log('🎉 TODOS LOS TESTS DE FASE 3 PASARON EXITOSAMENTE!');
 console.log('═════════════════════════════════════════════════════════════════════');

@@ -480,14 +480,20 @@ window.wpSetProtectionOption = wpSetProtectionOption;
 function step3EditCurrentEquipment(category) {
   const cfg = window.solarProjectConfig || {};
   let currentId = '';
+  let modalCategory = category;
   if (category === 'modules') currentId = cfg.selectedModuleId;
   else if (category === 'inverters') currentId = cfg.selectedInverterId;
   else if (category === 'microinverters') currentId = cfg.selectedMicroinverterId;
+  else if (category === 'optimizers') {
+    const optSel = document.getElementById('step3-sel-optimizer');
+    currentId = cfg.selectedOptimizerId || (optSel ? optSel.value : '');
+    modalCategory = 'microinverters';
+  }
   else if (category === 'batteries') currentId = cfg.selectedBatteryId;
 
-  openEquipmentCatalogModal(category);
+  openEquipmentCatalogModal(modalCategory);
   if (currentId) {
-    openEditEquipmentModal(category, currentId);
+    openEditEquipmentModal(modalCategory, currentId);
   }
 }
 

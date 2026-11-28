@@ -1120,7 +1120,7 @@ function generateMemoria(skipPricingModal, opt) {
     '<tr><td>Voc string (T_min)<\/td><td>' + d.Voc_str_cold.toFixed(1) + ' V ' + (d.Voc_str_cold <= (d.V_max_inv || 1000) ? '✓ ≤ ' + (d.V_max_inv || 1000) + ' V' : '⚠️ > ' + (d.V_max_inv || 1000) + ' V') + '<\/td><td>' + d.modsActual + ' × ' + d.Voc_cold.toFixed(2) + ' V<\/td><\/tr>' +
     '<tr><td>Corriente Isc total DC<\/td><td>' + d.I_total_dc.toFixed(1) + ' A<\/td><td>' + d.numStrings + ' × ' + d.Isc + ' A<\/td><\/tr>' +
     '<tr><td>Potencia pico total<\/td><td><strong>' + d.P_dc_kW.toFixed(3) + ' kWp<\/strong><\/td><td>' + d.numPanels + ' × ' + d.cfg.potencia + ' W<\/td><\/tr>' +
-    '<tr><td>Potencia AC nominal<\/td><td>' + d.P_ac_kW.toFixed(3) + ' kW<\/td><td>P_dc × 0,95<\/td><\/tr>' +
+    '<tr><td>Potencia AC nominal<\/td><td>' + d.P_ac_kW.toFixed(3) + ' kW<\/td><td>' + (((d.inverter && d.inverter.count) || d.invCount || 1) > 1 || d.isMicroinverter ? (((d.inverter && d.inverter.count) || d.invCount || 1) + ' × ' + Number((d.inverter && d.inverter.kw) || d.inv_kW || d.P_ac_kW).toFixed(d.isMicroinverter ? 3 : 2) + ' kW AC (' + (d.isMicroinverter ? 'Microinversores' : 'Inversores') + ')') : ('1 × ' + Number((d.inverter && d.inverter.kw) || d.inv_kW || d.P_ac_kW).toFixed(2) + ' kW AC (Pn nominal inversor)')) + '<\/td><\/tr>' +
     '<\/table>' +
 
     '<h3>' + (d.hasBattery && d.battery ? '4.5' : '4.4') + ' Conductores (ITC-BT-40)<\/h3>' +
@@ -1205,7 +1205,20 @@ function generateMemoria(skipPricingModal, opt) {
       var vmpOk = vmpHotVal >= vmpMinLimit;
 
       var iscLimit = (d.inverter && (d.inverter.iMaxScA || d.inverter.iMaxMppt || d.inverter.maxInputCurrent)) ? (d.inverter.iMaxScA || d.inverter.iMaxMppt || d.inverter.maxInputCurrent) : 15.0;
-      var iscOk = d.Isc <= iscLimit;
+      var bifacialFactor = 1.0;
+      if (typeof window !== 'undefined' && typeof window.raGetBifacialGainFactor === 'function') {
+        bifacialFactor = window.raGetBifacialGainFactor(d.cfg);
+      } else if (d.cfg && (d.cfg.bifacial || (typeof d.cfg.bifacialityFactor === 'number' && d.cfg.bifacialityFactor > 0) || (d.cfg.tecnologia && String(d.cfg.tecnologia).toLowerCase().includes('bifacial')) || /bifacial/i.test(d.cfg.modelo || d.cfg.name || ''))) {
+        var _bfDoc = (typeof d.cfg.bifacialityFactor === 'number' && d.cfg.bifacialityFactor > 0) ? Math.min(1.0, d.cfg.bifacialityFactor) : 0.75;
+        bifacialFactor = 1.0 + _bfDoc * 0.20;
+      }
+      var invCntMpptDoc = Math.max(1, (d.invCount || (d.inverter && d.inverter.count) || 1));
+      var totalMpptsDoc = Math.max(1, ((d.inverter && (d.inverter.mpptCount || d.inverter.mppt || d.inverter.mppts)) || (d.numStrings > 1 ? 2 : 1)) * invCntMpptDoc);
+      var stringsPerMppt = d.isMicroinverter
+        ? 1
+        : ((typeof d.stringsPerMpptMax === 'number' && d.stringsPerMpptMax > 0) ? d.stringsPerMpptMax : Math.max(1, Math.ceil((d.numStrings || 1) / totalMpptsDoc)));
+      var iscCalc = 1.25 * (bifacialFactor || 1.0) * stringsPerMppt * d.Isc;
+      var iscOk = iscCalc <= iscLimit;
 
       var wTot = 12.5;
       var wLimit = (window.RA && typeof window.RA.getCteRoofLoadLimitKgM2 === 'function')
@@ -1229,7 +1242,7 @@ function generateMemoria(skipPricingModal, opt) {
       return '<table><tr><th>Comprobación Normativa<\/th><th>Parámetro Calculado<\/th><th>Criterio / Límite Admisible<\/th><th>Resultado<\/th><\/tr>' +
         '<tr><td>Tensión Máxima en Frío (-10 °C)<\/td><td>' + vocVal.toFixed(1) + ' V<\/td><td>≤ ' + vocLimit + ' V (IEC 62548 / Tensión máx. inversor)<\/td><td><strong style="color:' + (vocOk ? '#10b981' : '#ef4444') + '">' + (vocOk ? '✓ Conforme (Margen ' + vocMargin + ' V)' : '✗ No conforme (Sobretensión en frío)') + '<\/strong><\/td><\/tr>' +
         '<tr><td>Tensión Mínima MPPT en Calor (+65 °C)<\/td><td>' + vmpHotVal.toFixed(1) + ' V<\/td><td>≥ ' + vmpMinLimit.toFixed(1) + ' V (Tensión mínima de tracking MPPT)<\/td><td><strong style="color:' + (vmpOk ? '#10b981' : '#f59e0b') + '">' + (vmpOk ? '✓ Conforme (Rango óptimo)' : '⚠️ Tensión MPPT fuera de rango inferior') + '<\/strong><\/td><\/tr>' +
-        '<tr><td>Corriente Máxima de Entrada<\/td><td>' + d.Isc.toFixed(1) + ' A<\/td><td>≤ ' + iscLimit.toFixed(1) + ' A (Isc admisible por entrada MPPT)<\/td><td><strong style="color:' + (iscOk ? '#10b981' : '#f59e0b') + '">' + (iscOk ? '✓ Conforme' : '⚠️ Supera corriente máx. inversor') + '<\/strong><\/td><\/tr>' +
+        '<tr><td>Corriente Máxima de Entrada<\/td><td>' + iscCalc.toFixed(1) + ' A (1,25 × ' + stringsPerMppt + ' str/MPPT' + (bifacialFactor > 1.001 ? ' × ' + bifacialFactor.toFixed(2) + ' bif.' : '') + ' × ' + d.Isc.toFixed(1) + ' A)<\/td><td>≤ ' + iscLimit.toFixed(1) + ' A (Isc admisible por entrada MPPT)<\/td><td><strong style="color:' + (iscOk ? '#10b981' : '#f59e0b') + '">' + (iscOk ? '✓ Conforme' : '⚠️ Supera corriente máx. inversor') + '<\/strong><\/td><\/tr>' +
         '<tr><td>Sobrecarga Estructural en Cubierta<\/td><td>' + wTot.toFixed(1) + ' kg/m² (Módulo + Estructura)<\/td><td>≤ ' + wLimit.toFixed(1) + ' kg/m² (CTE DB-SE-AE sobrecarga admisible)<\/td><td><strong style="color:' + (structOk ? '#10b981' : '#f59e0b') + '">' + (structOk ? '✓ Conforme (Sin refuerzo estructural)' : '⚠️ Requiere verificación de forjado') + '<\/strong><\/td><\/tr>' +
         '<\/table>';
     })() +
@@ -1440,10 +1453,20 @@ function generatePresupuesto(skipPricingModal, opt) {
         { ref:'2.1', desc: descEstructura + '. Incluso perfiles continuos, grapas de fijación inter-panel, tornillería A2 inox y juntas de estanqueidad EPDM calculadas por Árbol BIM.', ud:'ud mod', q: d.numPanels, pu: puEstructuraPorModulo }
       ]
     },
-    { titulo: 'CAP. 3 — SISTEMA DE GENERACIÓN Y CONVERSIÓN',
-      items: [
-        { ref:'3.1', desc:'Inversor ' + (d.inverter ? d.inverter.fullName : (((typeof d.P_ac_kW === 'number') ? d.P_ac_kW.toFixed(2) : '5.00') + ' kW')) + ', ' + (d.monofasico ? 'monofásico 230 V' : 'trifásico 400 V') + ', ' + (d.numStrings > 1 ? 'doble seguidor MPPT independiente' : 'seguidor MPPT') + ', rendimiento europeo η > ' + ((d.inverter && d.inverter.efficiency) || 98.2) + '%, monitorización WiFi/Ethernet integrada y grado de protección IP65.', ud:'ud', q: (m && m.invCount && m.invCount > 0) ? m.invCount : 1, pu: (m && m.invCost ? (m.invCost / ((m.invCount && m.invCount > 0) ? m.invCount : 1)) : (d.pres_inv || 1100.0)) }
-      ]
+    { titulo: d.isMicroinverter ? 'CAP. 3 — SISTEMA DE GENERACIÓN Y CONVERSIÓN MLPE (MICROINVERSORES)' : 'CAP. 3 — SISTEMA DE GENERACIÓN Y CONVERSIÓN',
+      items: (function() {
+        const cap3Qty = d.isMicroinverter
+          ? ((m && m.mlpeCount && m.mlpeCount > 0) ? m.mlpeCount : ((d.inverter && d.inverter.count) || d.invCount || d.numPanels || 1))
+          : ((m && m.invCount && m.invCount > 0) ? m.invCount : ((d.inverter && d.inverter.count) || d.invCount || 1));
+        const cap3Total = (m && m.invCost > 0) ? m.invCost : (d.pres_inv || 1100.0);
+        const cap3Pu = cap3Total / Math.max(1, cap3Qty);
+        const cap3Desc = d.isMicroinverter
+          ? ('Microinversor MLPE ' + (d.inverter ? d.inverter.fullName : ('descentralizado ' + (((typeof d.P_ac_kW === 'number') ? d.P_ac_kW.toFixed(2) : '0.80') + ' kW AC'))) + ', ' + (d.monofasico ? 'acoplamiento monofásico 230 V' : 'acoplamiento trifásico 400 V') + ', seguimiento MPPT independiente a nivel de módulo, rendimiento europeo η > ' + ((d.inverter && d.inverter.efficiency) || 97.5) + '%, pasarela de monitorización Gateway/DTU y grado de protección IP67 para montaje en cubierta.')
+          : ('Inversor ' + (d.inverter ? d.inverter.fullName : (((typeof d.P_ac_kW === 'number') ? d.P_ac_kW.toFixed(2) : '5.00') + ' kW')) + ', ' + (d.monofasico ? 'monofásico 230 V' : 'trifásico 400 V') + ', ' + (d.numStrings > 1 ? 'doble seguidor MPPT independiente' : 'seguidor MPPT') + ', rendimiento europeo η > ' + ((d.inverter && d.inverter.efficiency) || 98.2) + '%, monitorización WiFi/Ethernet integrada y grado de protección IP65.');
+        return [
+          { ref:'3.1', desc: cap3Desc, ud:'ud', q: cap3Qty, pu: cap3Pu }
+        ];
+      })()
     }
   ];
 
@@ -1486,7 +1509,10 @@ function generatePresupuesto(skipPricingModal, opt) {
 
   caps.push(
     { titulo: numCap(4) + ' — CABLEADO, CANALIZACIONES Y PROTECCIONES (REBT ITC-BT-40)',
-      items: [
+      items: d.isMicroinverter ? [
+        { ref:'4.1', desc:'Bus AC troncal de microinversores en cubierta H07RN-F / RV-K 0,6/1 kV de ' + (d.S_ac_branch || sAcReal) + ' mm² y línea general de evacuación AC RZ1-K 0,6/1 kV de ' + sAcReal + ' mm² (' + origenAc + ': ' + totalMetrosAC + ' m). Incluso conectores estancos AC, tapas terminales y canalizaciones.', ud:'partida', q: 1, pu: cablesOnlyPu },
+        { ref:'4.2', desc:'Caja de agrupación estanca IP65 en cubierta para ramas de bus AC de microinversores (magnetotérmicos curva C), Cuadro General de Protección AC (IGA ' + d.I_iga + ' A + diferencial ' + rcdLabelDoc + ' + descargador sobretensiones AC ' + (d.spdClaseLabel || 'Clase II') + ' + pasarela Gateway/DTU con toroidales) y puesta a tierra equipotencial.', ud:'partida', q: 1, pu: protOnlyPu }
+      ] : [
         { ref:'4.1', desc:'Líneas solares DC tipo ZZ-F 1.500 V CC de ' + sDcReal + ' mm² (' + origenDc + ': ' + totalMetrosDC + ' m acumulados) y evacuación RV-K 0,6/1 kV (' + origenAc + ': ' + totalMetrosAC + ' m). Incluso conectores MC4 y canalizaciones.', ud:'partida', q: 1, pu: cablesOnlyPu },
         { ref:'4.2', desc:'Cuadros de protección normalizados DC (SPD Clase II + seccionador) y AC (IGA ' + d.I_iga + ' A + diferencial ' + rcdLabelDoc + ' + sobretensiones permanentes/transitorias) y puesta a tierra.', ud:'partida', q: 1, pu: protOnlyPu }
       ]

@@ -1158,17 +1158,17 @@ var RAPricing = {
     discountType: 'percent', // 'percent' | 'fixed_eur'
     discountValue: 5,        // 5% o 500 €
     addons: [
-      { id: 'smart_meter',    enabled: false, name: 'Vatímetro Inteligente (Smart Meter) + Toroidales de Medida', qty: 1, unitPrice: 220 },
-      { id: 'crane_lift',     enabled: false, name: 'Medios de Elevación / Camión Pluma con Cesta a Cubierta',  qty: 1, unitPrice: 480 },
-      { id: 'extended_ac',    enabled: false, name: 'Tirada Extra de Acometida AC (>15m) en Tubo Libre Halógenos', qty: 1, unitPrice: 350 },
-      { id: 'bat_protection', enabled: false, name: 'Armario Rack + Cuadro Seccionamiento y Fusibles DC Batería', qty: 1, unitPrice: 280 },
-      { id: 'roof_sealing',   enabled: false, name: 'Kit Sellado Estanco Cubierta, Taco Químico y Juntas EPDM', qty: 1, unitPrice: 160 },
-      { id: 'municipal_tax',  enabled: false, name: 'Tramitación Licencia Urbanística y Tasa ICIO Municipal',  qty: 1, unitPrice: 450 },
-      { id: 'ev_charger',     enabled: false, name: 'Cargador Vehículo Eléctrico Wallbox 7,4 kW + Protecciones', qty: 1, unitPrice: 890 },
-      { id: 'bird_mesh',      enabled: false, name: 'Sistema Perimetral Antipájaros en Cubierta (Malla UV)',    qty: 1, unitPrice: 320 },
-      { id: 'virtual_bat',    enabled: false, name: 'Alta y Configuración de Batería Virtual (Hucha Solar)',     qty: 1, unitPrice: 95 },
-      { id: 'lifeline',     enabled: false, name: 'Línea de Vida Homologada EN 795 en Cubierta',                qty: 1, unitPrice: 450 },
-      { id: 'maint_annual', enabled: false, name: 'Pack Mantenimiento Preventivo y Limpieza Anual (Año 1)',    qty: 1, unitPrice: 180 }
+      { id: 'smart_meter',    enabled: false, category: 'material', name: 'Vatímetro Inteligente (Smart Meter) + Toroidales de Medida', qty: 1, unitPrice: 220 },
+      { id: 'crane_lift',     enabled: false, category: 'service',  name: 'Medios de Elevación / Camión Pluma con Cesta a Cubierta',  qty: 1, unitPrice: 480 },
+      { id: 'extended_ac',    enabled: false, category: 'material', name: 'Tirada Extra de Acometida AC (>15m) en Tubo Libre Halógenos', qty: 1, unitPrice: 350 },
+      { id: 'bat_protection', enabled: false, category: 'material', name: 'Armario Rack + Cuadro Seccionamiento y Fusibles DC Batería', qty: 1, unitPrice: 280 },
+      { id: 'roof_sealing',   enabled: false, category: 'material', name: 'Kit Sellado Estanco Cubierta, Taco Químico y Juntas EPDM', qty: 1, unitPrice: 160 },
+      { id: 'municipal_tax',  enabled: false, category: 'service',  name: 'Tramitación Licencia Urbanística y Tasa ICIO Municipal',  qty: 1, unitPrice: 450 },
+      { id: 'ev_charger',     enabled: false, category: 'material', name: 'Cargador Vehículo Eléctrico Wallbox 7,4 kW + Protecciones', qty: 1, unitPrice: 890 },
+      { id: 'bird_mesh',      enabled: false, category: 'material', name: 'Sistema Perimetral Antipájaros en Cubierta (Malla UV)',    qty: 1, unitPrice: 320 },
+      { id: 'virtual_bat',    enabled: false, category: 'service',  name: 'Alta y Configuración de Batería Virtual (Hucha Solar)',     qty: 1, unitPrice: 95 },
+      { id: 'lifeline',     enabled: false, category: 'material', name: 'Línea de Vida Homologada EN 795 en Cubierta',                qty: 1, unitPrice: 450 },
+      { id: 'maint_annual', enabled: false, category: 'service',  name: 'Pack Mantenimiento Preventivo y Limpieza Anual (Año 1)',    qty: 1, unitPrice: 180 }
     ],
     customAddons: [],
     taxShield: {
@@ -7093,8 +7093,37 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
     ? Boolean(marginLaborChk.checked)
     : ((_ssotCfg.taxSettings && typeof _ssotCfg.taxSettings.ivaMarginLaborOnly === 'boolean') ? _ssotCfg.taxSettings.ivaMarginLaborOnly : false));
 
-  const costeMaterialesDirecto = Math.round(panCost + est + inv + bat + cab + windCost + addonsCost);
-  const costeServiciosDirecto = Math.round(mo + leg);
+  let materialAddonsCost = 0;
+  let serviceAddonsCost = 0;
+  if (commercialCfg) {
+    const SERVICE_ADDON_IDS = { crane_lift: true, municipal_tax: true, virtual_bat: true, maint_annual: true };
+    const allAddonsList = (commercialCfg.addons || []).concat(commercialCfg.customAddons || []);
+    let splitSum = 0;
+    allAddonsList.forEach(function(item) {
+      if (!item || !item.enabled) return;
+      const q = Number(item.qty) || 1;
+      const p = Number(item.unitPrice) || 0;
+      const lineTotal = q * p;
+      splitSum += lineTotal;
+      const isService = (item.isService === true)
+        || (item.category === 'service')
+        || (item.type === 'service')
+        || (item.category !== 'material' && item.isService !== false && !!SERVICE_ADDON_IDS[item.id]);
+      if (isService) {
+        serviceAddonsCost += lineTotal;
+      } else {
+        materialAddonsCost += lineTotal;
+      }
+    });
+    if (Math.abs(splitSum - addonsCost) > 0.01) {
+      materialAddonsCost = Math.max(0, addonsCost - serviceAddonsCost);
+    }
+  } else {
+    materialAddonsCost = addonsCost;
+  }
+
+  const costeMaterialesDirecto = Math.round(panCost + est + inv + bat + cab + windCost + materialAddonsCost);
+  const costeServiciosDirecto = Math.round(mo + leg + serviceAddonsCost);
   const discScale = (subtotalPreDiscount > 0) ? (subtotal / subtotalPreDiscount) : 1;
 
   let baseMateriales = 0;
@@ -7192,7 +7221,11 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
   if (!irpfOptVal && _commTax.irpfMaxBaseEur && _commTax.irpfMaxBaseEur > 0) {
     maxBaseIrpf = _commTax.irpfMaxBaseEur;
   }
-  const baseIrpfEstatal = Math.min(capexBruto, maxBaseIrpf);
+  // Ayudas directas o Certificados de Ahorro Energético (CAEs) — DA 50ª.4 LIRPF: se restan de la base de deducción IRPF
+  const caeInp = document.getElementById('tax-cae-eur') || document.getElementById('modal-tax-cae-eur');
+  const ahorroCAE = (caeInp && parseFloat(caeInp.value) > 0) ? parseFloat(caeInp.value) : (_commTax.caeEur || 0);
+  const baseIrpfNeta = Math.max(0, capexBruto - ahorroCAE);
+  const baseIrpfEstatal = Math.min(baseIrpfNeta, maxBaseIrpf);
   let ahorroIRPFEstatal = (_commTax.irpfEnabled === false || customerProfile === 'empresa') ? 0 : Math.round(baseIrpfEstatal * irpfPct);
 
   // Tramo Autonómico IRPF según CCAA
@@ -7203,23 +7236,23 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
 
   if (customerProfile === 'particular' && regionOpt !== 'estatal_only') {
     if (regionOpt === 'valencia') {
-      const baseAuto = Math.min(capexBruto, 8000);
+      const baseAuto = Math.min(baseIrpfNeta, 8000);
       ahorroIRPFAutonomico = Math.round(baseAuto * 0.40);
       autoFormulaStr = `IRPF Comunitat Valenciana: 40% s/ base máx. ${baseAuto.toLocaleString('es-ES')} € = ${ahorroIRPFAutonomico} €`;
     } else if (regionOpt === 'galicia') {
-      const baseAuto = Math.min(capexBruto, 9000);
+      const baseAuto = Math.min(baseIrpfNeta, 9000);
       ahorroIRPFAutonomico = Math.round(baseAuto * 0.20);
       autoFormulaStr = `IRPF Galicia: 20% s/ base máx. ${baseAuto.toLocaleString('es-ES')} € = ${ahorroIRPFAutonomico} €`;
     } else if (regionOpt === 'baleares') {
-      const baseAuto = Math.min(capexBruto, 10000);
+      const baseAuto = Math.min(baseIrpfNeta, 10000);
       ahorroIRPFAutonomico = Math.round(baseAuto * 0.50);
       autoFormulaStr = `IRPF Illes Balears: 50% s/ base máx. ${baseAuto.toLocaleString('es-ES')} € = ${ahorroIRPFAutonomico} €`;
     } else if (regionOpt === 'murcia') {
-      const baseAuto = Math.min(capexBruto, 10000);
+      const baseAuto = Math.min(baseIrpfNeta, 10000);
       ahorroIRPFAutonomico = Math.min(Math.round(baseAuto * 0.10), 1000);
       autoFormulaStr = `IRPF Región de Murcia: 10% (tope 1.000 €) = ${ahorroIRPFAutonomico} €`;
     } else if (regionOpt === 'castillaleon') {
-      const baseAuto = Math.min(capexBruto, 10000);
+      const baseAuto = Math.min(baseIrpfNeta, 10000);
       ahorroIRPFAutonomico = Math.min(Math.round(baseAuto * 0.15), 2000);
       autoFormulaStr = `IRPF Castilla y León: 15% (tope 2.000 €) = ${ahorroIRPFAutonomico} €`;
     }
@@ -7248,10 +7281,6 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
   const ahorroICIO = Math.round(tasaICIO * icioPct);
   const icioFormulaStr = `ICIO: Tasa estimada ${tasaICIO} € × ${Math.round(icioPct * 100)}% bonif. = ${ahorroICIO} €`;
 
-  // Ayudas directas o Certificados de Ahorro Energético (CAEs)
-  const caeInp = document.getElementById('tax-cae-eur') || document.getElementById('modal-tax-cae-eur');
-  const ahorroCAE = (caeInp && parseFloat(caeInp.value) > 0) ? parseFloat(caeInp.value) : (_commTax.caeEur || 0);
-
   // [SSOT Contable] Deducción directa en el proyecto según perfil fiscal (IBI + IRPF/Sociedades + Ayudas/CAEs)
   const ahorroDeduccionDirecta = (customerProfile === 'empresa') ? ahorroSociedades : ahorroIRPF;
   const totalAhorroFiscal = ahorroIBITotal + ahorroDeduccionDirecta + ahorroCAE;
@@ -7266,7 +7295,11 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
   }
   if (customerProfile === 'particular') {
     if (irpfPct > 0) {
-      taxFormulaLines.push(`IRPF Estatal (RD-ley 19/2021): ${Math.round(irpfPct * 100)}% s/ base máx. ${baseIrpfEstatal.toLocaleString('es-ES')} € = ${ahorroIRPFEstatal.toLocaleString('es-ES')} €`);
+      if (ahorroCAE > 0) {
+        taxFormulaLines.push(`IRPF Estatal (RD-ley 19/2021 · DA 50ª.4): ${Math.round(irpfPct * 100)}% s/ base neta (${capexBruto.toLocaleString('es-ES')} − ${ahorroCAE.toLocaleString('es-ES')} € subv., máx. ${maxBaseIrpf.toLocaleString('es-ES')} €) = ${ahorroIRPFEstatal.toLocaleString('es-ES')} €`);
+      } else {
+        taxFormulaLines.push(`IRPF Estatal (RD-ley 19/2021): ${Math.round(irpfPct * 100)}% s/ base máx. ${baseIrpfEstatal.toLocaleString('es-ES')} € = ${ahorroIRPFEstatal.toLocaleString('es-ES')} €`);
+      }
       if (isOffGrid) {
         taxFormulaLines.push('Aviso Aislada: Deducción IRPF condicionada a CEE previo o sustitución de grupo electrógeno');
       }
@@ -7309,7 +7342,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
         return {
           name: _rawTou.name,
           horas: (touTarifa === 'plana') ? Array(24).fill(_customPriceKwh) : _rawTou.horas.map(v => v * scale),
-          compensacion: _rawTou.compensacion
+          compensacion: Number((_rawTou.compensacion * scale).toFixed(4))
         };
       })()
     : _rawTou;
@@ -7519,7 +7552,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
       // Arbitraje en valle (si está activo)
       if (batStrategy === 'arbitraje' && maxBatCap > 0 && batSoC < maxBatCap && isValley && h >= 2 && h <= 6) {
         const space = maxBatCap - batSoC;
-        const gridCharge = Math.min(space, pBatMaxKw * 1.0, load * 0.5);
+        const gridCharge = Math.min(space, pBatMaxKw * 1.0);
         batSoC += gridCharge * batEffHalf;
         monthGridChargeCost += gridCharge * price;
       }

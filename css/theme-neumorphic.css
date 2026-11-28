@@ -393,7 +393,7 @@
   backdrop-filter: blur(10px) !important;
 }
 
-#ra-cad-status-bar span,
+#ra-cad-status-bar span:not(#ra-cad-sb-step):not(#ra-cad-sb-snap),
 #ra-hud-energy span,
 #ra-project-status-hud span,
 #ra-onboarding-empty-card h3,

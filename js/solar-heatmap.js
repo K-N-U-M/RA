@@ -151,6 +151,14 @@
   const _scratchV2 = (typeof Cesium !== 'undefined' && Cesium.Cartesian3) ? new Cesium.Cartesian3() : null;
   const _scratchUp = (typeof Cesium !== 'undefined' && Cesium.Cartesian3) ? new Cesium.Cartesian3() : null;
   const _scratchNormalWorld = (typeof Cesium !== 'undefined' && Cesium.Cartesian3) ? new Cesium.Cartesian3() : null;
+  const _scratchSunENU = (typeof Cesium !== 'undefined' && Cesium.Cartesian3) ? new Cesium.Cartesian3() : null;
+  const _scratchSDirHoriz = (typeof Cesium !== 'undefined' && Cesium.Cartesian3) ? new Cesium.Cartesian3() : null;
+  const _scratchSunDirWorld = (typeof Cesium !== 'undefined' && Cesium.Cartesian3) ? new Cesium.Cartesian3() : null;
+  const _scratchLoc2D = (typeof Cesium !== 'undefined' && Cesium.Cartesian3) ? new Cesium.Cartesian3() : null;
+  const _scratchUnitX = (typeof Cesium !== 'undefined' && Cesium.Cartesian3) ? new Cesium.Cartesian3(1, 0, 0) : null;
+  const _scratchUnitY = (typeof Cesium !== 'undefined' && Cesium.Cartesian3) ? new Cesium.Cartesian3(0, 1, 0) : null;
+  const _scratchUnitZ = (typeof Cesium !== 'undefined' && Cesium.Cartesian3) ? new Cesium.Cartesian3(0, 0, 1) : null;
+  const _scratchZero = (typeof Cesium !== 'undefined' && Cesium.Cartesian3) ? new Cesium.Cartesian3(0, 0, 0) : null;
 
   function getPanelNormalWorld(pData, roofNorm, transform, result) {
     if (typeof Cesium === 'undefined' || !Cesium.Cartesian3) {
@@ -1605,9 +1613,186 @@
     }
 
     if (!workerHandled) {
+      // Precomputar invariantes geométricas y obstáculos una sola vez antes del bucle de 192 instantes
+      const activeObstacles = getCombinedObstaclesAndTurbinesList();
+      const shadowCfg = (typeof window !== 'undefined' && window.raShadowSimConfig)
+        ? window.raShadowSimConfig
+        : raShadowSimCfg;
+      const includeObs = shadowCfg.includeObstacles !== false;
+      const includeBld = shadowCfg.includeBuildings !== false;
+      const includeInterRow = shadowCfg.includeInterRow !== false;
+      const shadowWeightFactor = Math.max(0, Math.min(1, ((typeof shadowCfg.shadowWeightPct === 'number') ? shadowCfg.shadowWeightPct : 100) / 100.0));
+      const moduleB0 = (activeModule && (activeModule.iamB0 || activeModule.b0)) || 0.05;
+      const _fallbackWp = (activeModule && activeModule.wp) || 450;
+      const hasBuildings = includeBld && typeof buildings !== "undefined" && buildings && buildings.length > 0;
+      const hasObsPolyFn = typeof getObstaclePolygon2DForRoof === 'function';
+      const hasCesium = typeof Cesium !== 'undefined' && Cesium.Cartesian3;
+
+      const staticPolys = [];
+      for (let polyIdx = 0; polyIdx < polylines.length; polyIdx++) {
+        const poly = polylines[polyIdx];
+        const pInfo = poly.roofInfo || (typeof computeSinglePolylineRoofInfo === "function" ? computeSinglePolylineRoofInfo(poly.points, poly) : null);
+        if (!pInfo || !pInfo.panels) continue;
+
+        const uVec = pInfo.uVec || _scratchUnitX || new Cesium.Cartesian3(1, 0, 0);
+        const vVec = pInfo.vVec || _scratchUnitY || new Cesium.Cartesian3(0, 1, 0);
+        const norm = pInfo.normal || _scratchUnitZ || new Cesium.Cartesian3(0, 0, 1);
+        const transform = pInfo.transform || Cesium.Transforms.eastNorthUpToFixedFrame(pInfo.center || _scratchZero || new Cesium.Cartesian3(0, 0, 0));
+        const effClearance = (poly.estructura && typeof poly.estructura.clearance === 'number')
+          ? poly.estructura.clearance
+          : (poly.modStructure === 'pergola' ? 1.80 : 0);
+        const _polyWp = (typeof wpGetPolyWp === 'function') ? wpGetPolyWp(poly) : _fallbackWp;
+
+        // Precalcular centroides 2D de obstáculos por faldón (invariante respecto al sol)
+        const obsCentroids = [];
+        if (includeObs && activeObstacles && activeObstacles.length > 0 && hasObsPolyFn) {
+          for (let oi = 0; oi < activeObstacles.length; oi++) {
+            const o = activeObstacles[oi];
+            const oPts = getObstaclePolygon2DForRoof(o, 0.0, pInfo);
+            if (!oPts || oPts.length === 0) continue;
+            let cU = 0, cV = 0;
+            for (let k = 0; k < oPts.length; k++) { cU += oPts[k].u; cV += oPts[k].v; }
+            cU /= oPts.length; cV /= oPts.length;
+            obsCentroids.push({
+              cU: cU,
+              cV: cV,
+              oH: typeof o.h === 'number' ? o.h : (o.height || 1.2)
+            });
+          }
+        }
+
+        const isRaised = !(pInfo && pInfo.coplanar) || (effClearance >= 0.25);
+        const clearanceFactor = isRaised
+          ? (effClearance >= 0.8 ? 0.72 : (effClearance >= 0.25 ? 0.55 : 0.35))
+          : 0;
+
+        const panelEntries = [];
+        const locScratch = _scratchLoc2D || (hasCesium ? new Cesium.Cartesian3() : null);
+        const upScratch = _scratchUp || (hasCesium ? new Cesium.Cartesian3() : null);
+
+        for (let pIdx = 0; pIdx < pInfo.panels.length; pIdx++) {
+          const pData = pInfo.panels[pIdx];
+          if (!pData || pData.deleted || pData.disabled || pData.isGhost || !pData.heatmapSample) continue;
+
+          // 1. Normal 3D persistente por panel + tiltRad estático (reutilizando _scratchUp)
+          const panelNormWorld = getPanelNormalWorld(pData, norm, transform, hasCesium ? new Cesium.Cartesian3() : null);
+          let tiltRad = 0;
+          if (hasCesium && Cesium.Ellipsoid && Cesium.Ellipsoid.WGS84) {
+            const refPos = pData.center || (pData.corners && pData.corners[0]);
+            const up = refPos ? Cesium.Ellipsoid.WGS84.geodeticSurfaceNormal(refPos, upScratch) : norm;
+            const cosSlope = Math.max(0, Math.min(1, Cesium.Cartesian3.dot(panelNormWorld, up)));
+            tiltRad = Math.acos(cosSlope);
+          }
+
+          // 2. SVF y penumbra estáticos (no dependen de la posición solar)
+          let diffuseOcclusion = 0.0;
+          let minObsDist = Infinity;
+          if (obsCentroids.length > 0 && typeof pData.u === 'number' && typeof pData.v === 'number') {
+            for (let oi = 0; oi < obsCentroids.length; oi++) {
+              const oc = obsCentroids[oi];
+              const dObs = Math.hypot(pData.u - oc.cU, pData.v - oc.cV);
+              if (dObs < minObsDist) minObsDist = dObs;
+              if (dObs > 0.1 && dObs < 25.0) {
+                diffuseOcclusion += (1 - Math.cos(Math.atan2(oc.oH, dObs))) * 0.5;
+              }
+            }
+          }
+          const svfAmbient = Math.max(0.20, Math.min(1.0, 1.0 - diffuseOcclusion));
+          let penumbraAttenuation = 1.0;
+          if (minObsDist < Infinity && minObsDist > 0.5) {
+            const penumbraWidth = minObsDist * 0.00925;
+            if (penumbraWidth > 0.08) penumbraAttenuation = Math.max(0.85, 1.0 - (penumbraWidth / 2.0));
+          }
+
+          const rearViewFactor = isRaised
+            ? Math.max(0.06, Math.min(0.85, clearanceFactor * Math.pow(Math.cos(tiltRad / 2), 2)))
+            : 0.04;
+
+          // 3. Geometría 2D estática del panel (panelPoly2D, AABB, activeCellPoly, substrings2D)
+          let panelPoly2D = null;
+          if (Array.isArray(pData.corners) && pData.corners.length === 4 && pInfo && pInfo.invTransform && pInfo.uVec && pInfo.vVec) {
+            panelPoly2D = new Array(4);
+            for (let ci = 0; ci < 4; ci++) {
+              const loc = Cesium.Matrix4.multiplyByPoint(pInfo.invTransform, pData.corners[ci], locScratch);
+              panelPoly2D[ci] = {
+                u: Cesium.Cartesian3.dot(loc, pInfo.uVec),
+                v: Cesium.Cartesian3.dot(loc, pInfo.vVec)
+              };
+            }
+          } else if (typeof pData.u === 'number' && typeof pData.v === 'number') {
+            const halfW = (pData.w || 1.05) / 2;
+            const halfH = (pData.h || 2.10) / 2;
+            panelPoly2D = [
+              { u: pData.u - halfW, v: pData.v - halfH },
+              { u: pData.u + halfW, v: pData.v - halfH },
+              { u: pData.u + halfW, v: pData.v + halfH },
+              { u: pData.u - halfW, v: pData.v + halfH }
+            ];
+          }
+
+          let uMin = Infinity, uMax = -Infinity, vMin = Infinity, vMax = -Infinity;
+          let activeCellPoly = null;
+          let substrings2D = null;
+          let subShaded = null;
+          if (panelPoly2D && panelPoly2D.length >= 3) {
+            for (let pi = 0; pi < panelPoly2D.length; pi++) {
+              const ppt = panelPoly2D[pi];
+              if (ppt.u < uMin) uMin = ppt.u;
+              if (ppt.u > uMax) uMax = ppt.u;
+              if (ppt.v < vMin) vMin = ppt.v;
+              if (ppt.v > vMax) vMax = ppt.v;
+            }
+            activeCellPoly = shrinkPolyInward(panelPoly2D, 0.045);
+            substrings2D = (detailedBypass && activeCellPoly.length === 4)
+              ? dividePanelIntoSubstrings2D(activeCellPoly)
+              : [activeCellPoly];
+            subShaded = new Array(substrings2D.length).fill(false);
+          }
+
+          const pGridA = (typeof pData.gridA === 'number')
+            ? pData.gridA
+            : ((pData.frame && typeof pData.frame.Lu === 'number') ? (pData.u * pData.frame.Lu + pData.v * pData.frame.Lv) : null);
+          const _pKwpIndiv = ((typeof pData.wp === 'number' && pData.wp > 0) ? pData.wp : _polyWp) / 1000.0;
+
+          panelEntries.push({
+            pData: pData,
+            pIdx: pIdx,
+            curIdx: (pData.layoutIndex !== undefined) ? pData.layoutIndex : pIdx,
+            panelNormWorld: panelNormWorld,
+            tiltRad: tiltRad,
+            svfAmbient: svfAmbient,
+            penumbraAttenuation: penumbraAttenuation,
+            rearViewFactor: rearViewFactor,
+            panelPoly2D: panelPoly2D,
+            activeCellPoly: activeCellPoly,
+            substrings2D: substrings2D,
+            subShaded: subShaded,
+            uMin: uMin,
+            uMax: uMax,
+            vMin: vMin,
+            vMax: vMax,
+            pGridA: pGridA,
+            hasOpt: !!(pData.hasOptimizer || pData.optimizerModelId),
+            pKwpIndiv: _pKwpIndiv
+          });
+        }
+
+        staticPolys.push({
+          poly: poly,
+          pInfo: pInfo,
+          uVec: uVec,
+          vVec: vVec,
+          norm: norm,
+          transform: transform,
+          effClearance: effClearance,
+          panelEntries: panelEntries
+        });
+      }
+
       // Bucle Time-Sliced en hilo principal (Fallback garantizado)
       for (let mIdx = 0; mIdx < monthsDoy.length; mIdx++) {
       const m = monthsReal[mIdx];
+      const mw = monthDaysW[mIdx] || 30;
       // Temperatura ambiente de diseño según zona climática y mes calendario REAL
       const tAmbMonth = _radM ? _radM.getAmbientTempMonth(climaticZone, m) : 15.0;
       const GHI_daily_Wh = (typeof getRobustMonthlyGHI === 'function')
@@ -1645,12 +1830,19 @@
           dayLen = (sp && sp.dayLengthHours) ? sp.dayLengthHours : 12;
           const elevRad_ = sp.elevRad;
           const azNRad = (sp.azDegFromNorth * Math.PI) / 180;
-          const sunENU = new Cesium.Cartesian3(
-            Math.cos(elevRad_) * Math.sin(azNRad),
-            Math.cos(elevRad_) * Math.cos(azNRad),
-            Math.sin(elevRad_)
+          const cosElev = Math.cos(elevRad_);
+          const sunENU = Cesium.Cartesian3.fromElements(
+            cosElev * Math.sin(azNRad),
+            cosElev * Math.cos(azNRad),
+            Math.sin(elevRad_),
+            _scratchSunENU || new Cesium.Cartesian3()
           );
-          const sDirHorizontal = new Cesium.Cartesian3(-sunENU.x, -sunENU.y, 0);
+          const sDirHorizontal = Cesium.Cartesian3.fromElements(
+            -sunENU.x,
+            -sunENU.y,
+            0,
+            _scratchSDirHoriz || new Cesium.Cartesian3()
+          );
           if (Cesium.Cartesian3.magnitudeSquared(sDirHorizontal) > 1e-6) {
             Cesium.Cartesian3.normalize(sDirHorizontal, sDirHorizontal);
           }
@@ -1685,60 +1877,50 @@
         const G_dhi = _dec.dhi;
         const G_dni = _dec.dni;
 
-        polylines.forEach(poly => {
-          const pInfo = poly.roofInfo || (typeof computeSinglePolylineRoofInfo === "function" ? computeSinglePolylineRoofInfo(poly.points, poly) : null);
-          if (!pInfo || !pInfo.panels) return;
-
-          const uVec = pInfo.uVec || new Cesium.Cartesian3(1, 0, 0);
-          const vVec = pInfo.vVec || new Cesium.Cartesian3(0, 1, 0);
-          const norm = pInfo.normal || new Cesium.Cartesian3(0, 0, 1);
-          const transform = pInfo.transform || Cesium.Transforms.eastNorthUpToFixedFrame(pInfo.center || new Cesium.Cartesian3(0,0,0));
+        for (let spIdx = 0; spIdx < staticPolys.length; spIdx++) {
+          const sPoly = staticPolys[spIdx];
+          const poly = sPoly.poly;
+          const pInfo = sPoly.pInfo;
+          const uVec = sPoly.uVec;
+          const vVec = sPoly.vVec;
+          const transform = sPoly.transform;
+          const effClearance = sPoly.effClearance;
+          const panelEntries = sPoly.panelEntries;
 
           const sU = Cesium.Cartesian3.dot(solarPos.sDirENU, uVec);
           const sV = Cesium.Cartesian3.dot(solarPos.sDirENU, vVec);
 
-          // Vector solar en coordenadas mundo (ECEF)
+          // Vector solar en coordenadas mundo (ECEF), reutilizando scratch
           let sunDirWorld = null;
           if (solarPos.sunVecENU && transform) {
+            const sunOut = _scratchSunDirWorld || new Cesium.Cartesian3();
             if (typeof Cesium.Matrix4.multiplyByPointAsVector === "function") {
-              sunDirWorld = Cesium.Matrix4.multiplyByPointAsVector(transform, solarPos.sunVecENU, new Cesium.Cartesian3());
+              sunDirWorld = Cesium.Matrix4.multiplyByPointAsVector(transform, solarPos.sunVecENU, sunOut);
             } else if (typeof Cesium.Matrix4.multiplyByPoint === "function") {
-              sunDirWorld = Cesium.Matrix4.multiplyByPoint(transform, solarPos.sunVecENU, new Cesium.Cartesian3());
+              sunDirWorld = Cesium.Matrix4.multiplyByPoint(transform, solarPos.sunVecENU, sunOut);
             }
             if (sunDirWorld) Cesium.Cartesian3.normalize(sunDirWorld, sunDirWorld);
           }
 
           // Polígonos 2D de sombra de obstáculos
-          const effClearance = (poly.estructura && typeof poly.estructura.clearance === 'number')
-            ? poly.estructura.clearance
-            : (poly.modStructure === 'pergola' ? 1.80 : 0);
-
-          const shadowCfg = (typeof window !== 'undefined' && window.raShadowSimConfig)
-            ? window.raShadowSimConfig
-            : { includeObstacles: true, includeBuildings: true, includeInterRow: true, shadowWeightPct: 100 };
-
           const polyShadowQuads2D = [];
-          const activeObstacles = getCombinedObstaclesAndTurbinesList();
-          if (shadowCfg.includeObstacles !== false && activeObstacles && activeObstacles.length > 0) {
-            activeObstacles.forEach(obs => {
+          if (includeObs && activeObstacles && activeObstacles.length > 0 && typeof getObstacleShadowPolygons2DForRoof === "function") {
+            for (let oi = 0; oi < activeObstacles.length; oi++) {
+              const obs = activeObstacles[oi];
               const obsH = typeof obs.h === 'number' ? obs.h : (obs.height || 0.5);
-              if (effClearance > 0 && obsH <= effClearance + 0.10) return;
-              if (typeof getObstacleShadowPolygons2DForRoof === "function") {
-                const quads = getObstacleShadowPolygons2DForRoof(obs, pInfo, sU, sV, solarPos.shadowLenPerM);
-                if (quads && quads.length > 0) polyShadowQuads2D.push(...quads);
-              }
-            });
+              if (effClearance > 0 && obsH <= effClearance + 0.10) continue;
+              const quads = getObstacleShadowPolygons2DForRoof(obs, pInfo, sU, sV, solarPos.shadowLenPerM);
+              if (quads && quads.length > 0) polyShadowQuads2D.push(...quads);
+            }
           }
-          if (shadowCfg.includeBuildings !== false && typeof buildings !== "undefined" && buildings && buildings.length > 0) {
-            buildings.forEach(bld => {
-              if (typeof getBuildingShadowPolygons2DForRoof === "function") {
-                const quads = getBuildingShadowPolygons2DForRoof(bld, pInfo, sU, sV, solarPos.shadowLenPerM, poly);
-                if (quads && quads.length > 0) polyShadowQuads2D.push(...quads);
-              }
-            });
+          if (hasBuildings && typeof getBuildingShadowPolygons2DForRoof === "function") {
+            for (let bi = 0; bi < buildings.length; bi++) {
+              const quads = getBuildingShadowPolygons2DForRoof(buildings[bi], pInfo, sU, sV, solarPos.shadowLenPerM, poly);
+              if (quads && quads.length > 0) polyShadowQuads2D.push(...quads);
+            }
           }
           // Sombra inter-filas entre paneles de la misma cubierta (Self-Shading)
-          const interRowQuads = (shadowCfg.includeInterRow !== false)
+          const interRowQuads = includeInterRow
             ? generateInterRowShadowQuads2D(pInfo, sU, sV, solarPos.shadowLenPerM)
             : [];
           if (interRowQuads.length > 0) {
@@ -1751,46 +1933,18 @@
             if (typeof precalcQuadAABB === 'function') precalcQuadAABB(q);
           }
 
-          pInfo.panels.forEach((pData, pIdx) => {
-            const mw = monthDaysW[mIdx] || 30;
-            if (!pData || pData.deleted || pData.disabled || pData.isGhost || !pData.heatmapSample) return;
-
-            // 1. Vector normal 3D del panel específico + paridad SVF / penumbra con Worker
-            const panelNormWorld = getPanelNormalWorld(pData, norm, transform);
-            const up = Cesium.Ellipsoid.WGS84.geodeticSurfaceNormal(pData.center || (pData.corners && pData.corners[0]), new Cesium.Cartesian3());
-            const cosSlope = Math.max(0, Math.min(1, Cesium.Cartesian3.dot(panelNormWorld, up)));
-            const tiltRad = Math.acos(cosSlope);
-
-            let diffuseOcclusion = 0.0;
-            let minObsDist = Infinity;
-            if (shadowCfg.includeObstacles !== false && activeObstacles && activeObstacles.length > 0 && typeof pData.u === 'number' && typeof pData.v === 'number') {
-              for (let oi = 0; oi < activeObstacles.length; oi++) {
-                const o = activeObstacles[oi];
-                const oPts = (typeof getObstaclePolygon2DForRoof === 'function') ? getObstaclePolygon2DForRoof(o, 0.0, pInfo) : null;
-                if (!oPts || oPts.length === 0) continue;
-                let cU = 0, cV = 0;
-                for (let k = 0; k < oPts.length; k++) { cU += oPts[k].u; cV += oPts[k].v; }
-                cU /= oPts.length; cV /= oPts.length;
-                const dObs = Math.hypot(pData.u - cU, pData.v - cV);
-                if (dObs < minObsDist) minObsDist = dObs;
-                const oH = typeof o.h === 'number' ? o.h : (o.height || 1.2);
-                if (dObs > 0.1 && dObs < 25.0) {
-                  diffuseOcclusion += (1 - Math.cos(Math.atan2(oH, dObs))) * 0.5;
-                }
-              }
-            }
-            const svfAmbient = Math.max(0.20, Math.min(1.0, 1.0 - diffuseOcclusion));
-            let penumbraAttenuation = 1.0;
-            if (minObsDist < Infinity && minObsDist > 0.5) {
-              const penumbraWidth = minObsDist * 0.00925;
-              if (penumbraWidth > 0.08) penumbraAttenuation = Math.max(0.85, 1.0 - (penumbraWidth / 2.0));
-            }
+          for (let peIdx = 0; peIdx < panelEntries.length; peIdx++) {
+            const pStatic = panelEntries[peIdx];
+            const pData = pStatic.pData;
+            const panelNormWorld = pStatic.panelNormWorld;
+            const tiltRad = pStatic.tiltRad;
+            const svfAmbient = pStatic.svfAmbient;
+            const penumbraAttenuation = pStatic.penumbraAttenuation;
 
             // 2. Ángulo de incidencia panel-sol
             const cosIncidence = sunDirWorld ? Cesium.Cartesian3.dot(sunDirWorld, panelNormWorld) : 0;
 
             // 3. Transposición física POA (W/m²) por módulo — motor único RA.Radiation (Perez 1990 anisotrópico)
-            const moduleB0 = (activeModule && (activeModule.iamB0 || activeModule.b0)) || 0.05;
             const _tp = _radM
               ? _radM.transposeComponents({
                   ghi: GHI_instant, dhi: G_dhi, dni: G_dni,
@@ -1805,14 +1959,7 @@
             const G_albedo = (_tp.G_r_eff !== undefined) ? _tp.G_r_eff : (_tp.G_r * _tp.iamBlend);
 
             // Bifacialidad: factor de vista hacia cubierta/suelo con función coseno² escalada por altura libre
-            const isRaised = !(pInfo && pInfo.coplanar) || (effClearance >= 0.25);
-            const clearanceFactor = isRaised
-              ? (effClearance >= 0.8 ? 0.72 : (effClearance >= 0.25 ? 0.55 : 0.35))
-              : 0;
-            const rearViewFactor = isRaised
-              ? Math.max(0.06, Math.min(0.85, clearanceFactor * Math.pow(Math.cos(tiltRad / 2), 2)))
-              : 0.04;
-            const albedoGain = isBifacial ? (GHI_instant * 0.20 * rearViewFactor * bifacialityFactor) : 0;
+            const albedoGain = isBifacial ? (GHI_instant * 0.20 * pStatic.rearViewFactor * bifacialityFactor) : 0;
 
             // Derating térmico físico continuo según radiación incidente sobre el módulo y temperatura ambiente (NOCT/IEC 61215)
             const G_poa_total = G_beam + G_diffuse + G_albedo;
@@ -1827,104 +1974,79 @@
             // 4. Sombreado 2D (obstáculos) y 3D (Google 3D Tiles) con modelo de 3 sub-strings y diodos de bypass
             let isShaded = false;
             let shadedSubstringsCount = 0;
-            if (polyShadowQuads2D.length > 0) {
-              let panelPoly2D = null;
-              if (Array.isArray(pData.corners) && pData.corners.length === 4 && pInfo && pInfo.invTransform && pInfo.uVec && pInfo.vVec) {
-                panelPoly2D = pData.corners.map(c => {
-                  const loc = Cesium.Matrix4.multiplyByPoint(pInfo.invTransform, c, new Cesium.Cartesian3());
-                  return {
-                    u: Cesium.Cartesian3.dot(loc, pInfo.uVec),
-                    v: Cesium.Cartesian3.dot(loc, pInfo.vVec)
-                  };
-                });
-              } else if (typeof pData.u === 'number' && typeof pData.v === 'number') {
-                const halfW = (pData.w || 1.05) / 2;
-                const halfH = (pData.h || 2.10) / 2;
-                panelPoly2D = [
-                  { u: pData.u - halfW, v: pData.v - halfH },
-                  { u: pData.u + halfW, v: pData.v - halfH },
-                  { u: pData.u + halfW, v: pData.v + halfH },
-                  { u: pData.u - halfW, v: pData.v + halfH }
-                ];
-              }
+            if (polyShadowQuads2D.length > 0 && pStatic.substrings2D) {
+              const uMin = pStatic.uMin;
+              const uMax = pStatic.uMax;
+              const vMin = pStatic.vMin;
+              const vMax = pStatic.vMax;
+              const subStrings = pStatic.substrings2D;
+              const subShaded = pStatic.subShaded;
+              const subCount = subShaded.length;
+              for (let si = 0; si < subCount; si++) subShaded[si] = false;
 
-              if (panelPoly2D && panelPoly2D.length >= 3) {
-                let uMin = Infinity, uMax = -Infinity, vMin = Infinity, vMax = -Infinity;
-                for (let pi = 0; pi < panelPoly2D.length; pi++) {
-                  const ppt = panelPoly2D[pi];
-                  if (ppt.u < uMin) uMin = ppt.u;
-                  if (ppt.u > uMax) uMax = ppt.u;
-                  if (ppt.v < vMin) vMin = ppt.v;
-                  if (ppt.v > vMax) vMax = ppt.v;
+              for (let qi = 0; qi < polyShadowQuads2D.length; qi++) {
+                const quad = polyShadowQuads2D[qi];
+                if (!quad || quad.length === 0) continue;
+
+                // DESCARTE DE AUTO-SOMBREADO INTER-FILAS:
+                if (quad.sourcePanelIdx !== undefined) {
+                  if (quad.sourcePanelIdx === pStatic.curIdx) continue; // Un panel jamás se hace sombra a sí mismo
+
+                  if (typeof quad.gridA === 'number' && typeof pStatic.pGridA === 'number') {
+                    if (Math.abs(quad.gridA - pStatic.pGridA) < (pData.h || 2.10) * 0.40) continue;
+                  } else if (pData.frame && typeof pData.frame.Lu === 'number') {
+                    const qRowProj = quad.sourceU * pData.frame.Lu + quad.sourceV * pData.frame.Lv;
+                    const pRowProj = pData.u * pData.frame.Lu + pData.v * pData.frame.Lv;
+                    if (Math.abs(qRowProj - pRowProj) < (pData.h || 2.10) * 0.40) continue;
+                  } else if (quad.frame && typeof quad.frame.Lu === 'number') {
+                    const qRowProj = quad.sourceU * quad.frame.Lu + quad.sourceV * quad.frame.Lv;
+                    const pRowProj = pData.u * quad.frame.Lu + pData.v * quad.frame.Lv;
+                    if (Math.abs(qRowProj - pRowProj) < (pData.h || 2.10) * 0.40) continue;
+                  } else {
+                    if (Math.abs(quad.sourceV - pData.v) < (pData.h || 2.10) * 0.40) continue;
+                    if (Math.abs(quad.sourceU - pData.u) < (pData.w || 1.05) * 0.40) continue;
+                  }
                 }
 
-                // Área celular activa (descontando ~4.5 cm del marco de aluminio inactivo) para paridad exacta con el Worker
-                const activeCellPoly = shrinkPolyInward(panelPoly2D, 0.045);
-                // Discretización física en 3 sub-cadenas (diodos de bypass IEC 61215)
-                const subStrings = (detailedBypass && activeCellPoly.length === 4)
-                  ? dividePanelIntoSubstrings2D(activeCellPoly)
-                  : [activeCellPoly];
-                const subShaded = new Array(subStrings.length).fill(false);
+                // AABB Broadphase check usando AABB precalculada una vez por hora
+                if (uMax < quad.uMin || uMin > quad.uMax || vMax < quad.vMin || vMin > quad.vMax) {
+                  continue; // Sin solapamiento en bounding box
+                }
 
-                for (const quad of polyShadowQuads2D) {
-                  if (!quad || quad.length === 0) continue;
-
-                  // DESCARTE DE AUTO-SOMBREADO INTER-FILAS:
-                  if (quad.sourcePanelIdx !== undefined) {
-                    const curIdx = (pData.layoutIndex !== undefined) ? pData.layoutIndex : pIdx;
-                    if (quad.sourcePanelIdx === curIdx) continue; // Un panel jamás se hace sombra a sí mismo
-
-                    const pGridA = (typeof pData.gridA === 'number') ? pData.gridA : ((pData.frame && typeof pData.frame.Lu === 'number') ? (pData.u * pData.frame.Lu + pData.v * pData.frame.Lv) : null);
-                    if (typeof quad.gridA === 'number' && typeof pGridA === 'number') {
-                      if (Math.abs(quad.gridA - pGridA) < (pData.h || 2.10) * 0.40) continue;
-                    } else if (pData.frame && typeof pData.frame.Lu === 'number') {
-                      const qRowProj = quad.sourceU * pData.frame.Lu + quad.sourceV * pData.frame.Lv;
-                      const pRowProj = pData.u * pData.frame.Lu + pData.v * pData.frame.Lv;
-                      if (Math.abs(qRowProj - pRowProj) < (pData.h || 2.10) * 0.40) continue;
-                    } else if (quad.frame && typeof quad.frame.Lu === 'number') {
-                      const qRowProj = quad.sourceU * quad.frame.Lu + quad.sourceV * quad.frame.Lv;
-                      const pRowProj = pData.u * quad.frame.Lu + pData.v * quad.frame.Lv;
-                      if (Math.abs(qRowProj - pRowProj) < (pData.h || 2.10) * 0.40) continue;
-                    } else {
-                      if (Math.abs(quad.sourceV - pData.v) < (pData.h || 2.10) * 0.40) continue;
-                      if (Math.abs(quad.sourceU - pData.u) < (pData.w || 1.05) * 0.40) continue;
-                    }
-                  }
-
-                  // AABB Broadphase check usando AABB precalculada una vez por hora
-                  if (uMax < quad.uMin || uMin > quad.uMax || vMax < quad.vMin || vMin > quad.vMax) {
-                    continue; // Sin solapamiento en bounding box
-                  }
-
-                  if (typeof polygonsIntersect2D === "function") {
-                    for (let sIdx = 0; sIdx < subStrings.length; sIdx++) {
-                      if (!subShaded[sIdx] && polygonsIntersect2D(subStrings[sIdx], quad)) {
+                if (typeof polygonsIntersect2D === "function") {
+                  let allShaded = true;
+                  for (let sIdx = 0; sIdx < subCount; sIdx++) {
+                    if (!subShaded[sIdx]) {
+                      if (polygonsIntersect2D(subStrings[sIdx], quad)) {
                         subShaded[sIdx] = true;
+                      } else {
+                        allShaded = false;
                       }
                     }
-                    if (subShaded.every(s => s)) break;
                   }
+                  if (allShaded) break;
                 }
+              }
 
-                shadedSubstringsCount = (!detailedBypass && subShaded.some(Boolean))
-                  ? 3
-                  : subShaded.filter(Boolean).length;
-                if (shadedSubstringsCount > 0) {
-                  isShaded = true;
-                }
+              let cnt = 0;
+              for (let sIdx = 0; sIdx < subCount; sIdx++) {
+                if (subShaded[sIdx]) cnt++;
+              }
+              shadedSubstringsCount = (!detailedBypass && cnt > 0) ? 3 : cnt;
+              if (shadedSubstringsCount > 0) {
+                isShaded = true;
               }
             }
 
             // Raycast sincrono eliminado en hilo principal para evitar congelacion de la app
 
             // Fracción física de pérdida de haz según sub-strings bajo sombra (ajustada por peso manual del usuario)
-            const shadowWeightFactor = Math.max(0, Math.min(1, ((typeof shadowCfg.shadowWeightPct === 'number') ? shadowCfg.shadowWeightPct : 100) / 100.0));
             const beamShadedFraction = ((shadedSubstringsCount > 0)
               ? (shadedSubstringsCount / 3.0)
               : (isShaded ? 1.0 : 0.0)) * shadowWeightFactor;
 
             // Topología eléctrica unificada con solar-worker.js (half-cut suavizado):
-            const hasOpt = !!(pData.hasOptimizer || pData.optimizerModelId);
+            const hasOpt = pStatic.hasOpt;
             let effectiveLossFraction = beamShadedFraction;
             if (!hasOpt && shadedSubstringsCount > 0) {
               const mismatchBonus = (shadedSubstringsCount === 1) ? 0.10 : (shadedSubstringsCount === 2 ? 0.14 : 0.0);
@@ -1947,12 +2069,9 @@
 
             // [B6] Energía neta real del mes calendario (escalada por kWp individual del módulo).
             const effectiveLossW = (isShaded && instantLossW > 0) ? instantLossW : 0;
-            const _fallbackWp = (activeModule && activeModule.wp) || 450;
-            const _polyWp = (typeof wpGetPolyWp === 'function') ? wpGetPolyWp(poly) : _fallbackWp;
-            const _pKwpIndiv = ((typeof pData.wp === 'number' && pData.wp > 0) ? pData.wp : _polyWp) / 1000.0;
-            _monthlyNetWh[m] += (instantPotentialW - effectiveLossW) * mw * hourStepDt * _pKwpIndiv;
-          });
-        });
+            _monthlyNetWh[m] += (instantPotentialW - effectiveLossW) * mw * hourStepDt * pStatic.pKwpIndiv;
+          }
+        }
 
         // ⏱️ TIME-SLICING: Ceder control al navegador si se supera el presupuesto de 15ms
         if (performance.now() - frameStartTime > 15) {

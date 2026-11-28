@@ -246,12 +246,17 @@ function pickObstacleUnderCursor(screenPos, skipGpuPick) {
     }
     if (typeof scene.drillPick === 'function') {
       const drilled = scene.drillPick(screenPos, 15);
-      if (Array.isArray(drilled)) {
+      if (Array.isArray(drilled) && drilled.length > 0) {
+        const obsById = new Map();
+        for (let oi = 0; oi < obsList.length; oi++) {
+          const o = obsList[oi];
+          if (o && o.id !== undefined) obsById.set(o.id, o);
+        }
         for (let j = 0; j < drilled.length; j++) {
           const it = drilled[j];
           if (!it) continue;
           if (it.primitive && it.primitive._obsId) {
-            const foundPrim = obsList.find(o => o.id === it.primitive._obsId);
+            const foundPrim = obsById.get(it.primitive._obsId);
             if (foundPrim && foundPrim.visible !== false) return foundPrim;
           }
           if (it.id) {
@@ -259,7 +264,8 @@ function pickObstacleUnderCursor(screenPos, skipGpuPick) {
             if (entId.startsWith('obs_box_') || entId.startsWith('obs_box_prim_') || entId.startsWith('obs_buffer_prim_') || entId.startsWith('obs_entity_') ||
                 entId.startsWith('obs_tree_trunk_prim_') || entId.startsWith('obs_tree_canopy_prim_') ||
                 entId.startsWith('obs_label_')) {
-              const found = obsList.find(o => entId === o.id || entId.endsWith('_' + o.id));
+              const strippedId = entId.replace(/^(obs_tree_trunk_prim_|obs_tree_canopy_prim_|obs_box_prim_|obs_buffer_prim_|obs_entity_|obs_label_|obs_box_)/, '');
+              const found = obsById.get(strippedId) || obsList.find(o => entId === o.id || entId.endsWith('_' + o.id));
               if (found && found.visible !== false) return found;
             }
           }
