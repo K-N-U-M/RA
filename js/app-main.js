@@ -1099,12 +1099,12 @@ if (globe) {
 }
 scene.backgroundColor = Cesium.Color.fromCssColorString('#0284c7');
 
-// Vista inicial cinematográfica: espera a que la fotogrametría esté definida antes de iniciar el descenso
+// Vista inicial cinematográfica: arranque desde el espacio viendo el planeta Tierra y descenso hasta la cubierta
 camera.setView({
-  destination : Cesium.Cartesian3.fromDegrees(2.1722, 41.3838, 340),
+  destination : Cesium.Cartesian3.fromDegrees(2.1734, 38.0, 14500000),
   orientation : {
-    heading: Cesium.Math.toRadians(12),
-    pitch  : Cesium.Math.toRadians(-22),
+    heading: Cesium.Math.toRadians(0),
+    pitch  : Cesium.Math.toRadians(-90),
     roll   : 0
   },
 });
@@ -1121,14 +1121,14 @@ camera.setView({
           pitch  : Cesium.Math.toRadians(-35),
           roll   : 0
         },
-        duration: 2.4,
+        duration: 4.0,
         easingFunction: (typeof Cesium !== 'undefined' && Cesium.EasingFunction) ? Cesium.EasingFunction.CUBIC_IN_OUT : undefined
       });
     }
   };
   setTimeout(function () {
     if (typeof window._raStartDroneFlyIn === 'function') window._raStartDroneFlyIn();
-  }, 10000);
+  }, 1500);
 })();
 
 // ── Variables de Capas y Primitivas ────────────────────────────────────────
