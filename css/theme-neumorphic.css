@@ -796,7 +796,7 @@ body :is(
   [style*="8, 14, 26"], [style*="8,14,26"],
   [style*="rgba(0, 0, 0, 0."], [style*="rgba(0,0,0,0."],
   [style*="rgba(2, 132, 199"], [style*="rgba(2,132,199"]
-):not(#cesiumContainer):not(#cesiumContainer *):not(.cesium-viewer):not(.cesium-viewer *):not(canvas):not(.obs-color-swatch):not(button.primary):not(.btn-primary):not(#ra-cred-save):not(#ra-bm-stress-btn):not([style*="e84a27"]):not([style*="linear-gradient"]) {
+):not(#cesiumContainer):not(#cesiumContainer *):not(.cesium-viewer):not(.cesium-viewer *):not(canvas):not(.obs-color-swatch):not(button.primary):not(.btn-primary):not(#ra-cred-save):not(#ra-bm-stress-btn):not([id$="-modal"]):not([role="dialog"]):not([style*="e84a27"]):not([style*="linear-gradient"]) {
   background: var(--nm-surface-elevated) !important;
   background-color: var(--nm-surface-elevated) !important;
   background-image: none !important;
