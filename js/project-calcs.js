@@ -286,20 +286,41 @@ function getProjectCalcs() {
   const _commCfg = (typeof window !== 'undefined' && window.RAPricing && typeof window.RAPricing.getCommercialConfig === 'function')
     ? window.RAPricing.getCommercialConfig()
     : ((typeof window !== 'undefined' && window.commercialConfig) ? window.commercialConfig : {});
-  const _addonsTotal = Array.isArray(_commCfg.addons)
-    ? _commCfg.addons.reduce((acc, a) => acc + ((Number(a && a.price) || 0) * (Number(a && a.qty) || 1)), 0)
-    : 0;
-  const _directCost = Math.round(pres_pan + pres_est + pres_inv + pres_bat + pres_cab + pres_mo + pres_leg + pres_wind + _addonsTotal);
+  const _allAddons = (Array.isArray(_commCfg.addons) ? _commCfg.addons : []).concat(
+    Array.isArray(_commCfg.customAddons) ? _commCfg.customAddons : []
+  );
+  const _addonsTotal = _allAddons.reduce((acc, a) => {
+    if (!a || a.enabled === false) return acc;
+    const _unitP = Number(a.unitPrice ?? a.price ?? 0) || 0;
+    const _qty = Number(a.qty) || 1;
+    return acc + (_unitP * _qty);
+  }, 0);
+  const _directCost = Math.round(pres_pan + pres_est + pres_inv + pres_bat + pres_cab + pres_mo + pres_leg + pres_wind);
   const _marginPct = (_effPricing && typeof _effPricing.marginPct === 'number') ? _effPricing.marginPct : 20;
-  const _subtotalPreDiscount = _directCost * (1 + (_marginPct / 100.0));
+  const _subtotalPreDiscount = (_directCost * (1 + (_marginPct / 100.0))) + _addonsTotal;
   let _discountEur = 0;
-  if (_commCfg && _commCfg.discountValue) {
+  if (_commCfg && _commCfg.discountEnabled === true && _commCfg.discountValue) {
     _discountEur = (_commCfg.discountType === 'percent')
       ? _subtotalPreDiscount * (Math.max(0, Number(_commCfg.discountValue) || 0) / 100.0)
       : Math.max(0, Number(_commCfg.discountValue) || 0);
   }
   const subtotal = Math.max(100, Math.round(_subtotalPreDiscount - _discountEur));
-  const _ivaRate = (typeof _commCfg.ivaRate === 'number') ? _commCfg.ivaRate : ((_effPricing && typeof _effPricing.ivaRate === 'number') ? _effPricing.ivaRate : 0.21);
+  const _ivaFromCfg = (_commCfg && _commCfg.taxShield && typeof _commCfg.taxShield.ivaRate === 'number')
+    ? _commCfg.taxShield.ivaRate
+    : ((_commCfg && typeof _commCfg.ivaRate === 'number') ? _commCfg.ivaRate : undefined);
+  let _ivaFromDom;
+  if (_ivaFromCfg === undefined && typeof document !== 'undefined') {
+    const _ivaEl = document.getElementById('tax-iva-opt') || document.getElementById('modal-tax-iva-opt');
+    if (_ivaEl && _ivaEl.value !== undefined && _ivaEl.value !== '') {
+      const _parsedIva = parseFloat(_ivaEl.value);
+      if (Number.isFinite(_parsedIva)) _ivaFromDom = _parsedIva;
+    }
+  }
+  const _ivaRate = (_ivaFromCfg !== undefined)
+    ? _ivaFromCfg
+    : ((_ivaFromDom !== undefined)
+      ? _ivaFromDom
+      : ((_effPricing && typeof _effPricing.ivaRate === 'number') ? _effPricing.ivaRate : 0.21));
   const iva = Math.round(subtotal * _ivaRate);
   const total_pres = subtotal + iva;
   let _cachedFin = (typeof window !== 'undefined' && window._lastFinModel && window._lastFinModel.numPanels === numPanels) ? window._lastFinModel : null;
@@ -347,6 +368,8 @@ function getProjectCalcs() {
     vDcMax: _invObjItem.vDcMax || _invObjItem.vMax || _invObjItem.vMaxDc || eng.V_max_inv || 1000,
     vMpptMin: _invObjItem.vMpptMin || eng.V_mppt_min || 160,
     vMpptMax: _invObjItem.vMpptMax || eng.V_mppt_max || 850,
+    iMaxScA: _invObjItem.iMaxScA ?? _invObjItem.maxShortCircuitCurrent ?? undefined,
+    iMaxOperA: _invObjItem.iMaxOperA ?? _invObjItem.maxCurrentPerMppt ?? undefined,
     efficiency: _invObjItem.efficiency || 98.4,
     phases: (typeof _invObjItem.phases === 'number') ? _invObjItem.phases : (eng.monofasico ? 1 : 3),
     topology: _scCfg ? (_scCfg.selectedTopology || 'inverter') : 'inverter'

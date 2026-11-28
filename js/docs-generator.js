@@ -1204,7 +1204,7 @@ function generateMemoria(skipPricingModal, opt) {
       var vmpHotVal = d.Vmp_str_hot || (d.modsActual * d.Vmp * 0.88);
       var vmpOk = vmpHotVal >= vmpMinLimit;
 
-      var iscLimit = (d.inverter && (d.inverter.iMaxMppt || d.inverter.maxInputCurrent)) ? (d.inverter.iMaxMppt || d.inverter.maxInputCurrent) : 15.0;
+      var iscLimit = (d.inverter && (d.inverter.iMaxScA || d.inverter.iMaxMppt || d.inverter.maxInputCurrent)) ? (d.inverter.iMaxScA || d.inverter.iMaxMppt || d.inverter.maxInputCurrent) : 15.0;
       var iscOk = d.Isc <= iscLimit;
 
       var wTot = 12.5;
@@ -1476,12 +1476,19 @@ function generatePresupuesto(skipPricingModal, opt) {
   const cabCostReal = (m && m.cabCost > 0) ? m.cabCost : (d.pres_cab || 350.0);
   const moCostReal  = (m && m.moCost > 0)  ? m.moCost  : (d.pres_mo  || 1400.0);
   const legCostReal = (m && m.legCost > 0) ? m.legCost : (d.pres_leg || 350.0);
+  const hasBomCableSplit = !!(m && typeof m.cablesOnlyCost === 'number' && typeof m.protOnlyCost === 'number' && (m.cablesOnlyCost + m.protOnlyCost) > 0);
+  const bomSplitSum = hasBomCableSplit ? (m.cablesOnlyCost + m.protOnlyCost) : 0;
+  const cablesOnlyPu = hasBomCableSplit
+    ? (Math.abs(bomSplitSum - cabCostReal) < 1 ? m.cablesOnlyCost : Math.round(cabCostReal * (m.cablesOnlyCost / bomSplitSum)))
+    : (cabCostReal * 0.40);
+  const protOnlyPu = hasBomCableSplit ? (cabCostReal - cablesOnlyPu) : (cabCostReal * 0.60);
+  const rcdLabelDoc = (d.rcdType === 'Clase B') ? 'Clase B' : 'Clase A superinmunizado';
 
   caps.push(
     { titulo: numCap(4) + ' — CABLEADO, CANALIZACIONES Y PROTECCIONES (REBT ITC-BT-40)',
       items: [
-        { ref:'4.1', desc:'Líneas solares DC tipo ZZ-F 1.500 V CC de ' + sDcReal + ' mm² (' + origenDc + ': ' + totalMetrosDC + ' m acumulados) y evacuación RV-K 0,6/1 kV (' + origenAc + ': ' + totalMetrosAC + ' m). Incluso conectores MC4 y canalizaciones.', ud:'partida', q: 1, pu: cabCostReal * 0.40 },
-        { ref:'4.2', desc:'Cuadros de protección normalizados DC (SPD Clase II + seccionador) y AC (IGA ' + d.I_iga + ' A + diferencial clase A superinmunizado + sobretensiones permanentes/transitorias) y puesta a tierra.', ud:'partida', q: 1, pu: cabCostReal * 0.60 }
+        { ref:'4.1', desc:'Líneas solares DC tipo ZZ-F 1.500 V CC de ' + sDcReal + ' mm² (' + origenDc + ': ' + totalMetrosDC + ' m acumulados) y evacuación RV-K 0,6/1 kV (' + origenAc + ': ' + totalMetrosAC + ' m). Incluso conectores MC4 y canalizaciones.', ud:'partida', q: 1, pu: cablesOnlyPu },
+        { ref:'4.2', desc:'Cuadros de protección normalizados DC (SPD Clase II + seccionador) y AC (IGA ' + d.I_iga + ' A + diferencial ' + rcdLabelDoc + ' + sobretensiones permanentes/transitorias) y puesta a tierra.', ud:'partida', q: 1, pu: protOnlyPu }
       ]
     },
     { titulo: numCap(5) + ' — MANO DE OBRA ESPECIALIZADA, MONTAJE Y CERTIFICACIÓN',

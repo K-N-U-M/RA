@@ -160,7 +160,18 @@
     var rawAlpha = (typeof spec.tempCoeffIsc === 'number') ? spec.tempCoeffIsc : 0.045;
     var alphaIsc = Math.abs(rawAlpha) < 0.005 ? rawAlpha : (rawAlpha / 100.0) * isc; // A/K
     var rawBeta = (typeof spec.tempCoeffVoc === 'number') ? spec.tempCoeffVoc : -0.26;
-    var betaVoc = Math.abs(rawBeta) > 0.02 ? (rawBeta / 100.0) * voc : rawBeta; // V/K
+    var betaVoc;
+    if (spec.tempCoeffVocUnit === '%/C' || spec.tempCoeffVocUnit === '%/°C' || spec.tempCoeffVocUnit === '%/K') {
+      betaVoc = (rawBeta / 100.0) * voc;
+    } else if (spec.tempCoeffVocUnit === 'V/K' || spec.tempCoeffVocUnit === 'V/C') {
+      betaVoc = rawBeta;
+    } else if (Math.abs(rawBeta) <= 0.02) {
+      betaVoc = rawBeta * voc; // 1/K -> V/K
+    } else if (Math.abs(rawBeta) > 0.18) {
+      betaVoc = (rawBeta / 100.0) * voc; // %/°C -> V/K
+    } else {
+      betaVoc = rawBeta; // V/K directo
+    }
     var rawGamma = (typeof spec.tempCoeffPmax === 'number') ? spec.tempCoeffPmax : -0.32;
     var gammaPmp = Math.abs(rawGamma) > 0.02 ? (rawGamma / 100.0) : rawGamma; // 1/K
 

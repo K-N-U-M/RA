@@ -2442,9 +2442,15 @@
       var modCfg = global.panelConfig || { potencia: 450, isc: 13.8, imp: 13.05, vmp: 34.5, voc: 41.5 };
       var vmpNom = modCfg.vmp || 34.5;
       var vocNom = modCfg.voc || (vmpNom * 1.20);
-      var invCfgForLimits = (global.solarProjectConfig && global.solarProjectConfig.calculatedLimits && global.solarProjectConfig.calculatedLimits.inverter)
+      var invRawForLimits = (global.solarProjectConfig && global.solarProjectConfig.calculatedLimits && global.solarProjectConfig.calculatedLimits.inverter)
         ? global.solarProjectConfig.calculatedLimits.inverter
-        : { vMaxAbs: 1000, vMpptMin: 200, vMpptMax: 850, vStart: 200 };
+        : null;
+      var invCfgForLimits = invRawForLimits
+        ? Object.assign({}, invRawForLimits, {
+            vMaxAbs: invRawForLimits.vMaxAbs || invRawForLimits.vDcMax || invRawForLimits.Vmax || invRawForLimits.vMax || 1000,
+            vDcMax: invRawForLimits.vDcMax || invRawForLimits.vMaxAbs || invRawForLimits.Vmax || invRawForLimits.vMax || 1000
+          })
+        : { vMaxAbs: 1000, vDcMax: 1000, vMpptMin: 200, vMpptMax: 850, vStart: 200 };
       var climColdC = (global.solarProjectConfig && typeof global.solarProjectConfig.tempMinC === 'number')
         ? global.solarProjectConfig.tempMinC : undefined;
       var climHotC = (global.solarProjectConfig && typeof global.solarProjectConfig.tempMaxCellC === 'number')
@@ -2834,7 +2840,12 @@
               statRebtBadge0.textContent = '⚠️ ΔV > 1.5% NO CONFORME (DC ' + dVdcPctOpt.toFixed(1) + '% / AC ' + dVacPctOpt.toFixed(1) + '%)';
               statRebtBadge0.style.color = '#EF4444';
               statRebtBadge0.style.background = 'rgba(239,68,68,0.15)';
-              statRebtBadge0.style.borderColor = 'rgba(239,68,68,0.4)';
+              statRebtBadge0.style.borderColor = 'rgba(239,68,68,0.35)';
+            } else if (sState.globalNonCompliantWarning) {
+              statRebtBadge0.textContent = '⚠️ ΔV TOTAL ' + sState.dV_total_pct.toFixed(1) + '% > 2.5% (criterio de proyecto DC+AC)';
+              statRebtBadge0.style.color = '#F59E0B';
+              statRebtBadge0.style.background = 'rgba(245,158,11,0.15)';
+              statRebtBadge0.style.borderColor = 'rgba(245,158,11,0.35)';
             } else {
               statRebtBadge0.textContent = '✓ REBT ITC-BT-40 CONFORME (DC ' + dVdcPctOpt.toFixed(1) + '% + AC ' + dVacPctOpt.toFixed(1) + '% = ' + sState.dV_total_pct.toFixed(1) + '%)';
               statRebtBadge0.style.color = '#10B981';
@@ -2842,6 +2853,18 @@
               statRebtBadge0.style.borderColor = 'rgba(16,185,129,0.3)';
             }
           }
+
+          if (!global.solarLossConfig) global.solarLossConfig = {};
+          global.solarLossConfig.wiringCalculated = (dVdcPctOpt + dVacPctOpt) / 100.0;
+          if (!global.solarLossConfig.userCustomizedWiring && typeof global.solarLossConfig.wiring === 'undefined') {
+            global.solarLossConfig.wiring = global.solarLossConfig.wiringCalculated;
+          }
+
+          if (typeof global.wpUpdateStep4Checklist === 'function') global.wpUpdateStep4Checklist();
+          if (typeof global.recalculateSolarYield === 'function') global.recalculateSolarYield();
+          if (global.BOMTreeEngine && typeof global.BOMTreeEngine.refresh === 'function') global.BOMTreeEngine.refresh();
+          if (global.ProjectHierarchy && typeof global.ProjectHierarchy.notify === 'function') global.ProjectHierarchy.notify('electrical_updated');
+          return;
         }
       }
 
@@ -2854,7 +2877,8 @@
       } else if (projCfg.calculatedLimits && projCfg.calculatedLimits.nMinString) {
         minModPerStr = projCfg.calculatedLimits.nMinString;
       }
-      var gammaPmp = -Math.abs(modCfg.tempCoeffPmax || modCfg.gammaPmp || modCfg.gammaVoc || -0.0035);
+      var rawGamma = modCfg.tempCoeffPmax ?? modCfg.gammaPmp ?? modCfg.gammaVoc ?? -0.0035;
+      var gammaPmp = -Math.abs(Math.abs(rawGamma) > 0.05 ? rawGamma / 100.0 : rawGamma);
       var vmpHot = (modCfg.vmp || 34.5) * (1 + gammaPmp * (70 - 25));
       var vmpStr = Math.max(12.0, vmpHot * Math.max(1, minModPerStr));
 

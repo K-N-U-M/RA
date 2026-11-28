@@ -458,7 +458,6 @@ window.RA_App = window.RA_App || {};
         <input class="sb-search-input" id="ra-search-input" type="text" placeholder="Dirección, Catastro, coordenadas o link Maps... [/]" autocomplete="off" spellcheck="false">
         <button type="button" class="sb-search-action-btn" id="ra-search-clear-btn" onclick="clearSearchInput()" title="Limpiar búsqueda" style="display:none;" aria-label="Limpiar">✕</button>
         <button type="button" class="sb-search-action-btn" id="ra-search-gps-btn" onclick="locateUserPosition()" title="Ir a mi ubicación actual (GPS)" aria-label="Mi ubicación"><i data-lucide="crosshair" class="icon-sm" style="margin:0;"></i></button>
-        <button id="ra-search-btn" style="display:none;" aria-label="Buscar ubicación"></button>
       </div>
       <div id="ra-results"></div>
     </div>
@@ -3792,7 +3791,7 @@ window.RA_App = window.RA_App || {};
         <div class="doc-field"><label for="doc-prov">Provincia</label><input aria-label="Provincia" id="doc-prov" type="text" placeholder="Provincia" value="Madrid"></div>
         <div class="doc-field"><label for="doc-cp">Código Postal</label><input aria-label="Código Postal" id="doc-cp" type="text" placeholder="00000" value="28001"></div>
         <div class="doc-field"><label for="doc-cups">CUPS (Punto de Suministro)</label><input aria-label="CUPS (Punto de Suministro)" id="doc-cups" type="text" placeholder="ES0021..." value="ES002100001234567890AB"></div>
-        <div class="doc-field"><label for="doc-potcontr">Potencia Contratada (kW)</label><input aria-label="Potencia Contratada (kW)" id="doc-potcontr" type="number" value="10.0" step="0.25" min="0.5"></div>
+        <div class="doc-field"><label for="doc-potcontr">Potencia Contratada (kW)</label><input aria-label="Potencia Contratada (kW)" id="doc-potcontr" type="number" value="5.75" step="0.25" min="0.5"></div>
         <div class="doc-field"><label for="doc-dist">Distribuidora Eléctrica</label>
           <select aria-label="Distribuidora Eléctrica" id="doc-dist">
             <option>e-distribución (Endesa)</option>

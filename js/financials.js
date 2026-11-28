@@ -7555,7 +7555,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
     const mDirectKwh = Math.round(monthDirect * daysInMonth);
     const mBatKwh = Math.round(monthBattery * daysInMonth);
     const mAutoTotalKwh = Math.min(mGenKwh, Math.max(0, mDirectKwh + mBatKwh));
-    const mSurplusKwh = Math.max(0, mGenKwh - mAutoTotalKwh);
+    const mSurplusKwh = Math.max(0, Math.round(monthSurplus * daysInMonth));
     const mConsKwh = Math.round(loadMonthKwh);
     const mGridBuyKwh = Math.round(monthGridBuy * daysInMonth);
 

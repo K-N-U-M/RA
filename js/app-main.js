@@ -7304,11 +7304,36 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
         obstacles.forEach(obs => {
           const obsPoly = getObstaclePolygon2DForRoof(obs, curObsSb, roofCtx);
           if (obsPoly && obsPoly.length >= 3) {
+            let obsMinU = Infinity, obsMaxU = -Infinity, obsMinV = Infinity, obsMaxV = -Infinity;
+            for (let oi = 0; oi < obsPoly.length; oi++) {
+              const oc = obsPoly[oi];
+              if (oc.u < obsMinU) obsMinU = oc.u;
+              if (oc.u > obsMaxU) obsMaxU = oc.u;
+              if (oc.v < obsMinV) obsMinV = oc.v;
+              if (oc.v > obsMaxV) obsMaxV = oc.v;
+            }
             pInfo.panels = pInfo.panels.filter(p => {
+              const hasUV = (typeof p.u === 'number' && typeof p.v === 'number') || (p.center2D && typeof p.center2D.u === 'number' && typeof p.center2D.v === 'number');
               const pu = (typeof p.u === 'number') ? p.u : (p.center2D ? p.center2D.u : 0);
               const pv = (typeof p.v === 'number') ? p.v : (p.center2D ? p.center2D.v : 0);
               const hw = ((p.w || 1.13) / 2);
               const hl = ((p.h || 2.27) / 2);
+
+              // Broadphase AABB en (U, V) antes de proyectar corners 3D o ejecutar pruebas poligonales
+              if (p.corners2D && Array.isArray(p.corners2D) && p.corners2D.length >= 3) {
+                let pMinU = Infinity, pMaxU = -Infinity, pMinV = Infinity, pMaxV = -Infinity;
+                for (let pi = 0; pi < p.corners2D.length; pi++) {
+                  const pc = p.corners2D[pi];
+                  if (pc.u < pMinU) pMinU = pc.u;
+                  if (pc.u > pMaxU) pMaxU = pc.u;
+                  if (pc.v < pMinV) pMinV = pc.v;
+                  if (pc.v > pMaxV) pMaxV = pc.v;
+                }
+                if (pMaxU < obsMinU || pMinU > obsMaxU || pMaxV < obsMinV || pMinV > obsMaxV) return true;
+              } else if (hasUV) {
+                const halfDiag = Math.hypot(hw, hl);
+                if (pu + halfDiag < obsMinU || pu - halfDiag > obsMaxU || pv + halfDiag < obsMinV || pv - halfDiag > obsMaxV) return true;
+              }
 
               // Proyección OBB exacta de los 4 vértices del panel al espacio (U, V) de la cubierta
               let pPoly = null;
