@@ -1128,7 +1128,7 @@ camera.setView({
   };
   setTimeout(function () {
     if (typeof window._raStartDroneFlyIn === 'function') window._raStartDroneFlyIn();
-  }, 1500);
+  }, 12000);
 })();
 
 // ── Variables de Capas y Primitivas ────────────────────────────────────────
