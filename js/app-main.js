@@ -7978,20 +7978,19 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
 
           const panelNum = (typeof pData.pIdx === 'number' && shouldRenderElectricalStrings) ? (pData.pIdx + 1) : (i + 1);
 
-                    // [DIRECCIÓN DE ARTE AAA] Micro-badge HUD minimalista con acabado translúcido
+          // [DIRECCIÓN DE ARTE AAA] Micro-badge HUD nítido con oversampling 2x HiDPI (22px @ scale 0.5, FILL puro)
           lblCol.add({
             position: badgePos,
             text: shouldRenderElectricalStrings ? pData.tag : ('#' + String(panelNum)),
-            font: "600 9px 'Inter', system-ui, sans-serif",
+            font: "700 22px 'Inter', system-ui, -apple-system, sans-serif",
+            scale: 0.5,
             fillColor: Cesium.Color.WHITE,
-            outlineColor: Cesium.Color.fromCssColorString('#0284c7'),
-            outlineWidth: 1.0,
-            style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+            style: Cesium.LabelStyle.FILL,
             showBackground: true,
             backgroundColor: shouldRenderElectricalStrings
-              ? ((pData.tag && pData.tag.includes("[+")) ? Cesium.Color.fromCssColorString("#EF4444").withAlpha(0.85) : ((pData.tag && pData.tag.includes("[-")) ? Cesium.Color.fromCssColorString("#1E293B").withAlpha(0.85) : Cesium.Color.fromCssColorString("#0F172A").withAlpha(0.85)))
-              : Cesium.Color.fromCssColorString("#0F172A").withAlpha(0.75),
-            backgroundPadding: new Cesium.Cartesian2(5, 3),
+              ? ((pData.tag && pData.tag.includes("[+")) ? Cesium.Color.fromCssColorString("#DC2626").withAlpha(0.92) : ((pData.tag && pData.tag.includes("[-")) ? Cesium.Color.fromCssColorString("#1E293B").withAlpha(0.92) : Cesium.Color.fromCssColorString("#0F172A").withAlpha(0.92)))
+              : Cesium.Color.fromCssColorString("#0F172A").withAlpha(0.86),
+            backgroundPadding: new Cesium.Cartesian2(12, 7),
             horizontalOrigin: Cesium.HorizontalOrigin.CENTER,
             verticalOrigin: Cesium.VerticalOrigin.CENTER,
             pixelOffset: shouldRenderElectricalStrings ? new Cesium.Cartesian2(0, -14) : new Cesium.Cartesian2(0, 0),
@@ -9086,14 +9085,13 @@ function wpRenderHeatmapVisuals() {
           const batchedLabel = window._solarHeatmapLabelCollection.add({
             position: labelPos,
             text: labelText,
-            font: "bold 10px Inter, monospace",
+            font: "700 21px 'Inter', system-ui, monospace",
+            scale: 0.5,
             fillColor: Cesium.Color.WHITE,
-            outlineColor: Cesium.Color.BLACK,
-            outlineWidth: 2,
-            style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+            style: Cesium.LabelStyle.FILL,
             backgroundColor: labelBgColor,
             showBackground: true,
-            backgroundPadding: new Cesium.Cartesian2(4, 3),
+            backgroundPadding: new Cesium.Cartesian2(10, 6),
             disableDepthTestDistance: Number.POSITIVE_INFINITY,
             show: (window.raHeatmapLabelMode === 'all'),
             distanceDisplayCondition: (typeof Cesium.DistanceDisplayCondition === "function")
@@ -9109,14 +9107,13 @@ function wpRenderHeatmapVisuals() {
             show: true,
             label: {
               text: labelText,
-              font: "bold 10.5px Inter, monospace",
+              font: "700 21px 'Inter', system-ui, monospace",
+              scale: 0.5,
               fillColor: Cesium.Color.WHITE,
-              outlineColor: Cesium.Color.BLACK,
-              outlineWidth: 2,
-              style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+              style: Cesium.LabelStyle.FILL,
               backgroundColor: labelBgColor,
               showBackground: true,
-              backgroundPadding: new Cesium.Cartesian2(5, 3),
+              backgroundPadding: new Cesium.Cartesian2(10, 6),
               disableDepthTestDistance: Number.POSITIVE_INFINITY
             }
           });
@@ -9129,14 +9126,13 @@ function wpRenderHeatmapVisuals() {
           show: true,
           label: {
             text: labelText,
-            font: "bold 10.5px Inter, monospace",
+            font: "700 21px 'Inter', system-ui, monospace",
+            scale: 0.5,
             fillColor: Cesium.Color.WHITE,
-            outlineColor: Cesium.Color.BLACK,
-            outlineWidth: 2,
-            style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+            style: Cesium.LabelStyle.FILL,
             backgroundColor: labelBgColor,
             showBackground: true,
-            backgroundPadding: new Cesium.Cartesian2(5, 3),
+            backgroundPadding: new Cesium.Cartesian2(10, 6),
             disableDepthTestDistance: Number.POSITIVE_INFINITY
           }
         });
