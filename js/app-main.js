@@ -7898,7 +7898,7 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
 
         instancedSuccess = true;
         if (typeof showStatus === 'function') {
-          showStatus(`<i data-lucide="check" class="icon-sm"></i> ${allTargetPanels.length} PANELES FV RENDERIZADOS EN 3D (GPU 1-CALL/FALDÓN)`, 3500);
+          showStatus(`<i data-lucide="check" class="icon-sm"></i> ${allTargetPanels.length} PANELES FV EN 3D`, 3500);
         }
         window.RA && window.RA.log && window.RA.log.warn(`[TELEMETRÍA FV] ÉXITO: ${allTargetPanels.length} paneles renderizados en GPU Primitives`);
         if (viewer.scene && typeof viewer.scene.requestRender === 'function') {

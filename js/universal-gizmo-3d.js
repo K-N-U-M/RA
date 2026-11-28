@@ -1070,7 +1070,7 @@ function renderUniversalGizmo2D() {
   if (target.rawObj && typeof target.rawObj.w === 'number' && typeof target.rawObj.l === 'number' && typeof target.rawObj.h === 'number') {
     badgeText += ' (' + target.rawObj.w.toFixed(1) + 'x' + target.rawObj.l.toFixed(1) + 'x' + target.rawObj.h.toFixed(1) + 'm)';
   }
-  if (hasRotation && target.type !== 'workplane') {
+  if (hasRotation && target.type !== 'workplane' && target.type !== 'polyline') {
     badgeText += ' · ' + Math.round(target.rot || 0) + '°';
   }
   if (hasRotation) {

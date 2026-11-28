@@ -1713,4 +1713,47 @@ body:has(#ra-sidebar:not(.collapsed)) #ra-cad-status-bar {
   cursor: not-allowed !important;
 }
 
+/* ── 17. HUD de Simulación Termo-Astronómica (#ra-solar-calc-hud) ─────────── */
+#ra-solar-calc-hud {
+  background: rgba(220, 226, 235, 0.96) !important;
+  color: var(--nm-text) !important;
+  border: 1px solid rgba(255, 255, 255, 0.88) !important;
+  border-radius: 11px !important;
+  box-shadow: var(--nm-shadow-out) !important;
+  backdrop-filter: blur(12px) !important;
+}
+
+#ra-solar-calc-hud .solar-calc-title span {
+  color: #b45309 !important;
+}
+
+#ra-solar-calc-hud .solar-calc-pct {
+  color: #c27d03 !important;
+}
+
+#ra-solar-calc-hud .solar-calc-bar-bg {
+  background: var(--nm-surface-inset) !important;
+  box-shadow: var(--nm-shadow-in) !important;
+}
+
+#ra-solar-calc-hud .solar-calc-month-pill {
+  background: var(--nm-surface) !important;
+  color: var(--nm-text-muted) !important;
+  border: 1px solid rgba(255, 255, 255, 0.7) !important;
+}
+
+#ra-solar-calc-hud .solar-calc-month-pill.done {
+  background: rgba(16, 185, 129, 0.18) !important;
+  color: #047857 !important;
+  border-color: rgba(16, 185, 129, 0.45) !important;
+}
+
+#ra-solar-calc-hud .solar-calc-info {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  gap: 14px !important;
+  color: var(--nm-text-muted) !important;
+}
+
 /* Los breakpoints responsivos (<=1280px, <=1024px, <=768px, <=480px) residen en css/responsive.css */
