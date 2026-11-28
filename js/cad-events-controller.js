@@ -1330,10 +1330,13 @@
     }
   }, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
 
-  // Métricas de rendimiento postRender (renderTriad2D desacoplado a camera.changed / requestTriadRedraw)
+  // Métricas de rendimiento y sincronización 2D/3D por frame renderizado
   if (scene && scene.postRender && typeof scene.postRender.addEventListener === 'function') {
     const unsubPostRender = scene.postRender.addEventListener(() => {
       if (window.RA && window.RA.perf && window.RA.perf.enabled) window.RA.perf.frameCount++;
+      if (typeof renderTriad2D === 'function') {
+        try { renderTriad2D(); } catch (_e) {}
+      }
     });
     if (typeof unsubPostRender === 'function') self._unsubscribers.push(unsubPostRender);
   }
@@ -1920,6 +1923,7 @@
   // sin reconstruir el DOM lateral ni regenerar obstáculos 3D en cada frame.
   const camObj = (typeof camera !== 'undefined' && camera) ? camera : (scene && scene.camera ? scene.camera : null);
   if (camObj && camObj.changed && typeof camObj.changed.addEventListener === 'function') {
+    if (typeof camObj.percentageChanged === 'number') camObj.percentageChanged = 0.005;
     const unsubCamChanged = camObj.changed.addEventListener(() => {
       requestTriadRedraw();
     });
