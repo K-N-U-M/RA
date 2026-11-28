@@ -132,7 +132,7 @@ window.RA_App = window.RA_App || {};
     .lucide { width: 1.15em; height: 1.15em; vertical-align: -0.2em; stroke-width: 2.3; }
   </style>
 
-  <link rel="stylesheet" href="css/theme-neumorphic.css?v=20261127_slate6">
+  <link rel="stylesheet" href="css/theme-neumorphic.css?v=20261127_slate7">
   <link rel="stylesheet" href="css/responsive.css?v=20261127_rad1">
   <link rel="stylesheet" href="css/kinetic-motion.css?v=20261127_dock2">
 </head>
@@ -664,17 +664,17 @@ window.RA_App = window.RA_App || {};
               <!-- Botones Principales de Dibujo de Huella de Edificio -->
               <div style="display:flex;gap:4px;margin-bottom:4px;">
                 <button type="button" class="btn-action-primary" id="btn-draw-building" onclick="startDrawingBuilding()" style="flex:1;padding:8px 4px;font-size: 10px;background:linear-gradient(135deg, #0284c7, #0369a1);border-color:#38bdf8;" aria-label="Dibujar Huella">
-                  <span><i data-lucide="building" class="icon-sm"></i> + DIBUJAR HUELLA</span>
+                  <span><i data-lucide="building" class="icon-sm"></i> HUELLA</span>
                 </button>
                 <button type="button" class="btn-action-primary" id="btn-draw-building-rect" onclick="startDrawingBuildingRect()" style="flex:1;padding:8px 4px;font-size: 10px;background:linear-gradient(135deg, #4f46e5, #4338ca);border-color:#818cf8;" aria-label="Rectángulo CAD" title="Trazar huella rectangular paramétrica en 2 clics (P1 -> P2 -> Fondo)">
-                  <span><i data-lucide="square" class="icon-sm"></i> + RECTÁNGULO CAD</span>
+                  <span><i data-lucide="square" class="icon-sm"></i> RECTÁNGULO</span>
                 </button>
                 <button type="button" class="btn-action-primary" id="btn-draw-building-l" onclick="startDrawingBuildingL()" style="flex:1;padding:8px 4px;font-size: 10px;background:linear-gradient(135deg, #059669, #047857);border-color:#34d399;" aria-label="Planta en L" title="Generar huella paramétrica en forma de L con cubierta adaptada">
-                  <span><i data-lucide="corner-down-right" class="icon-sm"></i> + PLANTA EN L</span>
+                  <span><i data-lucide="corner-down-right" class="icon-sm"></i> PLANTA EN L</span>
                 </button>
               </div>
               <div style="display:flex;gap:4px;margin-bottom:6px;">
-                <button type="button" class="btn-action-primary" id="btn-finish-building-panel" onclick="if (typeof WP !== 'undefined' && WP.mode === 'draw-building-rect') finishBuildingRect(); else finishActiveBuilding();" style="flex:1;padding:8px 4px;font-size: 10px;background:linear-gradient(135deg, #10b981, #059669);border-color:#34d399;" aria-label="Cerrar y Extruir">
+                <button type="button" class="btn-action-primary" id="btn-finish-building-panel" disabled onclick="if (typeof WP !== 'undefined' && WP.mode === 'draw-building-rect') finishBuildingRect(); else finishActiveBuilding();" style="flex:1;padding:8px 4px;font-size: 10px;background:linear-gradient(135deg, #10b981, #059669);border-color:#34d399;" aria-label="Cerrar y Extruir">
                   <span><i data-lucide="check" class="icon-sm"></i> EXTRUIR 3D</span>
                 </button>
                 <button type="button" class="btn-action-primary" id="btn-cancel-building-panel" onclick="if (typeof WP !== 'undefined' && WP.mode === 'draw-building-rect') cancelBuildingRect(); else cancelActiveBuilding();" style="display:none;padding:8px 6px;font-size: 10px;background:rgba(239,68,68,0.2);border-color:#ef4444;color:#fca5a5;" aria-label="Cancelar Huella" title="Cancelar dibujo de edificio (Esc)">
@@ -999,7 +999,7 @@ window.RA_App = window.RA_App || {};
               </div>
 
               <div class="stat-grid-2" style="margin-bottom:6px;">
-                <button class="btn-action-primary" id="btn-close-polyline" onclick="if (typeof WP !== 'undefined' && WP.mode === 'draw-building') finishActiveBuilding(); else wpCloseActivePolyline();" style="padding:7px;"><i data-lucide="check" class="icon-sm"></i> CERRAR POLILÍNEA</button>
+                <button class="btn-action-primary" id="btn-close-polyline" disabled onclick="if (typeof WP !== 'undefined' && WP.mode === 'draw-building') finishActiveBuilding(); else wpCloseActivePolyline();" style="padding:7px;"><i data-lucide="check" class="icon-sm"></i> CERRAR POLILÍNEA</button>
                 <button class="doc-mini-btn" id="btn-undo-polyline-pt" onclick="if (typeof WP !== 'undefined' && WP.mode === 'draw-building') undoLastBuildingPoint(); else undoLastPoint();" style="text-align:center;">↶ DESHACER PTO</button>
               </div>
 

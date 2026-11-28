@@ -52,7 +52,7 @@
 }
 
 /* Pisar TODOS los fondos oscuros inline dentro de la sidebar, pasos 1-5 y acordeones */
-#ra-sidebar [style*="background"]:not(button.primary):not(.btn-primary):not(.obs-color-swatch):not([style*="e84a27"]):not([style*="linear-gradient"]),
+#ra-sidebar [style*="background"]:not(button.primary):not(.btn-primary):not(.btn-action-primary):not(#btn-draw-polyline):not(.obs-color-swatch):not([style*="e84a27"]):not([style*="linear-gradient"]),
 #ra-sidebar .sb-section,
 #ra-sidebar .sb-card,
 #ra-sidebar .wp-card,
@@ -185,7 +185,6 @@
 .stat-pill,
 .kpi-box,
 [class*="kpi"],
-[class*="stat-pill"],
 [id^="p2-kpi-"],
 [id*="kpi"],
 #ra-sidebar .stat-pill,
@@ -197,6 +196,8 @@
   border: 1px solid rgba(255, 255, 255, 0.78) !important;
   border-radius: 6px !important;
   box-shadow: var(--nm-shadow-in) !important;
+  padding: 7px 9px !important;
+  gap: 3px !important;
 }
 
 .stat-pill-label,
@@ -1667,7 +1668,9 @@ body:has(#ra-sidebar:not(.collapsed)) #ra-cad-status-bar {
 }
 
 /* ── 16. Botón Principal de Flujo por Paso (Degradado Amarillo → Naranja) ── */
-#ra-sidebar button.btn-action-primary,
+#ra-sidebar button.btn-action-primary:not(#btn-draw-building):not(#btn-draw-building-rect):not(#btn-draw-building-l):not(#btn-finish-building-panel):not(#btn-close-polyline):not(:disabled),
+#ra-sidebar button#btn-finish-building-panel.active-cta,
+#ra-sidebar button#btn-close-polyline.active-cta,
 #ra-sidebar button#step5-btn-download-commercial,
 #ra-sidebar button[onclick*="wpDefinePlaneMode"],
 #ra-sidebar button[onclick*="startPolylineDrawMode"] {
@@ -1676,10 +1679,13 @@ body:has(#ra-sidebar:not(.collapsed)) #ra-cad-status-bar {
   color: #ffffff !important;
   border: 1px solid rgba(255, 255, 255, 0.35) !important;
   font-weight: 800 !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25) !important;
   box-shadow: 0 6px 16px rgba(232, 162, 4, 0.36), 0 2px 5px rgba(234, 88, 12, 0.22) !important;
 }
 
-#ra-sidebar button.btn-action-primary *,
+#ra-sidebar button.btn-action-primary:not(#btn-draw-building):not(#btn-draw-building-rect):not(#btn-draw-building-l):not(#btn-finish-building-panel):not(#btn-close-polyline):not(:disabled) *,
+#ra-sidebar button#btn-finish-building-panel.active-cta *,
+#ra-sidebar button#btn-close-polyline.active-cta *,
 #ra-sidebar button#step5-btn-download-commercial *,
 #ra-sidebar button[onclick*="wpDefinePlaneMode"] *,
 #ra-sidebar button[onclick*="startPolylineDrawMode"] * {
@@ -1687,12 +1693,24 @@ body:has(#ra-sidebar:not(.collapsed)) #ra-cad-status-bar {
   stroke: #ffffff !important;
 }
 
-#ra-sidebar button.btn-action-primary:hover,
+#ra-sidebar button.btn-action-primary:not(#btn-draw-building):not(#btn-draw-building-rect):not(#btn-draw-building-l):not(#btn-finish-building-panel):not(#btn-close-polyline):not(:disabled):hover,
+#ra-sidebar button#btn-finish-building-panel.active-cta:hover,
+#ra-sidebar button#btn-close-polyline.active-cta:hover,
 #ra-sidebar button#step5-btn-download-commercial:hover,
 #ra-sidebar button[onclick*="wpDefinePlaneMode"]:hover,
 #ra-sidebar button[onclick*="startPolylineDrawMode"]:hover {
   filter: brightness(1.06) !important;
   box-shadow: 0 8px 22px rgba(232, 162, 4, 0.48), 0 3px 8px rgba(234, 88, 12, 0.28) !important;
+}
+
+/* Asegurar que botones desactivados en sidebar nunca mantengan naranja lavado */
+#ra-sidebar button:disabled {
+  background: var(--nm-surface) !important;
+  background-image: none !important;
+  color: #334155 !important;
+  opacity: 0.72 !important;
+  box-shadow: var(--nm-shadow-out-sm) !important;
+  cursor: not-allowed !important;
 }
 
 /* Los breakpoints responsivos (<=1280px, <=1024px, <=768px, <=480px) residen en css/responsive.css */

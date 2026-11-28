@@ -1070,9 +1070,11 @@ function renderUniversalGizmo2D() {
   if (target.rawObj && typeof target.rawObj.w === 'number' && typeof target.rawObj.l === 'number' && typeof target.rawObj.h === 'number') {
     badgeText += ' (' + target.rawObj.w.toFixed(1) + 'x' + target.rawObj.l.toFixed(1) + 'x' + target.rawObj.h.toFixed(1) + 'm)';
   }
-  if (hasRotation) {
+  if (hasRotation && target.type !== 'workplane') {
     badgeText += ' · ' + Math.round(target.rot || 0) + '°';
-    badgeText += isRotateMode ? ' · [E: ROTAR 3D]' : ' · [W: MOVER 3D]';
+  }
+  if (hasRotation) {
+    badgeText += isRotateMode ? ' · [E: ROTAR]' : ' · [W: MOVER]';
   }
   badgeText += ' · [SUPR] BORRAR';
 
@@ -1081,15 +1083,24 @@ function renderUniversalGizmo2D() {
   const badgeX = ox - textWidth / 2 - 8;
   const badgeY = oy - (ringRadius + 18 * scale);
 
-  ctx.fillStyle = isRotateMode ? 'rgba(15, 23, 42, 0.96)' : 'rgba(15, 23, 42, 0.92)';
-  ctx.strokeStyle = isRotateMode ? '#F59E0B' : target.color;
-  ctx.lineWidth = 1.5;
+  ctx.save();
+  ctx.shadowColor = 'rgba(71, 85, 105, 0.35)';
+  ctx.shadowBlur = 10;
+  ctx.shadowOffsetY = 3;
+  ctx.fillStyle = isRotateMode ? 'rgba(254, 243, 199, 0.96)' : 'rgba(228, 233, 240, 0.95)';
+  ctx.strokeStyle = isRotateMode ? '#D97706' : (target.color || '#C27D03');
+  ctx.lineWidth = 1.6;
   ctx.beginPath();
-  ctx.roundRect(badgeX, badgeY - 14, textWidth + 16, 20, 5);
+  ctx.roundRect(badgeX, badgeY - 14, textWidth + 16, 20, 6);
   ctx.fill();
+  ctx.restore();
+  ctx.strokeStyle = isRotateMode ? '#D97706' : (target.color || '#C27D03');
+  ctx.lineWidth = 1.6;
+  ctx.beginPath();
+  ctx.roundRect(badgeX, badgeY - 14, textWidth + 16, 20, 6);
   ctx.stroke();
 
-  ctx.fillStyle = isRotateMode ? '#FDE047' : '#FFFFFF';
+  ctx.fillStyle = isRotateMode ? '#92400E' : '#111827';
   ctx.fillText(badgeText, badgeX + 8, badgeY);
 
   universalGizmoState.screen.badgeBox = { x: badgeX, y: badgeY - 14, w: textWidth + 16, h: 20 };

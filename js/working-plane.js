@@ -6249,11 +6249,21 @@ function _wpUpdateUINow() {
     }
   }
 
-  // Actualizar estado de botones Cerrar / Deshacer polilínea
+  // Actualizar estado de botones Cerrar / Extruir
   const btnClosePoly = document.getElementById('btn-close-polyline');
   const isPolyDrawing = (WP.mode === 'draw-poly' || WP.mode === 'draw-building');
+  const isBldEditing = (typeof bldFootprintState !== 'undefined' && bldFootprintState && bldFootprintState.editing);
+  const canClosePoly = isPolyDrawing || isBldEditing;
   if (btnClosePoly) {
-    btnClosePoly.style.opacity = (isPolyDrawing || (typeof bldFootprintState !== 'undefined' && bldFootprintState && bldFootprintState.editing)) ? '1' : '0.5';
+    btnClosePoly.disabled = !canClosePoly;
+    btnClosePoly.classList.toggle('active-cta', canClosePoly && (WP.activePolyPts.length >= 3 || isBldEditing));
+    btnClosePoly.style.opacity = canClosePoly ? '1' : '0.72';
+  }
+  const btnFinishBld = document.getElementById('btn-finish-building-panel');
+  const isBldDrawing = (WP.mode === 'draw-building' || WP.mode === 'draw-building-rect' || WP.mode === 'draw-building-l' || isBldEditing);
+  if (btnFinishBld) {
+    btnFinishBld.disabled = !isBldDrawing;
+    btnFinishBld.classList.toggle('active-cta', isBldDrawing);
   }
 
   // Actualizar contadores y reporte de polilíneas
