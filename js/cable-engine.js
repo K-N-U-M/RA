@@ -2187,12 +2187,12 @@
         // ── 5.3 TIRADAS PRINCIPALES PAREADAS (HOMERUN EN BANDEJA VIRTUAL PARALELA) ─
         var laneIndex = (sIdx % 6);
         var totalStrCount = (Array.isArray(allStrings) && allStrings.length > 0) ? allStrings.length : 1;
-        var stringBundleOffset = (laneIndex - Math.min(2.5, (totalStrCount - 1) / 2)) * 0.16;
+        var stringBundleOffset = (laneIndex - Math.min(2.5, (totalStrCount - 1) / 2)) * 0.42;
         var srcPolyIdxStr = (firstPanel && typeof firstPanel.polyIdx === 'number') ? firstPanel.polyIdx : null;
 
         var posPath = self.buildOrthogonalManhattanPath3D(startPos, targetForStringPos, {
           normalOffset: self.CONFIG.DC_POS_OFFSET + (sIdx % 2) * 0.012,
-          lateralOffset: stringBundleOffset + 0.065,
+          lateralOffset: stringBundleOffset + 0.14,
           descentPoint: descentPillar,
           sourcePolyIdx: srcPolyIdxStr,
           basis: basis,
@@ -2201,7 +2201,7 @@
 
         var negPath = self.buildOrthogonalManhattanPath3D(startPos, targetForStringNeg, {
           normalOffset: self.CONFIG.DC_NEG_OFFSET + (sIdx % 2) * 0.012,
-          lateralOffset: stringBundleOffset - 0.065,
+          lateralOffset: stringBundleOffset - 0.14,
           descentPoint: descentPillar,
           sourcePolyIdx: srcPolyIdxStr,
           isNeg: true,
@@ -2252,7 +2252,7 @@
         if (self._registerUniqueCluster(ctx.groundingClusterAnchors, descentPillar || startPos, strRoofKey)) {
           var groundPath = self.buildOrthogonalManhattanPath3D(startPos, ctx.dcTargetPos, {
             normalOffset: self.CONFIG.GROUND_OFFSET,
-            lateralOffset: stringBundleOffset + 0.14,
+            lateralOffset: stringBundleOffset + 0.28,
             descentPoint: descentPillar,
             sourcePolyIdx: srcPolyIdxStr,
             basis: basis,
