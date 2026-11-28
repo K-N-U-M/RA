@@ -1934,9 +1934,12 @@ function get3DPosition(windowPosition, options = {}) {
     _lastSmooth3DPos = Cesium.Cartesian3.clone(rawPos);
   } else {
     // Factor de respuesta alfa = 0.85 (inmediato y sin micro-saltos)
+    const sc = (window.RA && window.RA._scratch) ? window.RA._scratch : null;
+    const s0 = sc ? sc.c3_0 : new Cesium.Cartesian3();
+    const s1 = sc ? sc.c3_1 : new Cesium.Cartesian3();
     _lastSmooth3DPos = Cesium.Cartesian3.add(
-      Cesium.Cartesian3.multiplyByScalar(rawPos, 0.85, new Cesium.Cartesian3()),
-      Cesium.Cartesian3.multiplyByScalar(_lastSmooth3DPos, 0.15, new Cesium.Cartesian3()),
+      Cesium.Cartesian3.multiplyByScalar(rawPos, 0.85, s0),
+      Cesium.Cartesian3.multiplyByScalar(_lastSmooth3DPos, 0.15, s1),
       new Cesium.Cartesian3()
     );
   }
@@ -4937,12 +4940,6 @@ function get3DElectricalClickPosition(screenPos) {
   return pos;
 }
 
-// Throttle de pickPosition: límite ~30 picks/s (cada 140ms) para MOUSE_MOVE
-// Elimina cuellos de botella de gl.readPixels en el hilo de la CPU
-let lastPickPositionTime = 0;
-const pickPositionMinDelta = 140; // ms
-
-
 
 function getSafeSvgDataUri(svgStr) {
   return 'data:image/svg+xml;utf8,' + encodeURIComponent(svgStr);
@@ -5679,20 +5676,42 @@ function computeRoofPanelsData() {
               : [];
             const prevSource = (oldPanels && oldPanels.length > 0) ? oldPanels : liveRenderedPanels;
 
+            const prevByPanelId = new Map();
+            const prevByIndex = new Map();
+            for (let i = 0; i < prevSource.length; i++) {
+              const op = prevSource[i];
+              if (!op) continue;
+              if (op.panelId && !prevByPanelId.has(op.panelId)) prevByPanelId.set(op.panelId, op);
+              if (op.rawPanel && op.rawPanel.panelId && !prevByPanelId.has(op.rawPanel.panelId)) prevByPanelId.set(op.rawPanel.panelId, op);
+              if (typeof op.layoutIndex === 'number' && !prevByIndex.has(op.layoutIndex)) prevByIndex.set(op.layoutIndex, op);
+              if (typeof op.localIdx === 'number' && !prevByIndex.has(op.localIdx)) prevByIndex.set(op.localIdx, op);
+            }
+
+            let liveByPanelId = null;
+            if (liveRenderedPanels.length > 0 && prevSource !== liveRenderedPanels) {
+              liveByPanelId = new Map();
+              for (let i = 0; i < liveRenderedPanels.length; i++) {
+                const op = liveRenderedPanels[i];
+                if (!op) continue;
+                if (op.panelId && !liveByPanelId.has(op.panelId)) liveByPanelId.set(op.panelId, op);
+                if (op.rawPanel && op.rawPanel.panelId && !liveByPanelId.has(op.rawPanel.panelId)) liveByPanelId.set(op.rawPanel.panelId, op);
+              }
+            }
+
             const matchedPrevPanels = new Set();
             pInfo.panels.forEach((p, pIdx) => {
               let prev = null;
               if (p.panelId) {
-                prev = prevSource.find(op => (op.panelId === p.panelId) || (op.rawPanel && op.rawPanel.panelId === p.panelId));
-                if (!prev && liveRenderedPanels.length > 0) {
-                  prev = liveRenderedPanels.find(op => (op.panelId === p.panelId) || (op.rawPanel && op.rawPanel.panelId === p.panelId));
+                prev = prevByPanelId.get(p.panelId) || null;
+                if (!prev && liveByPanelId) {
+                  prev = liveByPanelId.get(p.panelId) || null;
                 }
               }
               if (!prev && typeof p.layoutIndex === 'number') {
-                prev = prevSource.find(op => (typeof op.layoutIndex === 'number' && op.layoutIndex === p.layoutIndex) || (typeof op.localIdx === 'number' && op.localIdx === p.layoutIndex));
+                prev = prevByIndex.get(p.layoutIndex) || null;
               }
               if (!prev && typeof p.localIdx === 'number') {
-                prev = prevSource.find(op => (typeof op.localIdx === 'number' && op.localIdx === p.localIdx) || (typeof op.layoutIndex === 'number' && op.layoutIndex === p.localIdx));
+                prev = prevByIndex.get(p.localIdx) || null;
               }
               if (!prev && prevSource.length === pInfo.panels.length) {
                 prev = prevSource[pIdx];
@@ -8306,11 +8325,38 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
           try {
             const deduplicatedPosts = [];
             const distThreshold = 0.40;
+            const invCell = 1 / distThreshold;
+            const postGrid = new Map();
             pergolaPostCandidates.forEach(cand => {
-              const exists = deduplicatedPosts.some(dp => {
-                return Cesium.Cartesian3.distance(dp.top, cand.top) < distThreshold;
-              });
-              if (!exists) deduplicatedPosts.push(cand);
+              const cx = Math.floor(cand.top.x * invCell);
+              const cy = Math.floor(cand.top.y * invCell);
+              const cz = Math.floor(cand.top.z * invCell);
+              let exists = false;
+              for (let dx = -1; dx <= 1 && !exists; dx++) {
+                for (let dy = -1; dy <= 1 && !exists; dy++) {
+                  for (let dz = -1; dz <= 1 && !exists; dz++) {
+                    const bucket = postGrid.get(`${cx + dx},${cy + dy},${cz + dz}`);
+                    if (bucket) {
+                      for (let i = 0; i < bucket.length; i++) {
+                        if (Cesium.Cartesian3.distance(bucket[i].top, cand.top) < distThreshold) {
+                          exists = true;
+                          break;
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+              if (!exists) {
+                deduplicatedPosts.push(cand);
+                const key = `${cx},${cy},${cz}`;
+                let bucket = postGrid.get(key);
+                if (!bucket) {
+                  bucket = [];
+                  postGrid.set(key, bucket);
+                }
+                bucket.push(cand);
+              }
             });
 
             const cylInstances = [];

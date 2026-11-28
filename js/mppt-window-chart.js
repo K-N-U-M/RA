@@ -8,7 +8,10 @@
     'use strict';
 
     function esc(s) {
-        return String(s).replace(/[&<>"']/g, function (c) {
+        if (typeof window !== 'undefined' && typeof window.RASanitizer?.escapeHtml === 'function') {
+            return window.RASanitizer.escapeHtml(s);
+        }
+        return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
             return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c];
         });
     }

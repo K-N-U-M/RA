@@ -161,14 +161,14 @@
       // NOTA: isPolygonDesignConfirmed ya NO cuenta como prueba de paneles.
       // Ese flag significa "el usuario pasó por Campo Solar", no "hay layout generado";
       // aceptarlo permitía saltar al Paso 3/4/5 con 0 paneles.
-      // Fallback reactivo: si hay polilíneas válidas pero roofInfo aún no se ha evaluado en este frame, calcularlo al vuelo
+      // Fallback reactivo (solo lectura): si hay polilíneas válidas pero roofInfo aún no se ha evaluado, evaluar sin mutar p.roofInfo
       if (global.WP && Array.isArray(global.WP.polylines) && typeof global.computeSinglePolylineRoofInfo === 'function') {
         for (let i = 0; i < global.WP.polylines.length; i++) {
           const p = global.WP.polylines[i];
           if (p && Array.isArray(p.points) && p.points.length >= 3 && !p.roofInfo) {
             try {
-              p.roofInfo = global.computeSinglePolylineRoofInfo(p.points, p);
-              if (p.roofInfo && Array.isArray(p.roofInfo.panels) && p.roofInfo.panels.length > 0) {
+              const info = global.computeSinglePolylineRoofInfo(p.points, p);
+              if (info && Array.isArray(info.panels) && info.panels.length > 0) {
                 return true;
               }
             } catch (eCalc) {}
@@ -230,11 +230,11 @@
             reason: 'Requiere completar el diseño de generación (solar o eólica) en los pasos anteriores'
           };
         }
-        // Si hay diseño solar, validar selección de inversor del catálogo
+        // Si hay diseño solar, validar selección de inversor del catálogo (incluso en proyectos híbridos con eólica)
         const hasWind = Array.isArray(global.windTurbines) && global.windTurbines.some(t => t && t.operationalState && t.operationalState.enabled !== false);
         const cfg = global.solarProjectConfig;
         const hasInverter = !!(cfg && (cfg.selectedInverterId || (cfg.selectedTopology === 'microinverter' && cfg.selectedMicroinverterId)));
-        if (!hasInverter && !hasWind) {
+        if ((hasPanels && !hasInverter) || (!hasInverter && !hasWind)) {
           return {
             allowed: false,
             reason: 'Requiere seleccionar un inversor o microinversor del catálogo en el Paso 4 (Ingeniería)'

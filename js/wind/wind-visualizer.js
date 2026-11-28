@@ -35,7 +35,6 @@
   };
 
   var _pulsePhase = 0.0;
-  var _pulseAnimationRunning = false;
   var _instanceGen = 0;
 
   var COLORS = {
@@ -712,15 +711,8 @@
         }
       });
     }
-    if (_visualConfig.style === 'pulse' && !_pulseAnimationRunning) {
-      _startPulseLoop();
-    }
     renderAll();
     return _visualConfig;
-  }
-
-  function _startPulseLoop() {
-    _pulseAnimationRunning = false;
   }
 
   function selectTurbine(id) {

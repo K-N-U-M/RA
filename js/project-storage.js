@@ -2082,8 +2082,8 @@ async function raSaveToRecentProjects(projectData) {
 }
 
 function _escapeHtml(str) {
-  if (typeof window !== 'undefined' && window.RASanitize && typeof window.RASanitize.plain === 'function') {
-    return window.RASanitize.plain(str);
+  if (typeof window !== 'undefined' && typeof window.RASanitizer?.escapeHtml === 'function') {
+    return window.RASanitizer.escapeHtml(str);
   }
   if (str == null) return '';
   return String(str)

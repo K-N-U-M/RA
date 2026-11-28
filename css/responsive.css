@@ -96,6 +96,7 @@
     right: 76px !important;
     bottom: 16px !important;
     max-width: calc(100vw - 96px) !important;
+    transform: none !important;
     overflow-x: auto !important;
     flex-wrap: nowrap !important;
     gap: 8px !important;
@@ -537,6 +538,7 @@
     bottom: max(12px, env(safe-area-inset-bottom)) !important;
     width: auto !important;
     max-width: none !important;
+    transform: none !important;
     padding: 6px 10px !important;
     gap: 8px !important;
     border-radius: 28px !important;

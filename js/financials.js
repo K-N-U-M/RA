@@ -2022,7 +2022,7 @@ function wpOpenPricingReviewModal(onConfirm) {
   function _isClientDemoDefault(val) {
     var clean = String(val || '').trim();
     if (!clean) return true;
-    return /^(PROPIETARIO EJEMPLO S\.?L\.?|Titular de la Instalación|B12345678|XXXXXXXXX|\+34 600 123 456|contacto@empresa\.es|Pol[íi]gono Industrial Sur, Parcela 12|ES00210000XXXXXXXXXX|ES0021000000000000XX)$/i.test(clean);
+    return /^(PROPIETARIO EJEMPLO S\.?L\.?|Titular de la Instalación|B12345678|XXXXXXXXX|\+34 600 123 456|contacto@empresa\.es|Pol[íi]gono Industrial Sur, Parcela 12|ES00210000XXXXXXXXXX|ES0021000000000000XX|Madrid|28001)$/i.test(clean);
   }
 
   function populateBillingFieldsFromSSOT(preferBill) {

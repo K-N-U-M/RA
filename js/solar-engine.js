@@ -21,6 +21,7 @@
     CO2_FACTOR_SPAIN: 0.259
   };
   const GE_EPSILON = 1e-6;
+  let _updateDynamicShadowPolygonsScratch = null;
 
   // Constantes de simulación (espejo de las definidas en financials.js; este
   // módulo debe ser autónomo y no depender del orden de carga de otros módulos)
@@ -1238,6 +1239,20 @@ function wpRenderDynamicObstacleShadows(solarPos) {
       const sU = Cesium.Cartesian3.dot(solarPos.sDirENU, uVec);
       const sV = Cesium.Cartesian3.dot(solarPos.sDirENU, vVec);
 
+      const _seSc = (typeof Cesium !== 'undefined' && Cesium.Cartesian3)
+        ? (_updateDynamicShadowPolygonsScratch || (_updateDynamicShadowPolygonsScratch = {
+            u: new Cesium.Cartesian3(),
+            v: new Cesium.Cartesian3(),
+            n: new Cesium.Cartesian3(),
+            lp: new Cesium.Cartesian3(),
+            normWorld: new Cesium.Cartesian3()
+          }))
+        : null;
+      const nOff = Cesium.Cartesian3.multiplyByScalar(norm, 0.080, _seSc ? _seSc.n : new Cesium.Cartesian3());
+      const normWorld = (typeof Cesium.Matrix4.multiplyByPointAsVector === "function")
+        ? Cesium.Matrix4.multiplyByPointAsVector(transform, norm, _seSc ? _seSc.normWorld : new Cesium.Cartesian3())
+        : Cesium.Matrix4.multiplyByPoint(transform, norm, _seSc ? _seSc.normWorld : new Cesium.Cartesian3());
+
       // A. Proyección analítica de sombra de obstáculos 3D sobre cubierta
       obstacles.forEach((obs, obsIdx) => {
         const shadowQuads = getObstacleShadowPolygons2DForRoof(obs, pInfo, sU, sV, solarPos.shadowLenPerM);
@@ -1248,19 +1263,19 @@ function wpRenderDynamicObstacleShadows(solarPos) {
 
           // Convertir puntos 2D del faldón a coordenadas 3D mundo elevadas +4.5cm sobre la cubierta
           const worldPts = quad2D.map(p => {
-            const lp = Cesium.Cartesian3.add(
-              Cesium.Cartesian3.multiplyByScalar(uVec, p.u, new Cesium.Cartesian3()),
-              Cesium.Cartesian3.multiplyByScalar(vVec, p.v, new Cesium.Cartesian3()),
-              new Cesium.Cartesian3()
+            const su = _seSc ? _seSc.u : new Cesium.Cartesian3();
+            const sv = _seSc ? _seSc.v : new Cesium.Cartesian3();
+            const lp = _seSc ? _seSc.lp : new Cesium.Cartesian3();
+            Cesium.Cartesian3.add(
+              Cesium.Cartesian3.multiplyByScalar(uVec, p.u, su),
+              Cesium.Cartesian3.multiplyByScalar(vVec, p.v, sv),
+              lp
             );
-            Cesium.Cartesian3.add(lp, Cesium.Cartesian3.multiplyByScalar(norm, 0.080, new Cesium.Cartesian3()), lp);
+            Cesium.Cartesian3.add(lp, nOff, lp);
             return Cesium.Matrix4.multiplyByPoint(transform, lp, new Cesium.Cartesian3());
           });
 
           // Winding CCW garantizado respecto a la normal del faldón para evitar desvanecimientos
-          const normWorld = (typeof Cesium.Matrix4.multiplyByPointAsVector === "function")
-            ? Cesium.Matrix4.multiplyByPointAsVector(transform, norm, new Cesium.Cartesian3())
-            : Cesium.Matrix4.multiplyByPoint(transform, norm, new Cesium.Cartesian3());
           const ccwWorldPts = (typeof wpEnsureCounterClockwisePoints === 'function')
             ? wpEnsureCounterClockwisePoints(worldPts, normWorld)
             : worldPts;
@@ -1279,18 +1294,18 @@ function wpRenderDynamicObstacleShadows(solarPos) {
             if (!quad2D || quad2D.length < 3) return;
 
             const worldPts = quad2D.map(p => {
-              const lp = Cesium.Cartesian3.add(
-                Cesium.Cartesian3.multiplyByScalar(uVec, p.u, new Cesium.Cartesian3()),
-                Cesium.Cartesian3.multiplyByScalar(vVec, p.v, new Cesium.Cartesian3()),
-                new Cesium.Cartesian3()
+              const su = _seSc ? _seSc.u : new Cesium.Cartesian3();
+              const sv = _seSc ? _seSc.v : new Cesium.Cartesian3();
+              const lp = _seSc ? _seSc.lp : new Cesium.Cartesian3();
+              Cesium.Cartesian3.add(
+                Cesium.Cartesian3.multiplyByScalar(uVec, p.u, su),
+                Cesium.Cartesian3.multiplyByScalar(vVec, p.v, sv),
+                lp
               );
-              Cesium.Cartesian3.add(lp, Cesium.Cartesian3.multiplyByScalar(norm, 0.080, new Cesium.Cartesian3()), lp);
+              Cesium.Cartesian3.add(lp, nOff, lp);
               return Cesium.Matrix4.multiplyByPoint(transform, lp, new Cesium.Cartesian3());
             });
 
-            const normWorld = (typeof Cesium.Matrix4.multiplyByPointAsVector === "function")
-              ? Cesium.Matrix4.multiplyByPointAsVector(transform, norm, new Cesium.Cartesian3())
-              : Cesium.Matrix4.multiplyByPoint(transform, norm, new Cesium.Cartesian3());
             const ccwWorldPts = (typeof wpEnsureCounterClockwisePoints === 'function')
               ? wpEnsureCounterClockwisePoints(worldPts, normWorld)
               : worldPts;
