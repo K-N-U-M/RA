@@ -1756,4 +1756,13 @@ body:has(#ra-sidebar:not(.collapsed)) #ra-cad-status-bar {
   color: var(--nm-text-muted) !important;
 }
 
+/* ── 18. Enfoque Cinematográfico Blur-to-Sharp en Carga 3D ────────────────── */
+#cesiumContainer canvas {
+  transition: filter 0.55s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+body.ra-tiles-refining #cesiumContainer canvas {
+  filter: blur(4px) saturate(0.92) !important;
+}
+
 /* Los breakpoints responsivos (<=1280px, <=1024px, <=768px, <=480px) residen en css/responsive.css */

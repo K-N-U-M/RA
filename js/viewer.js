@@ -298,9 +298,31 @@ function attachTilesetLoadMonitor(tileset, name) {
     });
   }
 
+  if (tileset) {
+    tileset.foveatedScreenSpaceError = true;
+    tileset.foveatedConeSize = 0.22;
+    tileset.foveatedMinimumScreenSpaceErrorRelaxation = 0.0;
+  }
+
+  let _refineTimer = null;
+  const _startRefining = () => {
+    if (typeof document === 'undefined' || !document.body) return;
+    document.body.classList.add('ra-tiles-refining');
+    if (_refineTimer) clearTimeout(_refineTimer);
+    _refineTimer = setTimeout(_stopRefining, 1800);
+  };
+  const _stopRefining = () => {
+    if (_refineTimer) { clearTimeout(_refineTimer); _refineTimer = null; }
+    if (typeof document !== 'undefined' && document.body) {
+      document.body.classList.remove('ra-tiles-refining');
+    }
+  };
+  _startRefining();
+
   if (tileset.allTilesLoaded) {
     tileset.allTilesLoaded.addEventListener(() => {
       _clearTileWatchdogs();
+      _stopRefining();
       if (_tilesMonitorState.burstFailed === 0) {
         _configureTileRequestScheduler(4);
         tileset._raRecoveryMode = false;
