@@ -77,6 +77,17 @@
     };
   }
 
+  function _pointInPoly2D(px, py, poly) {
+    var inside = false;
+    for (var i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+      var xi = poly[i].x, yi = poly[i].y;
+      var xj = poly[j].x, yj = poly[j].y;
+      var intersect = ((yi > py) !== (yj > py)) && (px < ((xj - xi) * (py - yi)) / ((yj - yi) || 1e-12) + xi);
+      if (intersect) inside = !inside;
+    }
+    return inside;
+  }
+
   /**
    * Detecta el contexto de cubierta/edificio para una instancia de aerogenerador.
    * Si mountingType === 'rooftop' o si la turbina está situada sobre/cerca de un edificio 3D,
@@ -107,17 +118,6 @@
     var W = 18.0;
     var L = 24.0;
     var xSetback = 3.5;
-
-    function _pointInPoly2D(px, py, poly) {
-      var inside = false;
-      for (var i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-        var xi = poly[i].x, yi = poly[i].y;
-        var xj = poly[j].x, yj = poly[j].y;
-        var intersect = ((yi > py) !== (yj > py)) && (px < ((xj - xi) * (py - yi)) / ((yj - yi) || 1e-12) + xi);
-        if (intersect) inside = !inside;
-      }
-      return inside;
-    }
 
     function _upwindEdgeDistance(px, py, poly, vx, vy) {
       // Rayo desde (px, py) en contra del viento (-vx, -vy) hasta la arista de barlovento

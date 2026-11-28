@@ -448,7 +448,6 @@ window.RA_App = window.RA_App || {};
           <i data-lucide="settings" class="icon-sm"></i>
         </button>
       </div>
-      <button class="sb-collapse-btn" id="btn-sidebar-toggle" onclick="toggleSidebarCollapse()" title="Colapsar barra lateral (Tab)" aria-label="Colapsar barra lateral">◀</button>
     </div>
 
     <!-- Buscador Universal -->
@@ -2066,7 +2065,6 @@ window.RA_App = window.RA_App || {};
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
                   <span style="font-size: 10px;font-weight:700;color:var(--amber-400);"><i data-lucide="zap" class="icon-sm"></i> Inversor de Red:</span>
                   <div style="display:flex;gap:4px;">
-                    <button type="button" class="doc-mini-btn" onclick="wpOpenSmartInverterMatchingModal()" style="font-size: 10px;padding:2px 6px;color:#38BDF8;background:rgba(56,189,248,0.15);border:1px solid rgba(56,189,248,0.3);font-weight:700;" title="Estudiar alternativas: 1x Central vs Nx Modulares y Microinversores"><i data-lucide="sparkles" class="icon-sm"></i> Alternativas 1x / Nx</button>
                     <button type="button" class="doc-mini-btn" onclick="step3EditCurrentEquipment('inverters')" style="font-size: 10px;padding:2px 6px;color:var(--amber-400);"><i data-lucide="edit-2" class="icon-sm"></i> Ficha</button>
                   </div>
                 </div>
@@ -2107,7 +2105,6 @@ window.RA_App = window.RA_App || {};
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
                   <span style="font-size: 10px;font-weight:700;color:#10b981;"><i data-lucide="cpu" class="icon-sm"></i> Microinversor / Optimizador:</span>
                   <div style="display:flex;gap:4px;">
-                    <button type="button" class="doc-mini-btn" onclick="wpOpenSmartInverterMatchingModal()" style="font-size: 10px;padding:2px 6px;color:#10b981;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.3);font-weight:700;" title="Estudiar alternativas: 1x Central vs Nx Modulares y Microinversores"><i data-lucide="sparkles" class="icon-sm"></i> Alternativas 1x / Nx</button>
                     <button type="button" class="doc-mini-btn" onclick="step3EditCurrentEquipment('microinverters')" style="font-size: 10px;padding:2px 6px;color:#10b981;"><i data-lucide="edit-2" class="icon-sm"></i> Ficha</button>
                   </div>
                 </div>
@@ -2575,11 +2572,6 @@ window.RA_App = window.RA_App || {};
       <button class="hud-btn-subtle" onclick="undoLastPoint()">↶ DESHACER</button>
       <button class="hud-btn-subtle" onclick="wpCancelCurrentMode()" style="color:var(--rose-400);"><i data-lucide="x" class="icon-sm"></i> ESC</button>
     </div>
-  </div>
-
-  <div id="ra-confirm-bar">
-    <span class="confirm-msg" id="confirm-meta-text"><i data-lucide="check" class="icon-sm"></i> DISEÑO DE POLÍGONO COMPLETADO · LISTO PARA CONFIRMAR</span>
-    <button class="confirm-btn-ok" onclick="confirmPolygonDesign();"><i data-lucide="check" class="icon-sm"></i> CONFIRMAR DISEÑO</button>
   </div>
 
       <!-- ── PESTAÑA: ANÁLISIS ENERGÉTICO COMPARATIVO ────────────────────────── -->
@@ -3819,30 +3811,6 @@ window.RA_App = window.RA_App || {};
         <div class="doc-field full"><label for="doc-tecnico">Nombre del Técnico</label><input aria-label="Nombre del Técnico" id="doc-tecnico" type="text" placeholder="Nombre completo" value="Ing. Industrial Colegiado"></div>
         <div class="doc-field"><label for="doc-titulacion">Titulación</label><input aria-label="Titulación" id="doc-titulacion" type="text" placeholder="Ingeniero Industrial / Eléctrico" value="Ingeniero Industrial"></div>
         <div class="doc-field"><label for="doc-ncol">Nº Colegiado</label><input aria-label="Nº Colegiado" id="doc-ncol" type="text" placeholder="Nº Colegiado" value="COII-45892"></div>
-      </div>
-    </div>
-
-    <div class="doc-modal-section">
-      <h3>③ Selecciona el Documento a Generar</h3>
-      <div class="doc-buttons-grid">
-        <button class="doc-gen-btn" onclick="generateMemoria()">
-          <span class="doc-icon"><i data-lucide="clipboard" class="icon-sm"></i></span>MEMORIA TÉCNICA<span class="doc-norm">ITC-BT-40 · UNE-EN 62446</span>
-        </button>
-        <button class="doc-gen-btn" onclick="generatePliego()">
-          <span class="doc-icon"><i data-lucide="file" class="icon-sm"></i></span>PLIEGO DE CONDICIONES<span class="doc-norm">REBT · RD 244/2019</span>
-        </button>
-        <button class="doc-gen-btn" onclick="generatePresupuesto()">
-          <span class="doc-icon"><i data-lucide="euro" class="icon-sm"></i></span>PRESUPUESTO DETALLADO<span class="doc-norm">Por capítulos · IVA 21%</span>
-        </button>
-        <button class="doc-gen-btn" onclick="generateUnifilar()">
-          <span class="doc-icon"><i data-lucide="zap" class="icon-sm"></i></span>ESQUEMA UNIFILAR<span class="doc-norm">IEC 60617 · ITC-BT-40</span>
-        </button>
-        <button class="doc-gen-btn" onclick="generatePlanoPlanta()">
-          <span class="doc-icon"><i data-lucide="ruler" class="icon-sm"></i></span>PLANO DE PLANTA<span class="doc-norm">Layout paneles · Cotas</span>
-        </button>
-        <button class="doc-gen-btn" onclick="generateFormulario()">
-          <span class="doc-icon"><i data-lucide="file-text" class="icon-sm"></i></span>FORMULARIO TRAMITACIÓN<span class="doc-norm">RD 244/2019 · RD 1183/2020</span>
-        </button>
       </div>
     </div>
 

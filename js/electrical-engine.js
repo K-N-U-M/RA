@@ -1383,11 +1383,12 @@
     }
 
     const pct = (deltaV / Math.max(voltageV, 1.0)) * 100.0;
+    const limitPct = (typeof ELEC_CONSTANTS !== 'undefined' && ELEC_CONSTANTS.DV_MAX_DC_PCT) || 1.5;
     return {
       deltaV: Math.round(deltaV * 100) / 100,
       pct: Math.round(pct * 100) / 100,
-      valid: pct <= 1.5,
-      limitPct: 1.5
+      valid: pct <= limitPct,
+      limitPct: limitPct
     };
   }
 
