@@ -1615,6 +1615,9 @@
             if (typeof wpCalculateAndRenderInverterCables === 'function') {
               wpCalculateAndRenderInverterCables();
             }
+            if (window.RACableEngine && typeof window.RACableEngine.renderAllCables === 'function') {
+              window.RACableEngine.renderAllCables();
+            }
             if (typeof recalculateSolarYield === 'function') {
               recalculateSolarYield();
             }
